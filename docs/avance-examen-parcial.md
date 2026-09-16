@@ -1,11 +1,14 @@
 # Especificación técnica y guía de avance del proyecto
 
-**Avance del Examen Parcial: Ayni — plataforma web de micro-mecenazgo con trazabilidad total e integración de IA**
+**Avance del Examen Parcial — Curso de Inteligencia Artificial**
+**Ayni: plataforma web de micro-mecenazgo con trazabilidad total e integración de IA**
 *(Opción 1 — Enfoque Ligero API)*
 
 | | |
 |---|---|
-| **Curso** | Gobiernos y Gestión de TI / Inteligencia Artificial |
+| **Curso** | Inteligencia Artificial |
+| **Docente** | Dr. Abimael Adam Francisco Paredes |
+| **Integrantes** | Nieves Quiñonez, Nicol Tamara<br>Bonilla Malpartida, Yvan Hawel<br>Caldas Bahamonde, Arturo Jesús |
 | **Evaluación** | Avance de Examen Parcial |
 | **Arquitectura target** | Opción 1 — API SaaS (Backend + PostgreSQL + LLM API) |
 | **Proyecto académico** | Trazabilidad Radical (Entregable 2) |
