@@ -1,0 +1,117 @@
+# Guion de demostración — 10 minutos
+
+Recorrido completo del ciclo de confianza, con las cinco cuentas de la Tabla 20. Sigue la sección 8.1 del Entregable 2.
+
+**Antes de empezar:**
+
+```bash
+cd apps/api && npx tsx prisma/seed-demo.ts
+```
+
+Deja tres donaciones confirmadas y retenidas, y un gasto de S/ 118.00 esperando al motor. Arranca la API y el trabajador lo resuelve en segundos.
+
+Si la demostración es sobre Render con plan gratuito, **abre la URL cinco minutos antes**: el servicio se suspende por inactividad y el primer acceso tarda hasta un minuto en despertar.
+
+---
+
+## Cuentas (Tabla 20)
+
+Clave común: `Demo.2026!tr`
+
+| Rol | Correo | Segundo factor |
+|---|---|---|
+| Donante | `donante@demo.pe` | No |
+| Administradora de ONG | `ong.admin@demo.pe` | **Sí** |
+| Operador de campo | `ong.operador@demo.pe` | **Sí** |
+| Auditor | `auditor@demo.pe` | **Sí** |
+| Administrador de plataforma | `admin@demo.pe` | **Sí** |
+
+**Los cuatro roles con segundo factor lo configuran la primera vez que entran.** La aplicación muestra el código QR y la clave escrita; hay que escanearla con Google Authenticator o Authy antes de poder seguir. Conviene **enrolar las cuatro cuentas antes de la demostración**, no durante: son dos minutos que no se quieren gastar delante de nadie.
+
+---
+
+## Minuto 0–2 · El donante encuentra una causa verificada
+
+Entra con `donante@demo.pe`.
+
+1. **Causas.** Dos campañas de «Huellas del Ande», ambas con sello de organización verificada y su puntaje de confianza a la vista.
+2. Abre **«Esterilización comunitaria»**. Muestra el desglose del puntaje: no es una estrella inventada, son tres componentes con su detalle.
+3. **Lo que conviene decir aquí:** el donante no elige una ONG, elige un **fondo** con una categoría de gasto concreta. Ese es el primer acto de trazabilidad, antes de que entre un sol.
+
+## Minuto 2–4 · Dona, y el dinero queda retenido
+
+4. Dona **S/ 50** al fondo «Atención veterinaria». Tres pasos, con la opción de aporte anónimo.
+5. La confirmación dice **«Retenido: esperando evidencia»**, no «gracias por tu donación».
+6. Ve a **Mis aportes**: la línea de tiempo muestra Donado → **Retenido** → En verificación → Ejecutado.
+
+> **El punto central del proyecto.** El dinero entró pero la ONG todavía no puede usarlo. Se liberará cuando alguien demuestre en qué se gastó. Tres asientos contables quedaron escritos —ingreso, comisión y retención—, encadenados por hash, y el libro no admite que se editen ni se borren.
+
+## Minuto 4–6 · La ONG registra un gasto
+
+7. Sal y entra con `ong.operador@demo.pe` (pide el código del segundo factor).
+8. **Fondos**: se ve el saldo retenido disponible.
+9. **Gastos**: el gasto sembrado de **S/ 118.00**, «atención veterinaria de urgencia de tres perros rescatados», boleta B001-004521 de Clínica Veterinaria San Roque, ya analizado por el motor.
+10. Abre el detalle: **puntaje, nivel y los motivos en español**. Cada motivo dice qué regla se evaluó, cómo salió y con qué valor.
+
+> **Si alguien pregunta por la IA:** esta versión no la usa. El puntaje sale de reglas deterministas —dígito verificador del RUC, aritmética del IGV, huella perceptual de la foto contra todo el histórico, desviación del monto frente a la media de la categoría—. El contrato de datos es exactamente el que consumirá AIni; cambiar una variable de entorno conmuta el motor sin tocar nada más. Y cada decisión que toma el auditor queda guardada: **esta versión sin IA ya está generando el conjunto etiquetado que AIni necesitará para entrenarse.**
+
+## Minuto 6–8 · El auditor decide
+
+11. Entra con `auditor@demo.pe`.
+12. **Auditoría**: la bandeja ordenada por antigüedad o por monto, con el plazo de 48 horas hábiles a la vista.
+13. Abre el caso: comprobante, evidencia, datos declarados y señales del motor, lado a lado.
+14. Aprueba con **comentario obligatorio**.
+
+> Al aprobar, la aplicación FIFO consume las donaciones más antiguas del fondo, escribe el movimiento de ejecución con su hash y actualiza los saldos, todo en una transacción serializable. El comentario del auditor queda como etiqueta.
+
+## Minuto 8–9 · El donante ve qué hizo posible su dinero
+
+15. Vuelve a `donante@demo.pe` → **Impacto**.
+16. La narrativa nombra **su monto exacto aplicado**, no el total del gasto: el concepto, el proveedor, la fecha, el comprobante y la foto anonimizada.
+17. Muestra el botón de **reportar una inconsistencia**: abre un caso real de auditoría y devuelve el gasto a revisión.
+
+> **Lo que se está enseñando:** el donante no recibe un agradecimiento genérico. Recibe la cuenta de sus soles, con el respaldo documental, y tiene cómo objetar.
+
+## Minuto 9–10 · El administrador comprueba que todo cuadra
+
+18. Entra con `admin@demo.pe` → **Tablero**.
+19. Arriba: **«El libro contable cuadra»**, con las cadenas de hashes íntegras.
+20. El movimiento del dinero: cuánto entró, cuánto sigue retenido esperando evidencia y cuánto se ejecutó.
+21. Abajo, los indicadores de la Tabla 3 por disciplina. **Señala los que dicen «Sin medir» con su motivo**: tres necesitan una encuesta, una prueba de usabilidad con personas o una capacidad que esta versión no tiene.
+
+> **Vale la pena detenerse aquí.** Un tablero que solo muestra lo que sabe medir sugiere que eso era todo lo que había que medir. Declarar lo que falta, y por qué, es parte de la honestidad que el proyecto propone.
+
+---
+
+## Si sobra tiempo: intentar romperlo
+
+Lo más convincente de la demostración no es lo que funciona, sino lo que se defiende. Los cuatro fallan:
+
+| Intento | Qué pasa |
+|---|---|
+| `UPDATE` sobre `movimientos_contables` | La base lo rechaza: el libro es de solo inserción |
+| Registrar dos veces el mismo comprobante | Restricción única sobre RUC, tipo, serie y número |
+| Aprobar un gasto mayor al saldo retenido | «No se puede gastar lo que aún no se ha recaudado» |
+| Notificar una evidencia sin anonimizar | Un trigger lo impide, no una validación de la aplicación |
+
+Y desde la terminal, la prueba que más impresiona a un auditor:
+
+```bash
+curl https://<tu-api>/api/v1/analitica/exportar/libro/<fondo-id> -H "Authorization: Bearer <token>"
+```
+
+El CSV incluye `hash_previo` y `hash_actual` de cada movimiento: **un tercero puede recalcular la cadena por su cuenta, sin confiar en que el sistema diga la verdad sobre sí mismo.** Esa es la diferencia entre un reporte y una prueba.
+
+---
+
+## Preguntas que suelen aparecer
+
+**¿Los pagos son reales?** No. `FakeGateway` simula la pasarela con webhook firmado e idempotente. Culqi implementa la misma interfaz cuando haya cuenta de comercio.
+
+**¿Consultan de verdad a SUNAT?** No, y el sistema **lo declara** en vez de simularlo: `existeEnSunat: null`. Se valida el RUC por módulo 11, el formato de la serie y la aritmética del IGV. La consulta real necesita credenciales SOL.
+
+**¿Y si la ONG sube una foto de otro gasto?** Se detecta. Cada evidencia guarda su SHA-256 y una huella perceptual de 64 bits; una foto reciclada se reconoce aunque la hayan recortado y recomprimido.
+
+**¿Por qué el difuminado es manual?** Porque el reconocimiento automático de rostros es parte de AIni y esta versión no la incluye. La restricción que protege al beneficiario —no se puede notificar una evidencia sin anonimizar— **está en la base de datos y sigue activa igual**. Cambia quién marca los rostros, no la garantía.
+
+**¿Cuánto falta para la IA?** El seam está construido y probado. Entra creando el servicio de análisis, implementando la misma interfaz y cambiando una variable de entorno. Ni la base de datos, ni el núcleo contable, ni el frontend cambian.

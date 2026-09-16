@@ -1,0 +1,99 @@
+# ---------------------------------------------------------------------------
+# Trazabilidad Radical — entorno completo reproducible.
+#
+# Levanta la base, la API y la aplicación web. Sirve para dos cosas: que quien
+# revise el proyecto pueda correrlo sin instalar PostgreSQL, Node ni Flutter, y
+# que el despliegue de la Fase 11 use la misma imagen que se probó en local.
+#
+#   docker compose up --build
+#
+# El servicio `migraciones` aplica el esquema y las semillas antes de que
+# arranque la API, y termina. Para el escenario completo del guion de demo:
+#
+#   docker compose run --rm migraciones npx tsx prisma/seed-demo.ts
+#
+# El desarrollo del día a día NO usa esto: es más rápido con el PostgreSQL
+# nativo del puerto 5433 y `npm run dev` (ver README).
+# ---------------------------------------------------------------------------
+
+services:
+  base:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: tr_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tr_app_local}
+      POSTGRES_DB: trazabilidad_radical
+    ports:
+      # 5433 en el anfitrión para no chocar con un PostgreSQL ya instalado,
+      # que es exactamente la situación de la máquina donde se desarrolló.
+      - '5433:5432'
+    volumes:
+      - datos_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tr_app -d trazabilidad_radical']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Aplica migraciones y semillas, y termina. Corre sobre la etapa `build` de
+  # la misma imagen porque el CLI de Prisma es una dependencia de desarrollo y
+  # la imagen de produccion la omite a proposito: un contenedor que sirve
+  # peticiones no tiene por que poder alterar el esquema.
+  migraciones:
+    build:
+      context: ./apps/api
+      target: build
+    depends_on:
+      base:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://tr_app:${POSTGRES_PASSWORD:-tr_app_local}@base:5432/trazabilidad_radical?schema=public
+    command: sh -c "npx prisma migrate deploy && npx tsx prisma/seed.ts"
+    restart: 'no'
+
+  api:
+    build:
+      context: ./apps/api
+    depends_on:
+      base:
+        condition: service_healthy
+      migraciones:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_PREFIX: api/v1
+      DATABASE_URL: postgresql://tr_app:${POSTGRES_PASSWORD:-tr_app_local}@base:5432/trazabilidad_radical?schema=public
+
+      # Secretos de ejemplo: sirven para levantar el entorno local y no valen
+      # para nada más. En el despliegue se generan con `openssl rand -base64 48`
+      # y se cargan como variables del proveedor, nunca desde este archivo.
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-local-solo-para-compose-acceso-000000}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-local-solo-para-compose-refresh-00000}
+      COOKIE_SECRET: ${COOKIE_SECRET:-local-solo-para-compose-cookie-000000}
+      STORAGE_URL_SECRET: ${STORAGE_URL_SECRET:-local-solo-para-compose-storage-00000}
+      PASARELA_WEBHOOK_SECRET: ${PASARELA_WEBHOOK_SECRET:-local-solo-para-compose-webhook-00000}
+
+      CORS_ORIGENES: http://localhost:8080
+      STORAGE_DRIVER: disco
+      STORAGE_DIR: /app/storage
+      PASARELA_DRIVER: fake
+      PASARELA_WEBHOOK_URL: http://api:3000/api/v1/webhooks/pasarela
+      CPE_DRIVER: fake
+      VERIFICACION_DRIVER: reglas-v0
+    ports:
+      - '3000:3000'
+    volumes:
+      - archivos:/app/storage
+
+  web:
+    build:
+      context: ./apps/app
+    depends_on:
+      - api
+    ports:
+      - '8080:80'
+
+volumes:
+  datos_postgres:
+  archivos:

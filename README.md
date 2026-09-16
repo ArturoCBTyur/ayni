@@ -77,6 +77,18 @@ cd apps/api && npm test
 cd apps/app && flutter analyze && flutter test
 ```
 
+Cobertura del núcleo contable y de gastos (RNF-19: umbral del 70 %, exigido en CI):
+
+```bash
+cd apps/api && npm run test:cov
+```
+
+Latencia de lectura (RNF-10). Contra `localhost` mide la aplicación; contra el despliegue mide lo que experimenta quien usa la plataforma, que es lo que responde el requisito:
+
+```bash
+cd apps/api && npm run medir:latencia
+```
+
 El recorrido de extremo a extremo (donar, registrar gasto, verificar, aplicar FIFO, narrar al donante) está en [docs/guion-demo.md](docs/guion-demo.md).
 
 ## Integridad contable
@@ -90,11 +102,23 @@ Cuatro reglas que la base de datos hace cumplir, y que ningún bug del backend p
 
 Todas están en [`apps/api/prisma/sql/reglas-integridad.sql`](apps/api/prisma/sql/reglas-integridad.sql), documentadas contra la sección 6.6 del entregable.
 
+## Entorno completo con Docker
+
+Para revisar el proyecto sin instalar PostgreSQL, Node ni Flutter:
+
+```bash
+docker compose up --build
+```
+
+La web queda en `http://localhost:8080` y la API en `http://localhost:3000`. Las migraciones y las semillas las aplica un servicio aparte antes de que la API arranque. **Estas imágenes están escritas y revisadas pero no construidas**: la máquina de desarrollo no tiene Docker (ver la advertencia en la guía de despliegue).
+
 ## Documentación
 
 - [Decisiones de arquitectura (ADR)](docs/adr/)
 - [Matriz de trazabilidad RF/RNF](docs/trazabilidad-rf.md)
-- [Guion de demostración](docs/guion-demo.md)
+- [Guía de despliegue](docs/despliegue.md) — qué crear, en qué orden y qué no incluye
+- [Guion de demostración](docs/guion-demo.md) — los 10 minutos, paso a paso
+- [Revisión OWASP ASVS L2](docs/revision-asvs-l2.md) — capítulo por capítulo, con lo que no cubre
 
 ## Equipo
 

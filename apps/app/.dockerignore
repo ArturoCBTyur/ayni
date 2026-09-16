@@ -1,0 +1,12 @@
+# Igual que en la API: lo que compila el anfitrion no sirve dentro de la
+# imagen y solo la engorda.
+build
+.dart_tool
+.flutter-plugins
+.flutter-plugins-dependencies
+node_modules
+
+.env
+.env.*
+*.log
+.git

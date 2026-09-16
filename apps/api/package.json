@@ -8,7 +8,7 @@
     "start": "nest start",
     "dev": "nest start --watch",
     "start:prod": "node dist/main",
-    "lint": "eslint \"{src,test}/**/*.ts\" --max-warnings 0",
+    "lint": "eslint \"{src,test,scripts}/**/*.ts\" --max-warnings 0",
     "format": "prettier --write \"src/**/*.ts\"",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -21,7 +21,8 @@
     "seed": "tsx prisma/seed.ts",
     "seed:demo": "tsx prisma/seed-demo.ts",
     "typecheck": "tsc -p tsconfig.scripts.json",
-    "db:reset": "prisma migrate reset --force"
+    "db:reset": "prisma migrate reset --force",
+    "medir:latencia": "tsx scripts/medir-latencia.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

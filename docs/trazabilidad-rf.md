@@ -28,7 +28,7 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 | RNF-07 | Libro de movimientos inalterable | ✅ | `fn_libro_solo_insercion`, `fn_movimiento_encadenar`, `fn_verificar_cadena`, más la verificación diaria de todas las cadenas en `ConciliacionService` | `integridad.spec.ts` · 7 casos; `analitica.spec.ts` altera un movimiento y comprueba que la conciliación lo detecta |
 | RNF-08 | Bitácora de acciones sensibles | ✅ | `BitacoraService` como punto único de escritura, con comparación antes/después; registro atómico dentro de transacción donde hace falta | `identidad.spec.ts`, `cumplimiento.spec.ts` |
 | RNF-09 | Explicabilidad de las decisiones | ✅ | Cada motivo dice qué regla evaluó, cómo salió y con qué valor; el análisis queda atado al motor y a la regla vigente | `reglas-v0.motor.spec.ts`, `verificacion.spec.ts` |
-| RNF-10 | p95 de API bajo 500 ms lectura | ⬜ Fase 10 | — | — |
+| RNF-10 | p95 de API bajo 500 ms lectura | 🟡 | `npm run medir:latencia`, que distingue un rechazo del limitador de una latencia alta | Línea base local: p95 entre 2.8 y 4.3 ms en las cuatro rutas públicas de lectura. **Falta la medición contra el despliegue**, que es la única que responde el requisito: la local no incluye red, arranque en frío ni distancia a la base |
 | RNF-11 | Análisis en tiempo razonable | ✅ | El motor de reglas resuelve en milisegundos; `duracionMs` se persiste en cada análisis | `verificacion.spec.ts` |
 | RNF-12 | Disponibilidad 99,5 % | ⬜ Fase 11 | — | — |
 | RNF-13 | Respaldo y recuperación | ⬜ Fase 11 | — | — |
@@ -115,7 +115,20 @@ Las suites del API corren en un solo worker a propósito: escriben sobre la mism
 | RNF-03 · Prueba de penetración independiente | ⬜ No se ha hecho. La revisión la hizo quien escribió el código, y eso es una limitación real del entregable |
 | RNF-15 · WCAG 2.1 AA con NVDA | ⬜ Pendiente |
 | RNF-14 · Medición SUS con usuarios reales | ⬜ Pendiente |
-| RNF-10 · p95 de la API | ⬜ Pendiente |
+| RNF-10 · p95 de la API | 🟡 Script listo y línea base local tomada (p95 ≤ 4.3 ms). Falta medir contra el despliegue |
+
+### Fase 11 · Despliegue y entrega (preparada)
+
+| Pieza | Estado |
+|---|---|
+| `Dockerfile` de la API y de la web | 🟡 Escritos y revisados, **no construidos**: la máquina de desarrollo no tiene Docker. Se cuidaron los errores conocidos (`.dockerignore`, glibc por los binarios de `sharp` y `argon2`, versión de Flutter fijada, redirección a `index.html`) |
+| `docker-compose.yml` reproducible | 🟡 Igual. Incluye un servicio de migraciones aparte, porque la imagen de producción omite el CLI de Prisma a propósito |
+| [Guía de despliegue](despliegue.md) | ✅ Neon, Render y Firebase paso a paso, con lo que debe crear el responsable y lo que el despliegue no incluye |
+| [Guion de demostración](guion-demo.md) | ✅ Los 10 minutos con los datos exactos que produce `seed-demo.ts` |
+| Medición de p95 | ✅ Script; falta correrlo contra el despliegue |
+| Tabla 19 · enlaces públicos | ⬜ Requiere las cuentas del despliegue |
+| Tabla 20 · cuentas de prueba | ✅ Las cinco existen en `seed.ts`. Los cuatro roles con MFA deben enrolarse antes de la demostración |
+| Video demostrativo | ⬜ Requiere el despliegue |
 
 ### Requerimientos funcionales cerrados en la Fase 9
 

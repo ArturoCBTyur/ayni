@@ -33,4 +33,10 @@ export default tseslint.config(
       'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
   },
+  {
+    // Los scripts de operacion existen para imprimir un resultado en la
+    // terminal: prohibirles console.log seria prohibirles su unico proposito.
+    files: ['scripts/**/*.ts'],
+    rules: { 'no-console': 'off' },
+  },
 );

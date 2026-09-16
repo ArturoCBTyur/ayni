@@ -1,0 +1,16 @@
+# Sin esto, el COPY . . del Dockerfile se lleva los node_modules del anfitrion
+# dentro de la imagen: binarios nativos compilados para Windows dentro de un
+# contenedor Debian, que fallan al cargarse y son dificiles de diagnosticar.
+node_modules
+dist
+coverage
+
+# Secretos: nunca deben terminar en una capa de la imagen, de donde se pueden
+# extraer aunque el Dockerfile los borre despues.
+.env
+.env.*
+!.env.example
+prisma/sql/00-crear-base.sql
+
+*.log
+.git
