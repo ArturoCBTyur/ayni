@@ -89,7 +89,7 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 |---|---|
 | 0 · Cimientos del entorno | ✅ Cerrada — `/salud` responde con PostgreSQL 18.3 desde Flutter Web |
 | 1 · Modelo de datos e integridad | ✅ Cerrada — 28 tablas, 9 triggers, 25 pruebas de integridad |
-
+| 2 · Identidad y cumplimiento | 🟡 En curso — acceso, MFA y RBAC cerrados; faltan ARCO y el interceptor de bitácora |
 | 3 a 11 | ⬜ Planificadas |
 
 **Pruebas hoy:** 65 en el API (17 de reglas de RUC + 25 de integridad + 23 de identidad) y 2 de widgets en Flutter.
