@@ -12,6 +12,7 @@ import { CampanasModule } from './modules/campanas/campanas.module';
 import { ContableModule } from './modules/contable/contable.module';
 import { DonacionesModule } from './modules/donaciones/donaciones.module';
 import { GastosModule } from './modules/gastos/gastos.module';
+import { VerificacionModule } from './modules/verificacion/verificacion.module';
 import { CumplimientoModule } from './modules/cumplimiento/cumplimiento.module';
 import { IdentidadModule } from './modules/identidad/identidad.module';
 
@@ -51,7 +52,9 @@ import { IdentidadModule } from './modules/identidad/identidad.module';
     // Fase 5 - Gastos y Evidencias.
     GastosModule,
 
-    // Fase 6  - VerificacionModule   (Integracion AIni)
+    // Fase 6 - Integracion AIni: hoy el Motor de Reglas v0, sin IA.
+    VerificacionModule,
+
     // Fase 7  - AuditoriaModule      (Auditoria y Alertas)
     // Fase 8  - RetornoModule        (Motor de Retorno)
     // Fase 9  - AnaliticaModule      (Analitica de Impacto)

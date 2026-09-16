@@ -31,6 +31,12 @@ export interface EntradaAnalisis {
     proveedorNombre: string;
     proveedorRuc: string | null;
     fechaGasto: string;
+    /**
+     * Hora original de captura en el dispositivo. Distinta de la fecha
+     * declarada del gasto: permite distinguir un registro tardio de una
+     * sincronizacion tardia por falta de conexion (RNF-16).
+     */
+    capturadoEn: string | null;
   };
 
   /** Datos del comprobante y su archivo. */
@@ -59,6 +65,14 @@ export interface EntradaAnalisis {
     ancho: number | null;
     alto: number | null;
     exifCapturadoEn: string | null;
+    /**
+     * Distancia de Hamming minima frente a todo el historico de evidencias.
+     *
+     * La calcula el backend, que tiene acceso al historico, y no el motor.
+     * Asi la señal esta disponible igual para el motor de reglas y para
+     * AIni, sin que ninguno de los dos tenga que consultar la base.
+     */
+    distanciaMinimaHistorico?: number;
     contienePersonas: boolean;
     anonimizada: boolean;
     archivoUrl: string;
@@ -96,7 +110,7 @@ export interface ReglaUmbrales {
  * explicacion sea legible. Por eso no basta con guardar el numero: cada
  * regla reporta que evaluo, como salio y con que valor.
  */
-export interface MotivoAnalisis {
+export type MotivoAnalisis = {
   /** Identificador estable de la regla, p. ej. "doc.ruc_modulo11". */
   regla: string;
   senal: 'documental' | 'visual' | 'anomalia';
@@ -107,14 +121,14 @@ export interface MotivoAnalisis {
   valor?: string | number | null;
   /** Puntos que esta regla resto al puntaje de su señal. */
   penalizacion: number;
-}
+};
 
-export interface AlertaAnalisis {
+export type AlertaAnalisis = {
   tipo: string;
   severidad: 'ALTA' | 'MEDIA' | 'BAJA';
   titulo: string;
   descripcion: string;
-}
+};
 
 /** Lo que el motor devuelve. Se persiste integro en analisis_aini. */
 export interface ResultadoAnalisis {

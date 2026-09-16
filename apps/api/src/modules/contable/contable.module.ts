@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 
+import { AplicacionFifoService } from './aplicacion-fifo.service';
 import { LibroService } from './libro.service';
 
 /**
@@ -11,7 +12,7 @@ import { LibroService } from './libro.service';
  */
 @Global()
 @Module({
-  providers: [LibroService],
-  exports: [LibroService],
+  providers: [LibroService, AplicacionFifoService],
+  exports: [LibroService, AplicacionFifoService],
 })
 export class ContableModule {}

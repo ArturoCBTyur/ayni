@@ -22,19 +22,19 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 | RNF-01 | Cifrado en tránsito y reposo | ⬜ Fase 5/11 | TLS en despliegue; cifrado de archivos en `StorageAdapter` | — |
 | RNF-02 | Autenticación robusta y RBAC | ✅ | `modules/identidad`: Argon2id, JWT corto + refresh rotativo en cookie httpOnly, TOTP obligatorio, guard global que niega por defecto | `identidad.spec.ts` · 15 casos |
 | RNF-03 | OWASP ASVS nivel 2 | 🟡 | `helmet`, `ThrottlerModule` en `app.module.ts` | Falta revisión de Fase 10 |
-| RNF-04 | No almacenar datos de tarjeta | ⬜ Fase 4 | `pagos` guarda solo token y últimos 4 | — |
+| RNF-04 | No almacenar datos de tarjeta | ✅ | Solo token y últimos 4; la tokenización ocurre en la pasarela | `donaciones.spec.ts` |
 | RNF-05 | Privacidad desde el diseño | ✅ | Consentimiento por finalidad con revocación que conserva la historia, ARCO con plazos en días hábiles y exportación de datos sin credenciales | `cumplimiento.spec.ts` · 15 casos |
-| RNF-06 | Anonimización de beneficiarios | 🟡 | Trigger `tg_notificacion_privacidad` | `integridad.spec.ts` · 2 casos |
+| RNF-06 | Anonimización de beneficiarios | 🟡 | Difuminado manual en el servidor + trigger de la base | `imagen.spec.ts`, `gastos.spec.ts`, `integridad.spec.ts`. Automático diferido a AIni |
 | RNF-07 | Libro de movimientos inalterable | ✅ | `fn_libro_solo_insercion`, `fn_movimiento_encadenar`, `fn_verificar_cadena` | `integridad.spec.ts` · 7 casos |
 | RNF-08 | Bitácora de acciones sensibles | ✅ | `BitacoraService` como punto único de escritura, con comparación antes/después; registro atómico dentro de transacción donde hace falta | `identidad.spec.ts`, `cumplimiento.spec.ts` |
-| RNF-09 | Explicabilidad de las decisiones | 🟡 | `MotivoAnalisis` en el contrato; `analisis_aini` guarda modelo y regla | Falta motor de Fase 6 |
+| RNF-09 | Explicabilidad de las decisiones | ✅ | Cada motivo dice qué regla evaluó, cómo salió y con qué valor; el análisis queda atado al motor y a la regla vigente | `reglas-v0.motor.spec.ts`, `verificacion.spec.ts` |
 | RNF-10 | p95 de API bajo 500 ms lectura | ⬜ Fase 10 | — | — |
-| RNF-11 | Análisis en tiempo razonable | ⬜ Fase 6 | Motor de reglas: milisegundos, no segundos | — |
+| RNF-11 | Análisis en tiempo razonable | ✅ | El motor de reglas resuelve en milisegundos; `duracionMs` se persiste en cada análisis | `verificacion.spec.ts` |
 | RNF-12 | Disponibilidad 99,5 % | ⬜ Fase 11 | — | — |
 | RNF-13 | Respaldo y recuperación | ⬜ Fase 11 | — | — |
 | RNF-14 | Experiencia de baja fricción | 🟡 | Área de toque 48 dp en `TemaApp` | Falta medición SUS de Fase 10 |
 | RNF-15 | Accesibilidad WCAG 2.1 AA | 🟡 | Contraste y toque en `TemaApp` | **Riesgo conocido**, ver ADR-0001 |
-| RNF-16 | Operación con conectividad limitada | ⬜ Fase 5 | Cola offline en Hive | — |
+| RNF-16 | Operación con conectividad limitada | 🟡 | El backend conserva la hora original de captura al sincronizar | `gastos.spec.ts`. Falta la cola offline en Flutter |
 | RNF-17 | Multiplataforma real | 🟡 | Flutter web + Android + iOS habilitados | `flutter build web` en CI |
 | RNF-18 | Escalabilidad sin rediseño | 🟡 | Servicios sin estado; cola desacoplada | — |
 | RNF-19 | Cobertura ≥ 70 % en contable y gastos | 🟡 | Umbral activo en `jest.config.js` | Se hace exigible al existir los módulos |
@@ -46,11 +46,11 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 | ID | Regla | Estado | Prueba |
 |---|---|---|---|
 | RN-01 | Toda donación pertenece a un único fondo | ✅ | `integridad.spec.ts` · "pertenece a otro fondo" |
-| RN-02 | La comisión se registra como movimiento separado | 🟡 Fase 4 | Tipo `COMISION` en el libro; falta el flujo |
+| RN-02 | La comisión se registra como movimiento separado | ✅ | `donaciones.spec.ts` |
 | RN-03 | Los movimientos no se editan ni eliminan | ✅ | `integridad.spec.ts` · 3 casos |
 | RN-04 | La suma aplicada iguala el monto aprobado | ✅ | `integridad.spec.ts` · "no iguala el monto aprobado" |
 | RN-05 | Toda evidencia con rostros se anonimiza | ✅ | `integridad.spec.ts` · 2 casos de privacidad |
-| RN-06 | El nivel se calcula con la regla vigente y queda registrado | 🟡 | `analisis_aini.regla_id`; falta motor de Fase 6 |
+| RN-06 | El nivel se calcula con la regla vigente y queda registrado | ✅ | `verificacion.spec.ts` · cambiar umbrales no reescribe análisis anteriores |
 | RN-07 | Resolución de auditoría en 48 h hábiles | ⬜ Fase 7 | — |
 | RN-08 | Muestreo de casos ALTO | ⬜ Fase 7 | Campo `esMuestreo` ya existe |
 
@@ -64,10 +64,10 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 | RF-IA-02 | Extracción OCR de campos | ⏸️ Se sustituye por captura manual con validación de formato y aritmética |
 | RF-IA-03 | Comparar extraído contra declarado | 🟡 Se compara declarado contra categoría del fondo y saldo; sin fuente OCR que contrastar |
 | RF-IA-04 | Coherencia visual por visión computacional | ⏸️ Se sustituye por señales deterministas de calidad, EXIF y novedad |
-| RF-IA-05 | Detectar evidencias reutilizadas | ⬜ Fase 5/6 — **se implementa completo**: SHA-256 + dHash + Hamming, sin IA |
-| RF-IA-06 | Detección de anomalías | 🟡 Fase 6 — reglas estadísticas simples en lugar de modelo |
-| RF-IA-07 | Puntaje 0-100 y nivel | ⬜ Fase 6 — **se implementa completo** |
-| RF-IA-08 | Explicación legible | 🟡 Contrato `MotivoAnalisis` listo; el motor lo llena en Fase 6 |
+| RF-IA-05 | Detectar evidencias reutilizadas | ✅ **Implementado completo sin IA**: SHA-256 + dHash + Hamming. Detecta una foto reciclada aunque la hayan recortado y recomprimido |
+| RF-IA-06 | Detección de anomalías | ✅ Reglas estadísticas (±2σ, proveedor nuevo, fraccionamiento, registro tardío) en lugar de modelo |
+| RF-IA-07 | Puntaje 0-100 y nivel | ✅ **Implementado completo**: tres señales ponderadas, umbrales configurables, bloqueos duros |
+| RF-IA-08 | Explicación legible | ✅ Cada motivo con regla, resultado, mensaje en español y valor que lo disparó |
 | RF-IA-09 | Narrativa de impacto | ⬜ Fase 8 — por plantillas, que es lo que el propio entregable especifica |
 | RF-IA-10 | Recomendar fondos | ⬜ Fase 8 — por afinidad de causa, sin ML |
 | RF-IA-11 | Etiquetas y versionado de modelos | ✅ `modelos_ia` tiene `reglas-v0` como versión activa; `revisiones_auditoria` acumulará las etiquetas |
@@ -77,8 +77,8 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 
 | ID | Requerimiento | Estado |
 |---|---|---|
-| RF-DE-03 | Validez del CPE ante SUNAT | 🟡 Módulo 11 del RUC y formato ya validados (`reglas/ruc.ts`, 17 pruebas). La consulta real necesita credenciales SOL → `FakeSunat` |
-| RF-07 / RF-08 | Pagos por pasarela | ⬜ Fase 4 con `FakeGateway`; Culqi implementa la misma interfaz |
+| RF-DE-03 | Validez del CPE ante SUNAT | 🟡 `FakeSunat` valida RUC por módulo 11, formato de serie, fecha y aritmética. **Declara explícitamente que no puede confirmar la existencia del comprobante** (`existeEnSunat: null`); la consulta real necesita credenciales SOL |
+| RF-07 / RF-08 | Pagos por pasarela | ✅ con `FakeGateway`: webhook firmado, idempotente y asíncrono. Culqi implementa la misma interfaz |
 | RF-12 | Notificaciones push | ⏸️ In-app y correo cubren el flujo; FCM diferido ([ADR-0004](adr/0004-notificaciones-sin-push.md)) |
 
 ---
@@ -91,9 +91,12 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 | 1 · Modelo de datos e integridad | ✅ Cerrada — 28 tablas, 9 triggers, 25 pruebas de integridad |
 | 2 · Identidad y cumplimiento | ✅ Cerrada — acceso con MFA, RBAC, consentimientos, ARCO y bitácora |
 | 3 · ONG, campañas y fondos | ✅ Cerrada — alta y verificación de ONG, campañas, fondos, buscador y puntaje explicable |
-| 4 a 11 | ⬜ Planificadas |
+| 4 · Donación, pago y retención | ✅ Cerrada — pasarela simulada con webhook firmado, libro cuadrando |
+| 5 · Gasto, comprobante y evidencia | ✅ Cerrada — hashes, dHash, nitidez, difuminado manual, URLs firmadas |
+| 6 · Motor de Verificación v0 | ✅ Cerrada — el seam de AIni, con los tres niveles y aplicación FIFO |
+| 7 a 11 | ⬜ Planificadas |
 
-**Pruebas hoy:** 109 en el API (17 de RUC + 25 de integridad + 23 de identidad + 15 de cumplimiento + 29 de campañas) y 2 de widgets en Flutter.
+**Pruebas hoy:** 199 en el API y 2 de widgets en Flutter. El detalle por suite está en la salida de `npm test`.
 
 ### Requerimientos funcionales cerrados en la Fase 3
 
