@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'funciones/sesion/pantalla_login.dart';
+import 'funciones/sesion/pantalla_mfa.dart';
 import 'funciones/sesion/pantalla_registro.dart';
 import 'nucleo/config.dart';
 import 'nucleo/sesion.dart';
@@ -64,66 +65,9 @@ class _RaizState extends ConsumerState<_Raiz> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (sesion.mfaPendiente) return const _MfaPendiente();
+    if (sesion.mfaPendiente) return const PantallaMfa();
     if (!sesion.autenticado) return const PantallaLogin();
 
     return const Shell();
-  }
-}
-
-/// El rol exige segundo factor y la cuenta aun no lo configuro.
-///
-/// El token recibido solo abre las rutas de enrolamiento, asi que mostrar el
-/// panel completo seria enseñar puertas que no se pueden abrir.
-class _MfaPendiente extends ConsumerWidget {
-  const _MfaPendiente();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tema = Theme.of(context);
-
-    return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.phonelink_lock, size: 48, color: TemaApp.nivelMedio),
-                const SizedBox(height: 16),
-                Text(
-                  'Configure la verificación en dos pasos',
-                  style: tema.textTheme.titleLarge,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Su rol maneja dinero de terceros o aprueba gastos, así que la plataforma '
-                  'exige un segundo factor antes de darle acceso.',
-                  style: tema.textTheme.bodyMedium,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'El enrolamiento con código QR se completa desde el panel de '
-                  'administración de su cuenta.',
-                  style: tema.textTheme.bodySmall?.copyWith(
-                    color: tema.colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                OutlinedButton(
-                  onPressed: () => ref.read(sesionProvider.notifier).cerrarSesion(),
-                  child: const Text('Cerrar sesión'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }

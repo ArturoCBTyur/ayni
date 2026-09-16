@@ -1094,6 +1094,138 @@
           "auditoria"
         ]
       }
+    },
+    "/api/v1/analitica/tablero": {
+      "get": {
+        "operationId": "AnaliticaController_tablero",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "CU20 · Indicadores transdisciplinarios de la Tabla 3",
+        "tags": [
+          "analitica"
+        ]
+      }
+    },
+    "/api/v1/analitica/conciliacion": {
+      "get": {
+        "operationId": "AnaliticaController_conciliar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "CU16 · Conciliacion contable entre fuentes independientes",
+        "tags": [
+          "analitica"
+        ]
+      }
+    },
+    "/api/v1/analitica/conciliacion/ejecutar": {
+      "post": {
+        "operationId": "AnaliticaController_ejecutarConciliacion",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Forzar la conciliacion diaria fuera de su horario",
+        "tags": [
+          "analitica"
+        ]
+      }
+    },
+    "/api/v1/analitica/informe/{ongId}": {
+      "get": {
+        "operationId": "AnaliticaController_informe",
+        "parameters": [
+          {
+            "name": "ongId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "CU17 · Informe de auditoria de una organizacion",
+        "tags": [
+          "analitica"
+        ]
+      }
+    },
+    "/api/v1/analitica/exportar/libro/{fondoId}": {
+      "get": {
+        "operationId": "AnaliticaController_exportarLibro",
+        "parameters": [
+          {
+            "name": "fondoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-15 · Extracto del libro de un fondo, con sus hashes",
+        "tags": [
+          "analitica"
+        ]
+      }
+    },
+    "/api/v1/analitica/exportar/gastos/{ongId}": {
+      "get": {
+        "operationId": "AnaliticaController_exportarGastos",
+        "parameters": [
+          {
+            "name": "ongId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-15 · Gastos de una ONG con su verificacion",
+        "tags": [
+          "analitica"
+        ]
+      }
+    },
+    "/api/v1/analitica/exportar/conciliacion": {
+      "get": {
+        "operationId": "AnaliticaController_exportarConciliacion",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-15 · Conciliacion contable en CSV",
+        "tags": [
+          "analitica"
+        ]
+      }
     }
   },
   "info": {

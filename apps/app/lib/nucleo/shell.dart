@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../funciones/admin/pantalla_tablero.dart';
 import '../funciones/auditor/pantalla_bandeja.dart';
 import '../funciones/donante/pantalla_causas.dart';
 import '../funciones/donante/pantalla_historial.dart';
@@ -70,6 +71,13 @@ const _destinos = <_Destino>[
     iconoActivo: Icons.fact_check,
     pantalla: PantallaBandeja(),
     roles: ['AUDITOR', 'ADMIN'],
+  ),
+  _Destino(
+    etiqueta: 'Tablero',
+    icono: Icons.insights_outlined,
+    iconoActivo: Icons.insights,
+    pantalla: PantallaTablero(),
+    roles: ['ADMIN', 'AUDITOR'],
   ),
 ];
 

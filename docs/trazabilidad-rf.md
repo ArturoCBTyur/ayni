@@ -33,7 +33,7 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 | RNF-12 | Disponibilidad 99,5 % | ⬜ Fase 11 | — | — |
 | RNF-13 | Respaldo y recuperación | ⬜ Fase 11 | — | — |
 | RNF-14 | Experiencia de baja fricción | 🟡 | Registro de gasto en 3 pantallas; toque de 48 dp | Falta medición SUS de Fase 10 |
-| RNF-15 | Accesibilidad WCAG 2.1 AA | 🟡 | Contraste, toque de 48 dp y `Semantics` en los widgets compartidos | **Riesgo confirmado**: el canvas de Flutter Web no expone elementos al DOM. Ver la evidencia en [ADR-0001](adr/0001-frontend-flutter-web.md) |
+| RNF-15 | Accesibilidad WCAG 2.1 AA | 🟡 | Contraste, toque de 48 dp y `Semantics` en los widgets compartidos. El gráfico del tablero repite sus cifras en texto y el QR de MFA ofrece la clave escrita, porque ni un lienzo ni un código QR dicen nada a un lector de pantalla | **Riesgo confirmado**: el canvas de Flutter Web no expone elementos al DOM. Ver la evidencia en [ADR-0001](adr/0001-frontend-flutter-web.md) |
 | RNF-16 | Operación con conectividad limitada | 🟡 | El backend conserva la hora original de captura al sincronizar | `gastos.spec.ts`. Falta la cola offline en Flutter |
 | RNF-17 | Multiplataforma real | 🟡 | Flutter web + Android + iOS habilitados | `flutter build web` en CI |
 | RNF-18 | Escalabilidad sin rediseño | 🟡 | Servicios sin estado; cola desacoplada; las transacciones contables reintentan ante conflicto de serialización, que es lo que exige SERIALIZABLE bajo concurrencia real | `donaciones.spec.ts` · tres donaciones confirmadas a la vez sobre un mismo fondo, y el mismo webhook entregado dos veces en paralelo |
@@ -96,11 +96,11 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 | 6 · Motor de Verificación v0 | ✅ Cerrada — el seam de AIni, con los tres niveles y aplicación FIFO |
 | 7 · Auditoría, alertas y FIFO | ✅ Cerrada — decisión fundamentada, conflicto de interés, debido proceso reputacional |
 | 8 · Motor de Retorno y control social | ✅ Cerrada — narrativa por donante, filtro ético, reporte que abre caso real |
-| 9 · Conciliación, analítica y reportes | 🟡 API completa — conciliación entre fuentes independientes, indicadores de la Tabla 3 y exportaciones. Falta el tablero de KPIs en Flutter, que es parte del criterio de salida de la fase |
+| 9 · Conciliación, analítica y reportes | ✅ Cerrada — conciliación entre fuentes independientes, indicadores de la Tabla 3, exportaciones y tablero de KPIs |
 | Frontend Flutter (adelantado) | ✅ Sesión, causas, donación, historial, narrativas, panel de ONG y bandeja de auditoría |
 | 10 y 11 | ⬜ Planificadas |
 
-**Pruebas hoy:** 257 en el API y 10 en Flutter (2 de widgets + 8 de formato). El detalle por suite está en la salida de `npm test`.
+**Pruebas hoy:** 257 en el API y 14 en Flutter (6 de widgets + 8 de formato). El detalle por suite está en la salida de `npm test`.
 
 Las suites del API corren en un solo worker a propósito: escriben sobre la misma base y sobre un libro contable que es un recurso global, con transacciones SERIALIZABLE y advisory locks por fondo. En paralelo se estorban y producen fallos intermitentes, que enseñan a desconfiar de la suite en lugar de a corregir el código.
 
@@ -114,7 +114,8 @@ Las suites del API corren en un solo worker a propósito: escriben sobre la mism
 | CU17 | Informe de auditoría de una organización | ✅ Incluye la verificación de cadena de cada fondo, las decisiones de auditoría con su comentario y el estado de verificación de la ONG |
 | CU20 | Tablero de indicadores transdisciplinarios | ✅ Los de la Tabla 3. Los que no se pueden medir todavía se declaran **con su motivo** en vez de omitirse: un tablero que solo muestra lo que sabe medir sugiere que eso era todo lo que había que medir |
 | RNF-07 | Verificación diaria de la cadena | ✅ Corre con la conciliación y reporta qué fondo se rompió |
-| CU20 (interfaz) | Tablero de KPIs para el administrador | ⬜ El endpoint `/analitica/tablero` entrega los indicadores; falta la pantalla en Flutter con `fl_chart` |
+| CU20 (interfaz) | Tablero de KPIs para el administrador | ✅ Estado de la conciliación primero, porque un tablero calculado sobre un libro descuadrado es una presentación y no una medición; después el movimiento del dinero con `fl_chart` y los indicadores por disciplina (`tablero_test.dart`, 4 casos) |
+| RF-01 (interfaz) | Enrolamiento del segundo factor | ✅ QR más la clave escrita, que es la vía accesible y no un extra. Antes de esto, ADMIN y AUDITOR no podían completar el ingreso desde la aplicación: el sistema les exigía un segundo factor que no tenían forma de configurar |
 
 Tres indicadores de la Tabla 3 quedan sin valor y así se muestran: SOC-1 y PSI-1 necesitan instrumentos externos (encuesta Likert y prueba de usabilidad), e INF-3 mide la exactitud de una extracción automática de campos que esta versión no hace — se podrá medir cuando AIni lea el comprobante y haya una lectura que contrastar.
 
