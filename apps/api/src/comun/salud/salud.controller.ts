@@ -26,7 +26,7 @@ export class SaludController {
 
     return {
       estado: 'ok',
-      servicio: 'Trazabilidad Radical API',
+      servicio: 'Ayni API',
       version: '0.1.0-mvp-sin-ia',
       motorVerificacion: process.env.VERIFICACION_DRIVER ?? 'reglas-v0',
       baseDatos: {

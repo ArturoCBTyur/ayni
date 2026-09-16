@@ -2,7 +2,7 @@
   "name": "@trazabilidad-radical/api",
   "version": "0.1.0",
   "private": true,
-  "description": "Backend NestJS de Trazabilidad Radical - MVP v1 sin IA",
+  "description": "Backend NestJS de Ayni - MVP v1 sin IA",
   "scripts": {
     "build": "nest build",
     "start": "nest start",

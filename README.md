@@ -1,6 +1,8 @@
-# Trazabilidad Radical
+# Ayni
 
 Plataforma de micro-mecenazgo dirigido con trazabilidad total de las donaciones.
+
+*Ayni* es la reciprocidad andina: lo que se da vuelve, y quien recibe rinde cuentas de lo recibido. El proyecto académico que implementa se llama **Trazabilidad Radical**, y así aparece en el Entregable 2.
 
 Cada donación se asigna a un **fondo** con un destino concreto y queda **retenida contablemente** hasta que la ONG demuestra el gasto con un comprobante de pago y una evidencia visual. Cuando el gasto se verifica, el donante recibe una narrativa personalizada con la evidencia de lo que su aporte hizo posible.
 

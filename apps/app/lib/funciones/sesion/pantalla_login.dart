@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../nucleo/config.dart';
 import '../../nucleo/sesion.dart';
 import '../../nucleo/tema.dart';
 
@@ -70,7 +71,7 @@ class _PantallaLoginState extends ConsumerState<PantallaLogin> {
                   Icon(Icons.volunteer_activism, size: 48, color: TemaApp.semilla),
                   const SizedBox(height: 16),
                   Text(
-                    'Trazabilidad Radical',
+                    Config.nombreApp,
                     style: tema.textTheme.headlineSmall,
                     textAlign: TextAlign.center,
                   ),

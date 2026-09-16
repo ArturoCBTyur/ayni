@@ -18,7 +18,7 @@ const esquema = z.object({
   JWT_REFRESH_TTL: z.coerce.number().int().positive().default(604800),
   COOKIE_SECRET: z.string().min(24),
 
-  TOTP_EMISOR: z.string().default('Trazabilidad Radical'),
+  TOTP_EMISOR: z.string().default('Ayni'),
 
   CORS_ORIGENES: z.string().default('http://localhost:5000'),
 
@@ -47,7 +47,7 @@ const esquema = z.object({
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  CORREO_REMITENTE: z.string().default('Trazabilidad Radical <no-responder@localhost>'),
+  CORREO_REMITENTE: z.string().default('Ayni <no-responder@localhost>'),
 });
 
 export type Configuracion = z.infer<typeof esquema> & {

@@ -60,7 +60,7 @@ async function arrancar(): Promise<void> {
   const documento = SwaggerModule.createDocument(
     app,
     new DocumentBuilder()
-      .setTitle('Trazabilidad Radical API')
+      .setTitle('Ayni API')
       .setDescription(
         'Micro-mecenazgo dirigido con trazabilidad total. MVP v1 sin IA: ' +
           'la verificacion la produce el Motor de Reglas v0, que respeta el ' +

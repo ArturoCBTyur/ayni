@@ -11,7 +11,7 @@ class Config {
     defaultValue: 'http://localhost:3000/api/v1',
   );
 
-  static const String nombreApp = 'Trazabilidad Radical';
+  static const String nombreApp = 'Ayni';
 
   /// Moneda y locale del contexto de operacion (RNF-20: español peruano,
   /// montos en soles con formato local).

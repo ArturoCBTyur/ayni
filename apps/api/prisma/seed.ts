@@ -277,7 +277,7 @@ async function sembrarOngPiloto() {
 }
 
 async function main() {
-  console.info('Sembrando datos base de Trazabilidad Radical...');
+  console.info('Sembrando datos base de Ayni...');
   await sembrarRoles();
   await sembrarReglaConfianza();
   await sembrarMotor();

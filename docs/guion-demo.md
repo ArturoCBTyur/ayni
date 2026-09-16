@@ -1,14 +1,20 @@
-# Guion de demostración — 10 minutos
+# Ayni · guion de demostración — 10 minutos
 
 Recorrido completo del ciclo de confianza, con las cinco cuentas de la Tabla 20. Sigue la sección 8.1 del Entregable 2.
+
+> **Para una exposición en local**, use [chuleta-exposicion.md](chuleta-exposicion.md): trae los comandos de PowerShell, el segundo factor ya enrolado y cuatro gastos sembrados —uno aprobado, uno esperando al auditor y uno observado por evidencia reciclada—. Este documento describe el recorrido sobre el despliegue.
 
 **Antes de empezar:**
 
 ```bash
-cd apps/api && npx tsx prisma/seed-demo.ts
+cd apps/api
 ```
 
-Deja tres donaciones confirmadas y retenidas, y un gasto de S/ 118.00 esperando al motor. Arranca la API y el trabajador lo resuelve en segundos.
+```bash
+npx tsx prisma/seed-demo.ts
+```
+
+Deja tres donaciones confirmadas y retenidas, y un gasto de S/ 118.00 esperando al motor. Arranca la API y el trabajador lo resuelve en segundos. Después, `npm run demo:preparar` enrola el segundo factor y añade los casos que el auditor necesita ver.
 
 Si la demostración es sobre Render con plan gratuito, **abre la URL cinco minutos antes**: el servicio se suspende por inactividad y el primer acceso tarda hasta un minuto en despertar.
 
@@ -27,6 +33,8 @@ Clave común: `Demo.2026!tr`
 | Administrador de plataforma | `admin@demo.pe` | **Sí** |
 
 **Los cuatro roles con segundo factor lo configuran la primera vez que entran.** La aplicación muestra el código QR y la clave escrita; hay que escanearla con Google Authenticator o Authy antes de poder seguir. Conviene **enrolar las cuatro cuentas antes de la demostración**, no durante: son dos minutos que no se quieren gastar delante de nadie.
+
+En local, `npm run demo:preparar` lo hace de una vez y `npm run demo:codigos` imprime los códigos del momento, sin necesidad de aplicación de autenticación.
 
 ---
 

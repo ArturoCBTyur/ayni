@@ -30,7 +30,7 @@ void main() {
         _ClienteApiFalso(
           respuesta: const {
             'estado': 'ok',
-            'servicio': 'Trazabilidad Radical API',
+            'servicio': 'Ayni API',
             'version': '0.1.0-mvp-sin-ia',
             'motorVerificacion': 'reglas-v0',
             'baseDatos': {
@@ -45,7 +45,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Trazabilidad Radical API'), findsOneWidget);
+    expect(find.text('Ayni API'), findsOneWidget);
     expect(find.text('PostgreSQL 18.3'), findsOneWidget);
     expect(find.text('reglas-v0'), findsOneWidget);
     expect(find.text('28'), findsOneWidget);

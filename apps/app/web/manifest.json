@@ -1,11 +1,11 @@
 {
-    "name": "trazabilidad_radical",
-    "short_name": "trazabilidad_radical",
+    "name": "Ayni",
+    "short_name": "Ayni",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "Trazabilidad Radical - micro-mecenazgo con trazabilidad total",
+    "description": "Ayni - micro-mecenazgo con trazabilidad total de cada sol donado",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

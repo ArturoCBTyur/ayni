@@ -1,4 +1,4 @@
-# Chuleta de exposición — versión local
+# Ayni · chuleta de exposición — versión local
 
 Ten esto abierto en otra ventana. Una página, nada más.
 

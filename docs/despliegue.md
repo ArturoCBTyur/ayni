@@ -87,7 +87,7 @@ STORAGE_DIR=/app/storage
 PASARELA_DRIVER=fake
 CPE_DRIVER=fake
 VERIFICACION_DRIVER=reglas-v0
-TOTP_EMISOR=Trazabilidad Radical
+TOTP_EMISOR=Ayni
 ```
 
 Tres avisos que evitan errores caros:
