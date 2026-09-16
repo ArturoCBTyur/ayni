@@ -97,10 +97,10 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 | 7 · Auditoría, alertas y FIFO | ✅ Cerrada — decisión fundamentada, conflicto de interés, debido proceso reputacional |
 | 8 · Motor de Retorno y control social | ✅ Cerrada — narrativa por donante, filtro ético, reporte que abre caso real |
 | 9 · Conciliación, analítica y reportes | ✅ Cerrada — conciliación entre fuentes independientes, indicadores de la Tabla 3, exportaciones y tablero de KPIs |
-| Frontend Flutter (adelantado) | ✅ Sesión, causas, donación, historial, narrativas, panel de ONG y bandeja de auditoría |
+| Frontend Flutter | ✅ Sesión con segundo factor, causas, donación, historial, narrativas, panel de ONG, bandeja de auditoría, tablero de indicadores y derechos ARCO |
 | 10 y 11 | ⬜ Planificadas |
 
-**Pruebas hoy:** 257 en el API y 14 en Flutter (6 de widgets + 8 de formato). El detalle por suite está en la salida de `npm test`.
+**Pruebas hoy:** 257 en el API y 20 en Flutter (12 de widgets + 8 de formato). El detalle por suite está en la salida de `npm test`.
 
 Las suites del API corren en un solo worker a propósito: escriben sobre la misma base y sobre un libro contable que es un recurso global, con transacciones SERIALIZABLE y advisory locks por fondo. En paralelo se estorban y producen fallos intermitentes, que enseñan a desconfiar de la suite en lugar de a corregir el código.
 
@@ -159,6 +159,6 @@ Tres indicadores de la Tabla 3 quedan sin valor y así se muestran: SOC-1 y PSI-
 |---|---|---|
 | RF-01 | Registro e inicio de sesión con MFA | ✅ Falta recuperación de contraseña y verificación por correo (dependen del envío de correo, Fase 8) |
 | RF-02 | Gestión de roles y perfiles | ✅ Los 5 roles con guard global que niega por defecto |
-| RF-DE-01 | Consentimiento por finalidad con versión de política | ✅ Otorgar y revocar; revocar conserva el registro anterior en lugar de borrarlo |
-| RF-DE-02 | Atención de derechos ARCO con registro, plazo y respuesta | ✅ Plazos en días hábiles (20 para acceso, 10 para el resto), bandeja por urgencia y marca de vencimiento |
+| RF-DE-01 | Consentimiento por finalidad con versión de política | ✅ Otorgar y revocar; revocar conserva el registro anterior en lugar de borrarlo. La pantalla lista las tres finalidades aunque no estén otorgadas —ocultar un permiso no dado es ocultar que existe— y explica qué deja de pasar al revocar cada una |
+| RF-DE-02 | Atención de derechos ARCO con registro, plazo y respuesta | ✅ Plazos en días hábiles (20 para acceso, 10 para el resto), bandeja por urgencia y marca de vencimiento. El titular presenta su solicitud y ve el plazo en días, no solo la fecha; el administrador la responde con motivo obligatorio (`privacidad_test.dart`, 6 casos) |
 | RF-16 | Gestión de usuarios | 🟡 Roles y bloqueo cubiertos; falta la administración desde la interfaz |

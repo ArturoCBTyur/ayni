@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../funciones/admin/pantalla_tablero.dart';
 import '../funciones/auditor/pantalla_bandeja.dart';
+import '../funciones/cumplimiento/pantalla_arco_bandeja.dart';
+import '../funciones/cumplimiento/pantalla_privacidad.dart';
 import '../funciones/donante/pantalla_causas.dart';
 import '../funciones/donante/pantalla_historial.dart';
 import '../funciones/donante/pantalla_notificaciones.dart';
@@ -79,6 +81,13 @@ const _destinos = <_Destino>[
     pantalla: PantallaTablero(),
     roles: ['ADMIN', 'AUDITOR'],
   ),
+  _Destino(
+    etiqueta: 'Solicitudes',
+    icono: Icons.privacy_tip_outlined,
+    iconoActivo: Icons.privacy_tip,
+    pantalla: PantallaArcoBandeja(),
+    roles: ['ADMIN'],
+  ),
 ];
 
 /// Contenedor principal con navegacion segun rol.
@@ -139,11 +148,19 @@ class _ShellState extends ConsumerState<Shell> {
                   ),
                 ),
                 const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'privacidad',
+                  child: Text('Mis datos y privacidad'),
+                ),
                 const PopupMenuItem(value: 'salir', child: Text('Cerrar sesión')),
               ],
               onSelected: (valor) {
                 if (valor == 'salir') {
                   ref.read(sesionProvider.notifier).cerrarSesion();
+                } else if (valor == 'privacidad') {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const PantallaPrivacidad()),
+                  );
                 }
               },
             ),
