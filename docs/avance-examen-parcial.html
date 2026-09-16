@@ -1,0 +1,871 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ayni — Avance del Examen Parcial · Inteligencia Artificial</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,600;0,700;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  /* Paleta anclada en el sello de la propia aplicación (#0F766E) y en los tres
+     colores con que el motor califica la confianza de un gasto. Los estados de
+     este documento usan esa misma escala: no es decoración, es el vocabulario
+     del sistema aplicado a sí mismo. */
+  :root {
+    --papel:      #FBFAF8;
+    --papel-alt:  #F2F1EC;
+    --borde:      #DEDCD4;
+    --borde-sutil:#E9E7E0;
+    --tinta:      #17211F;
+    --tinta-media:#4E5A57;
+    --tinta-tenue:#78837F;
+    --sello:      #0F766E;
+    --sello-suave:#0F766E1A;
+    --alto:       #15803D;
+    --medio:      #B45309;
+    --bajo:       #B91C1C;
+    --alto-fondo: #15803D14;
+    --medio-fondo:#B4530914;
+    --bajo-fondo: #B91C1C14;
+
+    --display: "Newsreader", Georgia, "Times New Roman", serif;
+    --texto:   "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono:    "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --papel:      #121716;
+      --papel-alt:  #1A211F;
+      --borde:      #2D3735;
+      --borde-sutil:#232B29;
+      --tinta:      #E8EDEB;
+      --tinta-media:#A6B2AE;
+      --tinta-tenue:#78837F;
+      --sello:      #4FBAAF;
+      --sello-suave:#4FBAAF1F;
+      --alto:       #4ADE80;
+      --medio:      #FBBF24;
+      --bajo:       #F87171;
+      --alto-fondo: #4ADE801A;
+      --medio-fondo:#FBBF241A;
+      --bajo-fondo: #F871711A;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --papel:      #121716;
+    --papel-alt:  #1A211F;
+    --borde:      #2D3735;
+    --borde-sutil:#232B29;
+    --tinta:      #E8EDEB;
+    --tinta-media:#A6B2AE;
+    --tinta-tenue:#78837F;
+    --sello:      #4FBAAF;
+    --sello-suave:#4FBAAF1F;
+    --alto:       #4ADE80;
+    --medio:      #FBBF24;
+    --bajo:       #F87171;
+    --alto-fondo: #4ADE801A;
+    --medio-fondo:#FBBF241A;
+    --bajo-fondo: #F871711A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: var(--texto);
+    font-size: 16px;
+    line-height: 1.65;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .marco {
+    max-width: 50rem;
+    margin: 0 auto;
+    padding-inline: 16px;
+    padding-block: 0 5rem;
+  }
+
+  /* ---- Cabecera ---- */
+
+  .portada {
+    padding-block: 3.5rem 2.25rem;
+    border-bottom: 2px solid var(--tinta);
+  }
+
+  .marca {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin-bottom: 1.75rem;
+  }
+  .marca b {
+    font-family: var(--display);
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--sello);
+  }
+  .marca span {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+    color: var(--tinta-tenue);
+    font-weight: 500;
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(2rem, 6vw, 2.9rem);
+    line-height: 1.12;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.6rem;
+    text-wrap: balance;
+  }
+
+  .bajada {
+    font-family: var(--display);
+    font-size: 1.15rem;
+    font-style: italic;
+    color: var(--tinta-media);
+    margin: 0 0 1.5rem;
+    max-width: 42ch;
+  }
+
+  .contexto {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--tinta-tenue);
+    font-weight: 600;
+    margin: 0 0 2rem;
+  }
+
+  .ficha {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 1.1rem 1.75rem;
+  }
+  .ficha div { display: flex; flex-direction: column; gap: 0.15rem; }
+  .ficha dt {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--tinta-tenue);
+    font-weight: 600;
+  }
+  .ficha dd { margin: 0; font-size: 0.92rem; }
+
+  /* Créditos del equipo: dos columnas que se apilan en móvil, con cada nombre
+     en su propia línea para que se lea como un listado y no como una frase. */
+  .creditos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1.25rem 2rem;
+    margin-top: 1.9rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--borde-sutil);
+  }
+  .creditos div { display: flex; flex-direction: column; gap: 0.3rem; }
+  .creditos dt {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--sello);
+    font-weight: 600;
+  }
+  .creditos dd { margin: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+  .creditos dd span { font-size: 0.92rem; }
+
+  /* ---- Aviso de estado ---- */
+
+  .aviso {
+    margin-block: 2.5rem;
+    padding: 1.4rem 1.5rem;
+    background: var(--sello-suave);
+    border-left: 3px solid var(--sello);
+    border-radius: 0 4px 4px 0;
+  }
+  .aviso p { margin: 0; font-size: 0.95rem; }
+  .aviso p + p { margin-top: 0.7rem; }
+
+  /* ---- Secciones ---- */
+
+  section { margin-block: 3.5rem; scroll-margin-top: 1rem; }
+
+  .titulo-seccion {
+    display: flex;
+    align-items: baseline;
+    gap: 0.9rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.7rem;
+    border-bottom: 1px solid var(--borde);
+  }
+  .titulo-seccion .num {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--sello);
+    font-weight: 500;
+    flex: none;
+  }
+  h2 {
+    font-family: var(--display);
+    font-size: clamp(1.4rem, 3.5vw, 1.75rem);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    margin: 0;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-family: var(--display);
+    font-size: 1.22rem;
+    font-weight: 600;
+    margin: 2.25rem 0 0.35rem;
+    line-height: 1.3;
+  }
+  h4 {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+    color: var(--tinta-tenue);
+    font-weight: 600;
+    margin: 2rem 0 0.75rem;
+  }
+
+  p { margin: 0 0 1rem; max-width: 68ch; }
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+
+  .lista { display: flex; flex-direction: column; gap: 1.1rem; margin: 1.25rem 0; }
+  .lista > div { max-width: 68ch; }
+  .lista b { display: block; margin-bottom: 0.15rem; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--papel-alt);
+    padding: 0.1em 0.38em;
+    border-radius: 3px;
+    color: var(--tinta-media);
+  }
+
+  /* ---- Tablas ---- */
+
+  .tabla-caja { overflow-x: auto; margin: 1.5rem 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 34rem;
+    font-size: 0.89rem;
+    font-variant-numeric: tabular-nums;
+  }
+  th {
+    text-align: left;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--tinta-tenue);
+    font-weight: 600;
+    padding: 0 0.9rem 0.6rem 0;
+    border-bottom: 1px solid var(--tinta);
+    vertical-align: bottom;
+  }
+  td {
+    padding: 0.75rem 0.9rem 0.75rem 0;
+    border-bottom: 1px solid var(--borde-sutil);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  th:last-child, td:last-child { padding-right: 0; }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { font-size: 0.82em; }
+
+  /* ---- Fichas de función de IA ---- */
+
+  .funcion {
+    border: 1px solid var(--borde);
+    border-radius: 6px;
+    padding: 1.4rem 1.5rem;
+    margin: 1.5rem 0;
+    background: var(--papel-alt);
+  }
+  .funcion-cab {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.3rem;
+  }
+  .funcion-cab .id {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--sello);
+  }
+  .funcion h3 { margin: 0.2rem 0 0.9rem; font-size: 1.15rem; }
+  .funcion dl { margin: 0; display: flex; flex-direction: column; gap: 0.9rem; }
+  .funcion dt {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--tinta-tenue);
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+  }
+  .funcion dd { margin: 0; font-size: 0.93rem; max-width: 64ch; }
+
+  .estado-bloque {
+    margin-top: 1.2rem;
+    padding: 0.9rem 1.05rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+  .estado-bloque.parcial { background: var(--medio-fondo); border-left: 3px solid var(--medio); }
+  .estado-bloque.ausente { background: var(--bajo-fondo);  border-left: 3px solid var(--bajo); }
+  .estado-bloque p { margin: 0; max-width: 64ch; }
+
+  /* ---- Distintivos de estado ---- */
+
+  .sello-estado {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.22rem 0.6rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .sello-estado::before {
+    content: "";
+    width: 0.42rem; height: 0.42rem;
+    border-radius: 50%;
+    background: currentColor;
+    flex: none;
+  }
+  .e-alto   { color: var(--alto);  background: var(--alto-fondo); }
+  .e-medio  { color: var(--medio); background: var(--medio-fondo); }
+  .e-bajo   { color: var(--bajo);  background: var(--bajo-fondo); }
+
+  /* ---- Cita destacada ---- */
+
+  .nota {
+    margin: 1.75rem 0;
+    padding: 1.15rem 1.35rem;
+    border: 1px solid var(--borde);
+    border-radius: 5px;
+    font-size: 0.92rem;
+  }
+  .nota p { margin: 0; max-width: 64ch; }
+  .nota p + p { margin-top: 0.65rem; }
+  .nota .etiqueta {
+    display: block;
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+    color: var(--tinta-tenue);
+    font-weight: 600;
+    margin-bottom: 0.45rem;
+  }
+
+  blockquote.requisito {
+    margin: 1.5rem 0;
+    padding: 1.1rem 1.4rem;
+    border-left: 3px solid var(--tinta);
+    background: var(--papel-alt);
+    font-family: var(--display);
+    font-style: italic;
+    font-size: 1.02rem;
+    color: var(--tinta-media);
+  }
+  blockquote.requisito p { margin: 0; }
+
+  /* ---- Cierre ---- */
+
+  .pie {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--borde);
+    font-size: 0.85rem;
+    color: var(--tinta-tenue);
+  }
+  .pie p { max-width: 68ch; }
+
+  a { color: var(--sello); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, :focus-visible { outline: 2px solid var(--sello); outline-offset: 2px; }
+
+  @media (max-width: 30rem) {
+    .funcion { padding: 1.15rem 1.1rem; }
+    .portada { padding-block: 2.5rem 1.75rem; }
+  }
+</style>
+
+
+
+  <style>
+    /* ----- Solo para la version imprimible ----- */
+
+    @page {
+      size: A4;
+      margin: 18mm 16mm 20mm;
+    }
+
+    html, body { background: #fff; }
+
+    /* Tema claro fijo: se anula cualquier redefinicion por preferencia del
+       sistema, que en un PDF no tiene sentido. */
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --papel: #FBFAF8; --papel-alt: #F2F1EC; --borde: #DEDCD4;
+        --borde-sutil: #E9E7E0; --tinta: #17211F; --tinta-media: #4E5A57;
+        --tinta-tenue: #78837F; --sello: #0F766E; --sello-suave: #0F766E1A;
+        --alto: #15803D; --medio: #B45309; --bajo: #B91C1C;
+        --alto-fondo: #15803D14; --medio-fondo: #B4530914; --bajo-fondo: #B91C1C14;
+      }
+    }
+
+    /* En pantalla conserva su margen lateral; solo al imprimir lo cede a la
+       margen de pagina, que ya lo aporta @page. */
+    @media print {
+      .marco { max-width: none; padding-inline: 0; padding-block: 0; }
+      .portada { padding-block: 0 1.8rem; }
+    }
+
+    @media print {
+      body { font-size: 10.5pt; line-height: 1.5; }
+      h1 { font-size: 22pt; }
+      h2 { font-size: 14pt; }
+      h3 { font-size: 11.5pt; }
+      table { font-size: 8.8pt; min-width: 0; }
+      .tabla-caja { overflow: visible; }
+
+      /* Cada seccion empieza en pagina nueva; la primera no, para que la
+         portada y el aviso de estado compartan hoja. */
+      section { break-before: page; margin-block: 0 0; padding-top: 0.5rem; }
+      section:first-of-type { break-before: auto; }
+
+      /* Nada de esto debe partirse a la mitad entre dos paginas. */
+      .funcion, .nota, .estado-bloque, blockquote.requisito,
+      tr, .lista > div, .aviso { break-inside: avoid; }
+      h2, h3, h4 { break-after: avoid; }
+
+      a { color: inherit; text-decoration: none; }
+      .pie { break-inside: avoid; }
+    }
+  </style>
+
+</head>
+<body>
+<div class="marco">
+
+  <header class="portada">
+    <div class="marca">
+      <b>Ayni</b>
+      <span>Trazabilidad Radical</span>
+    </div>
+
+    <h1>Especificación técnica y guía de avance</h1>
+    <p class="bajada">Cada sol donado, verificado con comprobante y evidencia.</p>
+    <p class="contexto">Avance del Examen Parcial · Curso de Inteligencia Artificial</p>
+
+    <dl class="ficha">
+      <div><dt>Curso</dt><dd>Inteligencia Artificial</dd></div>
+      <div><dt>Evaluación</dt><dd>Avance de Examen Parcial</dd></div>
+      <div><dt>Arquitectura</dt><dd>Opción 1 — API SaaS<br>(Backend + PostgreSQL + LLM API)</dd></div>
+      <div><dt>Semestre</dt><dd>Académico 2026-II</dd></div>
+    </dl>
+
+    <dl class="creditos">
+      <div>
+        <dt>Integrantes</dt>
+        <dd>
+          <span>Nieves Quiñonez, Nicol Tamara</span>
+          <span>Bonilla Malpartida, Yvan Hawel</span>
+          <span>Caldas Bahamonde, Arturo Jesús</span>
+        </dd>
+      </div>
+      <div>
+        <dt>Docente</dt>
+        <dd><span>Dr. Abimael Adam Francisco Paredes</span></dd>
+      </div>
+    </dl>
+  </header>
+
+  <div class="aviso">
+    <p><strong>Estado de la implementación.</strong> El aplicativo web está construido y funcionando: 281 pruebas automatizadas en el backend, 20 en el frontend, y el ciclo completo de donación → retención → gasto → verificación → aplicación contable → narrativa al donante.</p>
+    <p>La capa de IA está diseñada, contratada y con su punto de integración construido y probado, pero la versión actual la resuelve con un motor determinista. La sección 3 distingue qué está implementado y qué requiere conectar la API externa; la sección 7 detalla lo que falta.</p>
+  </div>
+
+  <!-- 1 -->
+  <section>
+    <div class="titulo-seccion">
+      <span class="num">01</span>
+      <h2>Definición del problema complejo</h2>
+    </div>
+
+    <p>El micro-mecenazgo digital en el Perú opera sobre una asimetría de información que ningún actor puede resolver por sí solo: <strong>quien dona no tiene forma de verificar en qué se gastó su dinero, y quien recibe no tiene forma barata de demostrarlo.</strong> La consecuencia no es solo el fraude, sino algo más extendido y más difícil de medir: la desconfianza que impide donar a organizaciones honestas.</p>
+
+    <div class="lista">
+      <div>
+        <b>Opacidad del destino final del aporte.</b>
+        El donante entrega dinero a una organización, no a un propósito. Una vez transferido, el sol se mezcla con los demás y su destino se vuelve irrastreable. Los informes de impacto que recibe son agregados, narrativos y no verificables: dicen «ayudamos a 300 familias», no «sus S/ 50 pagaron esta factura». La confianza se pide, no se demuestra.
+      </div>
+      <div>
+        <b>Costo prohibitivo de la rendición de cuentas para las organizaciones pequeñas.</b>
+        Una ONG que quiere ser transparente debe digitalizar comprobantes, vincularlos a gastos, verificar su validez tributaria, anonimizar a los beneficiarios que aparecen en las fotos y comunicar todo esto de forma comprensible. Hacerlo a mano consume el tiempo del personal que debería estar operando en campo. Las organizaciones más honestas y más pequeñas son las que menos pueden pagar el costo de demostrarlo.
+      </div>
+      <div>
+        <b>Verificación humana que no escala y llega tarde.</b>
+        Auditar cada gasto con comprobante y evidencia visual exige un criterio experto que es caro y lento. Sin apoyo automatizado, o se revisa todo —y el sistema se atasca— o se revisa por muestreo —y la garantía se debilita justo donde más importa—. Las señales de irregularidad son heterogéneas: un comprobante mal formado, una foto reutilizada de otro gasto, un monto fuera de lo habitual para su categoría.
+      </div>
+    </div>
+
+    <div class="nota">
+      <span class="etiqueta">Por qué es complejo y no complicado</span>
+      <p>No tiene una solución técnica única y cerrada. Involucra derecho (Ley N.° 29733 de protección de datos y normativa tributaria de comprobantes de pago), contabilidad (partida doble, trazabilidad a nivel de unidad monetaria), psicología del donante (fatiga comunicacional, fricción de uso), sociología de la confianza institucional e informática. Cada disciplina impone restricciones que las demás no pueden ignorar, y la solución debe satisfacerlas simultáneamente.</p>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section>
+    <div class="titulo-seccion">
+      <span class="num">02</span>
+      <h2>Definición del aplicativo web básico</h2>
+    </div>
+
+    <p>Aplicación web modular con backend de API REST y frontend compilado, diseñada para operar bajo un modelo de proveedor externo para las capacidades de IA.</p>
+
+    <div class="tabla-caja">
+      <table>
+        <thead>
+          <tr><th style="width:9rem">Capa</th><th style="width:12rem">Tecnología</th><th>Rol en el sistema</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Frontend</strong></td>
+            <td>Flutter Web 3.47 (Dart 3.13), Riverpod 3, <code>fl_chart</code></td>
+            <td>Interfaz única para los cinco roles: donante, administrador de ONG, operador de campo, auditor y administrador de plataforma. El mismo código base compila a Android e iOS sin reescritura.</td>
+          </tr>
+          <tr>
+            <td><strong>Backend</strong></td>
+            <td>NestJS 11 sobre Node.js 22 (TypeScript)</td>
+            <td>Lógica de negocio, autenticación con JWT y segundo factor, núcleo contable transaccional, y <strong>comunicación HTTPS con la API de IA externa</strong>. Actúa como proxy seguro: la clave nunca llega al navegador.</td>
+          </tr>
+          <tr>
+            <td><strong>Base de datos</strong></td>
+            <td>PostgreSQL 18</td>
+            <td>Almacenamiento relacional de usuarios, organizaciones, campañas, fondos, donaciones, gastos, comprobantes, evidencias e <strong>historial completo de análisis de IA</strong>. Integridad garantizada por <em>triggers</em>, no solo por la aplicación.</td>
+          </tr>
+          <tr>
+            <td><strong>Archivos</strong></td>
+            <td>Adaptador <code>AlmacenamientoArchivos</code></td>
+            <td>Comprobantes y evidencias fotográficas, servidos mediante URL firmadas con caducidad. Disco local en desarrollo, S3 en despliegue.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="nota">
+      <span class="etiqueta">Desviación declarada respecto del formato</span>
+      <p>El formato de referencia propone PHP como capa de backend; este proyecto usa NestJS/TypeScript. La decisión es anterior a este avance y está documentada en el Entregable 2 y en los ADR del repositorio.</p>
+      <p><strong>El patrón arquitectónico de la Opción 1 se cumple íntegramente:</strong> el backend custodia las credenciales, consolida el contexto desde PostgreSQL, construye el prompt, consume la API externa por HTTPS y persiste la traza. Lo que cambia es el lenguaje de esa capa, no su función ni su responsabilidad.</p>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section>
+    <div class="titulo-seccion">
+      <span class="num">03</span>
+      <h2>Requerimientos funcionales con IA</h2>
+    </div>
+
+    <p>Las tres funciones cubren los tres procesos que el formato distingue: <strong>operativo</strong>, <strong>comunicacional</strong> y <strong>servicio al cliente</strong>. El estado de cada una se declara con la misma escala de tres niveles con que el sistema califica un gasto.</p>
+
+    <article class="funcion">
+      <div class="funcion-cab">
+        <span class="id">RF-IA-01</span>
+        <span class="sello-estado e-medio">Integración construida, API sin conectar</span>
+      </div>
+      <h3>Verificación automática de gastos</h3>
+      <dl>
+        <div>
+          <dt>Descripción</dt>
+          <dd>Analiza el comprobante de pago y la evidencia fotográfica de cada gasto y emite un <strong>puntaje de confianza de 0 a 100</strong>, un nivel (ALTO / MEDIO / BAJO) y una <strong>explicación legible en español</strong> de cada señal evaluada. El nivel determina el flujo: ALTO se aprueba automáticamente, MEDIO deriva a revisión humana, BAJO se observa y genera alerta.</dd>
+        </div>
+        <div>
+          <dt>Subproceso / actividades</dt>
+          <dd>Al registrarse un gasto, el backend encola el trabajo en PostgreSQL. Un trabajador consume la cola, recopila el contexto (datos declarados, hashes de los archivos, historial de la organización, media y desviación de la categoría), lo ensambla en un prompt estructurado junto con las imágenes y lo envía a la API. La respuesta llega en <strong>JSON validado contra un esquema</strong> con los campos <code>score_documental</code>, <code>score_visual</code>, <code>score_anomalia</code>, <code>score_final</code>, <code>nivel</code>, <code>datos_extraidos</code>, <code>explicacion[]</code>, <code>alertas[]</code> y <code>version_modelo</code>. El resultado íntegro se persiste en <code>analisis_aini</code>.</dd>
+        </div>
+        <div>
+          <dt>Componente IA</dt>
+          <dd>Modelo multimodal con lectura de documentos (OCR del comprobante) y evaluación de coherencia visual, en modo JSON estructurado.</dd>
+        </div>
+      </dl>
+      <div class="estado-bloque parcial">
+        <p>Existe la interfaz <code>MotorVerificacion</code> con el contrato de datos completo, la cola, el trabajador, la persistencia, la regla de umbrales y la derivación al auditor. Hoy lo resuelve <code>MotorReglasV0</code>, determinista: dígito verificador del RUC por módulo 11, aritmética del IGV, huella perceptual dHash contra todo el histórico y desviación estadística del monto. <strong>Conectar la IA consiste en implementar la misma interfaz y cambiar una variable de entorno.</strong></p>
+      </div>
+    </article>
+
+    <article class="funcion">
+      <div class="funcion-cab">
+        <span class="id">RF-IA-02</span>
+        <span class="sello-estado e-medio">Resuelto con plantillas</span>
+      </div>
+      <h3>Narrativa de impacto personalizada</h3>
+      <dl>
+        <div>
+          <dt>Descripción</dt>
+          <dd>Cuando un gasto se aprueba y se aplica contablemente a las donaciones que lo financiaron, genera para <strong>cada donante afectado</strong> un mensaje con su monto exacto aplicado, el concepto real del gasto, la organización, la fecha y la evidencia anonimizada. El texto se adapta al aporte concreto de esa persona, no al total del gasto.</dd>
+        </div>
+        <div>
+          <dt>Subproceso / actividades</dt>
+          <dd>El motor de retorno consulta la aplicación FIFO para saber qué donación financió qué parte del gasto, extrae de PostgreSQL los datos verificados y construye un prompt que <strong>solo contiene campos verificados</strong>, con instrucciones explícitas de no inferir ni embellecer. La IA devuelve asunto y cuerpo; el backend los valida contra un filtro de lenguaje antes de enviarlos.</dd>
+        </div>
+        <div>
+          <dt>Componente IA</dt>
+          <dd>Modelo de lenguaje generativo con <em>system prompt</em> restringido y validación de salida.</dd>
+        </div>
+      </dl>
+      <div class="estado-bloque parcial">
+        <p>El ciclo completo funciona: una notificación por donante con su monto exacto, un <code>Proxy</code> que hace fallar cualquier plantilla que referencie un dato no verificado, y un filtro de lenguaje ético —tolerante a acentos y flexión de género— que rechaza términos como «héroe» o «desgarradora». Sustituir la plantilla por una llamada al modelo exige conservar esas dos validaciones: son las que impiden que el sistema afirme algo que no puede demostrar.</p>
+      </div>
+    </article>
+
+    <article class="funcion">
+      <div class="funcion-cab">
+        <span class="id">RF-IA-03</span>
+        <span class="sello-estado e-bajo">No implementado</span>
+      </div>
+      <h3>Asistente de transparencia para el donante</h3>
+      <dl>
+        <div>
+          <dt>Descripción</dt>
+          <dd>Chat integrado en la interfaz del donante que responde preguntas sobre <strong>sus propios aportes</strong>: en qué se gastó su dinero, en qué estado está, por qué sigue retenido, qué respaldo documental existe. También resuelve dudas generales sobre el funcionamiento de la plataforma.</dd>
+        </div>
+        <div>
+          <dt>Subproceso / actividades</dt>
+          <dd>El donante escribe desde el widget de chat. El frontend envía la consulta al backend, que <strong>recupera exclusivamente los datos del donante autenticado</strong> —sus donaciones, aplicaciones, gastos financiados y estado de cada uno—, inyecta un <em>system prompt</em> con las políticas de la plataforma y las restricciones de privacidad, y llama a la API externa.</dd>
+        </div>
+        <div>
+          <dt>Componente IA</dt>
+          <dd>Modelo conversacional con <em>system prompt</em> delimitado y contexto acotado al usuario en sesión (<em>guardrails</em> de contexto y de privacidad).</dd>
+        </div>
+      </dl>
+      <div class="estado-bloque ausente">
+        <p>Es la función que requiere más trabajo nuevo: no existe el módulo de chat ni en backend ni en frontend. Los datos que necesita sí existen y están expuestos: línea de tiempo del aporte, narrativas y aplicaciones FIFO.</p>
+      </div>
+    </article>
+
+    <div class="nota">
+      <span class="etiqueta">Restricción de privacidad que condiciona las tres funciones</span>
+      <p>El sistema trata datos de beneficiarios de programas sociales, categoría sensible bajo la Ley N.° 29733. Ninguna evidencia fotográfica en la que aparezcan personas puede enviarse a un tercero —incluida la API de IA— sin anonimizar. Esa restricción está implementada <strong>en la base de datos mediante un <em>trigger</em></strong>, no en la aplicación, de modo que ningún error de programación pueda eludirla.</p>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section>
+    <div class="titulo-seccion">
+      <span class="num">04</span>
+      <h2>Base de datos relacional</h2>
+    </div>
+
+    <p>El esquema tiene <strong>28 tablas de dominio en cinco dominios</strong> (29 en <code>public</code>, contando la tabla de control de migraciones). Se detallan las que sostienen la operación básica y las que almacenan las trazas generadas por la IA.</p>
+
+    <h4>Dominio operativo</h4>
+    <div class="tabla-caja">
+      <table>
+        <thead>
+          <tr><th style="width:8.5rem">Tabla</th><th style="width:16rem">Campos clave</th><th>Relación / descripción</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>usuarios</code></td><td><code>id</code> (PK), <code>correo</code>, <code>hash_password</code>, <code>totp_secreto</code>, <code>estado</code></td><td>1 a N con <code>ong_miembros</code> y <code>donantes</code>. Cinco roles vía <code>usuario_roles</code>.</td></tr>
+          <tr><td><code>ongs</code></td><td><code>id</code> (PK), <code>ruc</code>, <code>razon_social</code>, <code>estado_verificacion</code>, <code>puntaje_confianza</code></td><td>1 a N con <code>campanas</code>. El puntaje es público y explicable.</td></tr>
+          <tr><td><code>campanas</code></td><td><code>id</code> (PK), <code>ong_id</code> (FK), <code>titulo</code>, <code>slug</code>, <code>busqueda</code> (tsvector)</td><td>1 a N con <code>fondos</code>. Búsqueda full-text en español.</td></tr>
+          <tr><td><code>fondos</code></td><td><code>id</code> (PK), <code>campana_id</code> (FK), <code>categoria_gasto</code>, <code>saldo_recaudado</code>, <code>saldo_retenido</code>, <code>saldo_ejecutado</code></td><td><strong>Unidad de trazabilidad.</strong> El donante aporta a un fondo, no a una organización.</td></tr>
+          <tr><td><code>donaciones</code></td><td><code>id</code> (PK), <code>donante_id</code> (FK), <code>fondo_id</code> (FK), <code>monto</code>, <code>estado</code></td><td>1 a N con <code>aplicaciones_donacion</code>.</td></tr>
+          <tr><td><code>gastos</code></td><td><code>id</code> (PK), <code>fondo_id</code> (FK), <code>monto_declarado</code>, <code>monto_aprobado</code>, <code>estado</code>, <code>capturado_en</code></td><td>1 a 1 con <code>comprobantes</code>, 1 a N con <code>evidencias</code>.</td></tr>
+          <tr><td><code>comprobantes</code></td><td><code>ruc_emisor</code>, <code>tipo</code>, <code>serie</code>, <code>numero</code>, <code>subtotal</code>, <code>igv</code>, <code>total</code>, <code>validez_cpe</code></td><td><strong><code>UNIQUE (ruc_emisor, tipo, serie, numero)</code></strong>: un comprobante no puede presentarse dos veces.</td></tr>
+          <tr><td><code>evidencias</code></td><td><code>hash_sha256</code>, <code>hash_perceptual</code>, <code>nitidez</code>, <code>contiene_personas</code>, <code>anonimizada</code></td><td><code>UNIQUE (hash_sha256)</code>. El hash perceptual detecta fotos recicladas aunque el archivo cambie.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>Dominio contable</h4>
+    <div class="tabla-caja">
+      <table>
+        <thead>
+          <tr><th style="width:8.5rem">Tabla</th><th style="width:16rem">Campos clave</th><th>Relación / descripción</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>movimientos_contables</code></td>
+            <td><code>fondo_id</code> (FK), <code>secuencia</code>, <code>cuenta_debe</code>, <code>cuenta_haber</code>, <code>monto</code>, <strong><code>hash_previo</code></strong>, <strong><code>hash_actual</code></strong></td>
+            <td><strong>Libro de solo inserción.</strong> Los <em>triggers</em> rechazan <code>UPDATE</code> y <code>DELETE</code>. Cada asiento se encadena: <code>hash_actual = SHA-256(hash_previo ‖ datos)</code>. Un tercero puede recalcular la cadena sin confiar en el sistema.</td>
+          </tr>
+          <tr>
+            <td><code>aplicaciones_donacion</code></td>
+            <td><code>donacion_id</code> (FK), <code>gasto_id</code> (FK), <code>monto</code></td>
+            <td>N a M entre donaciones y gastos. Un <em>trigger</em> diferido exige que la suma aplicada <strong>iguale</strong> el monto aprobado.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>Dominio de inteligencia artificial</h4>
+    <p>Es el que el formato de referencia resuelve con una columna <code>ia_log</code>. Aquí se descompone en cuatro tablas porque la trazabilidad del proyecto lo exige.</p>
+    <div class="tabla-caja">
+      <table>
+        <thead>
+          <tr><th style="width:9.5rem">Tabla</th><th style="width:16rem">Campos clave</th><th>Relación / descripción</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>modelos_ia</code></td><td><code>id</code> (PK), <code>nombre</code>, <code>version</code>, <code>activo</code></td><td>Catálogo de motores. La fila activa hoy es <code>reglas-v0</code>; al conectar la API se inserta una fila nueva y se comparan métricas contra ella.</td></tr>
+          <tr><td><code>reglas_confianza</code></td><td><code>umbral_alto</code>, <code>umbral_medio</code>, <code>peso_documental</code>, <code>peso_visual</code>, <code>peso_anomalia</code>, <code>vigente_desde</code></td><td>Umbrales y pesos configurables por el administrador. <strong>Versionados:</strong> cambiar un umbral no reescribe análisis anteriores.</td></tr>
+          <tr><td><code>analisis_aini</code></td><td><code>gasto_id</code>, <code>modelo_id</code>, <code>regla_id</code>, <code>score_final</code>, <code>nivel</code>, <strong><code>datos_extraidos</code></strong> (JSONB), <strong><code>explicacion</code></strong> (JSONB)</td><td><strong>Equivalente ampliado del <code>ia_log</code>.</strong> Guarda la respuesta íntegra del modelo, atada al motor y a la regla vigente en ese momento.</td></tr>
+          <tr><td><code>revisiones_auditoria</code></td><td><code>gasto_id</code>, <code>auditor_id</code>, <code>decision</code>, <code>comentario</code>, <code>es_muestreo</code></td><td>Decisión humana con comentario obligatorio. <strong>Cada fila es una etiqueta supervisada:</strong> la versión sin IA ya está generando el conjunto con el que se evaluará el modelo.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section>
+    <div class="titulo-seccion">
+      <span class="num">05</span>
+      <h2>Procedimiento de integración con la API externa</h2>
+    </div>
+
+    <p>Flujo técnico bajo el Enfoque Ligero, en cinco etapas secuenciales.</p>
+
+    <div class="tabla-caja">
+      <table>
+        <thead>
+          <tr><th style="width:3rem">Paso</th><th style="width:13rem">Etapa</th><th>Detalle</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>1</strong></td><td><strong>Credenciales y entorno</strong></td>
+            <td>Se genera una API Key en el proveedor y se almacena como variable de entorno del servidor (<code>AINI_API_KEY</code>), validada al arrancar por un esquema Zod que exige longitud mínima y <strong>hace fallar el arranque si falta</strong>. La clave nunca se compila en el paquete Flutter ni viaja al navegador.</td>
+          </tr>
+          <tr>
+            <td><strong>2</strong></td><td><strong>Extracción de contexto (SQL)</strong></td>
+            <td>Al consumirse un trabajo de la cola, el backend reúne: datos declarados del gasto, hashes y metadatos de los archivos, historial de comprobantes de esa organización, media y desviación de la categoría, y saldo retenido disponible.</td>
+          </tr>
+          <tr>
+            <td><strong>3</strong></td><td><strong>Construcción del prompt</strong></td>
+            <td>Se arma la estructura con <em>(a)</em> el rol del modelo —auditor documental, no asistente creativo—, <em>(b)</em> reglas operativas estrictas incluida la prohibición de inferir datos ausentes, <em>(c)</em> el contexto extraído y <em>(d)</em> el formato de salida obligatorio. Las evidencias con personas solo se envían anonimizadas.</td>
+          </tr>
+          <tr>
+            <td><strong>4</strong></td><td><strong>Consumo REST/HTTPS</strong></td>
+            <td>Solicitud <code>POST</code> asíncrona con el payload JSON y autenticación por <em>Bearer token</em>, con tiempo límite explícito y reintentos con retroceso exponencial gestionados por la cola.</td>
+          </tr>
+          <tr>
+            <td><strong>5</strong></td><td><strong>Validación y persistencia</strong></td>
+            <td>El backend <strong>valida la estructura antes de confiar en ella</strong>, persiste el análisis completo en <code>analisis_aini</code> junto con <code>version_modelo</code> y la regla vigente, aplica la regla de umbrales y expone el resultado al frontend con puntaje, nivel y motivos legibles.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="nota">
+      <span class="etiqueta">Control de excepciones</span>
+      <p>Si la API externa falla, agota el tiempo o devuelve una estructura inválida, el sistema <strong>no se detiene</strong>: la cola reintenta con retroceso y, agotados los intentos, el gasto queda en revisión humana. El motor determinista permanece disponible como respaldo conmutable por variable de entorno.</p>
+      <p><strong>Un gasto nunca se aprueba por un error de la IA, y nunca se pierde por su caída.</strong></p>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section>
+    <div class="titulo-seccion">
+      <span class="num">06</span>
+      <h2>Funcionamiento arquitectónico</h2>
+    </div>
+
+    <h3>Backend — NestJS + PostgreSQL</h3>
+    <div class="lista">
+      <div><b>Custodia de seguridad.</b> Es el único que conoce la API Key; el navegador jamás la recibe. La autenticación usa token de acceso corto en memoria y token de refresco en cookie <code>httpOnly</code>, con segundo factor obligatorio para los roles que mueven dinero o aprueban gastos.</div>
+      <div><b>Consolidación de contexto.</b> Transforma los datos relacionales planos en objetos estructurados aptos para el modelo, incluyendo agregados que la IA no podría calcular por sí sola: media histórica de la categoría, distancia de Hamming contra el histórico de evidencias, saldo retenido disponible.</div>
+      <div><b>Control de excepciones.</b> Captura latencia, caída o respuesta malformada y devuelve un comportamiento por defecto —derivar a revisión humana— que garantiza que la plataforma siga operando.</div>
+      <div><b>Integridad que no depende de la aplicación.</b> El libro contable rechaza modificaciones por <em>trigger</em>; la suma aplicada debe igualar el monto aprobado; una notificación no puede referenciar una evidencia sin anonimizar. <strong>Ningún error de la IA ni del backend puede violar estas reglas</strong>, porque no viven en el código de la aplicación.</div>
+    </div>
+
+    <h3>Frontend — Flutter Web</h3>
+    <div class="lista">
+      <div><b>Eventos de usuario.</b> Registrar un gasto con su comprobante y evidencia, aprobar u observar desde la bandeja del auditor, consultar el detalle de un aporte.</div>
+      <div><b>Consultas asíncronas.</b> Peticiones HTTP no bloqueantes hacia las rutas del backend mediante <code>dio</code>, con el token de acceso en cabecera y errores traducidos a lenguaje comprensible.</div>
+      <div><b>Renderizado dinámico.</b> Puntaje de confianza con su nivel y motivos legibles, línea de tiempo del aporte (Donado → Retenido → En verificación → Ejecutado), tablero de indicadores con gráficos, y narrativa de impacto con su evidencia.</div>
+      <div><b>Accesibilidad declarada.</b> El lienzo de Flutter Web no expone sus elementos al lector de pantalla hasta que se activa el modo accesible. Por eso las cifras de los gráficos se repiten como texto y el código QR del segundo factor viene acompañado de la clave escrita.</div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section>
+    <div class="titulo-seccion">
+      <span class="num">07</span>
+      <h2>Estado frente al requisito evaluativo</h2>
+    </div>
+
+    <blockquote class="requisito">
+      <p>«Los alumnos deberán presentar la ejecución funcional de estos 6 puntos en el aplicativo web, demostrando que al menos las 3 funciones de IA consumen la API externa y reflejan los datos dinámicamente en la interfaz.»</p>
+    </blockquote>
+
+    <div class="tabla-caja">
+      <table>
+        <thead>
+          <tr><th style="width:3rem">Punto</th><th style="width:13rem">Materia</th><th>Estado</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>1</strong></td><td>Problema complejo</td><td><span class="sello-estado e-alto">Completo</span> Definido y sustentado en el Entregable 2.</td></tr>
+          <tr><td><strong>2</strong></td><td>Aplicativo web básico</td><td><span class="sello-estado e-alto">Completo</span> Construido y funcionando: 281 pruebas en backend, 20 en frontend, cinco roles operativos.</td></tr>
+          <tr><td><strong>3</strong></td><td>Tres funciones con IA</td><td><span class="sello-estado e-bajo">Pendiente</span> Diseñadas y contratadas; ninguna consume todavía la API externa.</td></tr>
+          <tr><td><strong>4</strong></td><td>Base de datos relacional</td><td><span class="sello-estado e-alto">Completo</span> 28 tablas de dominio desplegadas, con las cuatro de traza de IA creadas y en uso.</td></tr>
+          <tr><td><strong>5</strong></td><td>Procedimiento de integración</td><td><span class="sello-estado e-alto">Completo</span> Definido; el punto de integración está construido y probado.</td></tr>
+          <tr><td><strong>6</strong></td><td>Funcionamiento arquitectónico</td><td><span class="sello-estado e-alto">Completo</span> Backend y frontend operativos, con control de excepciones.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Lo que falta, dicho sin rodeos</h3>
+    <p>Las tres funciones de IA no consumen todavía una API externa. La versión actual resuelve la verificación con un motor determinista y la narrativa con plantillas, y el asistente conversacional no existe.</p>
+    <p>Esto no es un retraso imprevisto: <strong>fue una decisión de diseño explícita</strong> para construir primero el ciclo de confianza completo y verificable, y conectar la IA sobre una base que ya funciona.</p>
+
+    <h3>Lo que esa decisión hizo posible</h3>
+    <p>Existe la interfaz <code>MotorVerificacion</code> con el contrato de datos literal que consumirá el modelo, la cola asíncrona con reintentos, la persistencia versionada del análisis, la regla de umbrales, la derivación al auditor y el registro de cada decisión humana. Conectar RF-IA-01 consiste en implementar una interfaz existente y cambiar una variable de entorno, sin tocar la base de datos, el núcleo contable ni el frontend.</p>
+    <p>Y hay un efecto que conviene subrayar: como cada decisión de auditor se guarda con su comentario y el nivel que el motor había propuesto, <strong>la versión sin IA lleva meses generando el conjunto de datos etiquetado con el que se evaluará el modelo</strong>. Es la diferencia entre conectar una API a ciegas y conectarla teniendo contra qué compararla.</p>
+
+    <h4>Trabajo restante para cumplir el requisito</h4>
+    <div class="tabla-caja">
+      <table>
+        <thead>
+          <tr><th style="width:11rem">Función</th><th>Trabajo</th><th style="width:7rem">Dificultad</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>RF-IA-01</code><br>Verificación</td><td>Implementar <code>MotorAIni</code> contra la interfaz existente: cliente HTTP, prompt, validación de esquema.</td><td><span class="sello-estado e-alto">Baja</span></td></tr>
+          <tr><td><code>RF-IA-02</code><br>Narrativa</td><td>Sustituir la plantilla por llamada al modelo, conservando el filtro ético y la validación de datos verificados.</td><td><span class="sello-estado e-alto">Baja</span></td></tr>
+          <tr><td><code>RF-IA-03</code><br>Asistente</td><td>Módulo nuevo en backend y widget de chat en frontend. Es la única sin base previa.</td><td><span class="sello-estado e-medio">Media</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="pie">
+    <p><strong>Anexos y evidencia en el repositorio:</strong> matriz de trazabilidad RF/RNF con la prueba que respalda cada requisito · revisión OWASP ASVS nivel 2 capítulo por capítulo · guion de demostración de 10 minutos con los cinco roles · guía de despliegue · seis decisiones de arquitectura documentadas (ADR) · documentación OpenAPI generada del código.</p>
+    <p>Ayni implementa el proyecto académico <em>Trazabilidad Radical</em> — Entregable 2: 21 casos de uso, 21 RNF, 47 RF y 26 tablas en 5 dominios.</p>
+  </footer>
+
+</div>
+
+</body>
+</html>

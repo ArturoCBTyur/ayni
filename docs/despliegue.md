@@ -195,3 +195,16 @@ Dicho aquí para que no se descubra durante la demostración:
 - **Consulta real a SUNAT.** `FakeSunat` valida el RUC por módulo 11 y el formato, y **declara que no puede confirmar** si el comprobante existe (`existeEnSunat: null`). La consulta real necesita credenciales SOL.
 - **Correo saliente.** Las notificaciones son in-app. Con `SMTP_*` configurado se activa el envío (ADR-0004).
 - **AIni.** La verificación la produce el Motor de Reglas v0. El seam está listo: cambiar `VERIFICACION_DRIVER` conmuta la implementación sin tocar la base, el núcleo contable ni el frontend.
+
+
+---
+
+## Regenerar el PDF del avance
+
+`docs/avance-examen-parcial.html` es la versión imprimible del documento de avance. Para volver a generar el PDF tras editarlo, con Edge en modo sin ventana:
+
+```bash
+"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="docs\Ayni-Avance-Examen-Parcial-IA.pdf" "file:///C:/Users/User/Desktop/repositories/trazabilidad-radical/docs/avance-examen-parcial.html"
+```
+
+El salto de página por sección, los márgenes A4 y el tema claro fijo están en el bloque `@media print` del propio HTML, no en el comando.
