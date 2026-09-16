@@ -283,10 +283,17 @@ model Campana {
   creadoEn      DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
   actualizadoEn DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(6)
 
+  /// Columna generada para la busqueda de causas en español (RF-06). La crea
+  /// la migracion de reglas de integridad, no Prisma. Se declara aqui para
+  /// que Prisma la conozca y no intente eliminarla en cada migrate diff.
+  /// Es de solo lectura: se consulta con $queryRaw sobre el indice GIN.
+  busqueda Unsupported("tsvector")?
+
   ong    Ong     @relation(fields: [ongId], references: [id], onDelete: Cascade)
   fondos Fondo[]
 
   @@index([estado, causa])
+  @@index([busqueda(ops: raw("tsvector_ops"))], map: "ix_campanas_busqueda", type: Gin)
   @@map("campanas")
 }
 
@@ -360,9 +367,14 @@ model MovimientoContable {
   pagoId                String?        @map("pago_id") @db.Uuid
   movimientoReversadoId String?        @map("movimiento_reversado_id") @db.Uuid
   /// Secuencia monotonica por fondo, asignada por trigger.
-  secuencia             BigInt
+  /// Secuencia y hashes los asigna el trigger tg_movimientos_encadenar en
+  /// BEFORE INSERT, no la aplicacion. Los defaults existen solo para que el
+  /// codigo pueda insertar un movimiento sin conocer los internos de la
+  /// cadena; nunca llegan a persistirse. El trigger ignora lo que se envie,
+  /// y hay una prueba que lo demuestra.
+  secuencia             BigInt         @default(0)
   hashPrevio            String?        @map("hash_previo") @db.Char(64)
-  hashActual            String         @map("hash_actual") @db.Char(64)
+  hashActual            String         @default("") @map("hash_actual") @db.Char(64)
   creadoPor             String?        @map("creado_por") @db.Uuid
   creadoEn              DateTime       @default(now()) @map("creado_en") @db.Timestamptz(6)
 

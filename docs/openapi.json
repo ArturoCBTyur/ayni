@@ -1,0 +1,38 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/salud": {
+      "get": {
+        "operationId": "SaludController_estado",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Estado del servicio y de la base de datos",
+        "tags": [
+          "salud"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Trazabilidad Radical API",
+    "description": "Micro-mecenazgo dirigido con trazabilidad total. MVP v1 sin IA: la verificacion la produce el Motor de Reglas v0, que respeta el mismo contrato de datos que AIni.",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {}
+  }
+}

@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -27,9 +27,10 @@ async function arrancar(): Promise<void> {
     credentials: true,
   });
 
-  app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
-  );
+  // La validacion de entrada se hace con ZodPipe por ruta (ver
+  // src/comun/validacion/zod.pipe.ts). No se registra el ValidationPipe de
+  // NestJS porque depende de class-validator y de DTO decorados, y el
+  // proyecto ya usa Zod para la configuracion y los contratos.
 
   // RF-IN-04: API documentada con OpenAPI para integraciones futuras.
   const documento = SwaggerModule.createDocument(
