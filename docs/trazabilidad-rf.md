@@ -23,10 +23,10 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 | RNF-02 | Autenticación robusta y RBAC | ✅ | `modules/identidad`: Argon2id, JWT corto + refresh rotativo en cookie httpOnly, TOTP obligatorio, guard global que niega por defecto | `identidad.spec.ts` · 15 casos |
 | RNF-03 | OWASP ASVS nivel 2 | 🟡 | `helmet`, `ThrottlerModule` en `app.module.ts` | Falta revisión de Fase 10 |
 | RNF-04 | No almacenar datos de tarjeta | ⬜ Fase 4 | `pagos` guarda solo token y últimos 4 | — |
-| RNF-05 | Privacidad desde el diseño | 🟡 | Consentimiento por finalidad en el registro, en la misma transacción que la cuenta | `identidad.spec.ts`, `integridad.spec.ts`. Falta ARCO |
+| RNF-05 | Privacidad desde el diseño | ✅ | Consentimiento por finalidad con revocación que conserva la historia, ARCO con plazos en días hábiles y exportación de datos sin credenciales | `cumplimiento.spec.ts` · 15 casos |
 | RNF-06 | Anonimización de beneficiarios | 🟡 | Trigger `tg_notificacion_privacidad` | `integridad.spec.ts` · 2 casos |
 | RNF-07 | Libro de movimientos inalterable | ✅ | `fn_libro_solo_insercion`, `fn_movimiento_encadenar`, `fn_verificar_cadena` | `integridad.spec.ts` · 7 casos |
-| RNF-08 | Bitácora de acciones sensibles | 🟡 | Registro en registro de usuario y activación de MFA | `identidad.spec.ts` · 2 casos. Falta el interceptor general |
+| RNF-08 | Bitácora de acciones sensibles | ✅ | `BitacoraService` como punto único de escritura, con comparación antes/después; registro atómico dentro de transacción donde hace falta | `identidad.spec.ts`, `cumplimiento.spec.ts` |
 | RNF-09 | Explicabilidad de las decisiones | 🟡 | `MotivoAnalisis` en el contrato; `analisis_aini` guarda modelo y regla | Falta motor de Fase 6 |
 | RNF-10 | p95 de API bajo 500 ms lectura | ⬜ Fase 10 | — | — |
 | RNF-11 | Análisis en tiempo razonable | ⬜ Fase 6 | Motor de reglas: milisegundos, no segundos | — |
@@ -89,10 +89,10 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 |---|---|
 | 0 · Cimientos del entorno | ✅ Cerrada — `/salud` responde con PostgreSQL 18.3 desde Flutter Web |
 | 1 · Modelo de datos e integridad | ✅ Cerrada — 28 tablas, 9 triggers, 25 pruebas de integridad |
-| 2 · Identidad y cumplimiento | 🟡 En curso — acceso, MFA y RBAC cerrados; faltan ARCO y el interceptor de bitácora |
+| 2 · Identidad y cumplimiento | ✅ Cerrada — acceso con MFA, RBAC, consentimientos, ARCO y bitácora |
 | 3 a 11 | ⬜ Planificadas |
 
-**Pruebas hoy:** 65 en el API (17 de reglas de RUC + 25 de integridad + 23 de identidad) y 2 de widgets en Flutter.
+**Pruebas hoy:** 80 en el API (17 de reglas de RUC + 25 de integridad + 23 de identidad + 15 de cumplimiento) y 2 de widgets en Flutter.
 
 ### Requerimientos funcionales cerrados en la Fase 2
 
@@ -100,4 +100,6 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 |---|---|---|
 | RF-01 | Registro e inicio de sesión con MFA | ✅ Falta recuperación de contraseña y verificación por correo (dependen del envío de correo, Fase 8) |
 | RF-02 | Gestión de roles y perfiles | ✅ Los 5 roles con guard global que niega por defecto |
-| RF-DE-01 | Consentimiento por finalidad con versión de política | ✅ En el registro; la revocación entra con el módulo de cumplimiento |
+| RF-DE-01 | Consentimiento por finalidad con versión de política | ✅ Otorgar y revocar; revocar conserva el registro anterior en lugar de borrarlo |
+| RF-DE-02 | Atención de derechos ARCO con registro, plazo y respuesta | ✅ Plazos en días hábiles (20 para acceso, 10 para el resto), bandeja por urgencia y marca de vencimiento |
+| RF-16 | Gestión de usuarios | 🟡 Roles y bloqueo cubiertos; falta la administración desde la interfaz |
