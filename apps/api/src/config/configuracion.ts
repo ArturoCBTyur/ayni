@@ -31,6 +31,11 @@ const esquema = z.object({
   PASARELA_COMISION_PORCENTAJE: z.coerce.number().min(0).default(3.44),
   PASARELA_COMISION_FIJA: z.coerce.number().min(0).default(1.0),
   PASARELA_WEBHOOK_SECRET: z.string().min(24),
+  /**
+   * A donde entrega FakeGateway sus webhooks. Vacio en pruebas: alli no hay
+   * servidor HTTP escuchando y el handler se invoca directamente.
+   */
+  PASARELA_WEBHOOK_URL: z.string().url().optional().or(z.literal('')),
 
   CPE_DRIVER: z.enum(['fake', 'sunat']).default('fake'),
 

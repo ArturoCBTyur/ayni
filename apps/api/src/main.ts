@@ -12,7 +12,10 @@ import { AppModule } from './app.module';
 import type { Configuracion } from './config/configuracion';
 
 async function arrancar(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  // rawBody: la firma del webhook se verifica sobre el cuerpo exacto que
+  // envio la pasarela. Volver a serializar el JSON parseado cambiaria el
+  // orden de las claves o el formato de los numeros y la firma no cuadraria.
+  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
   const config = app.get(ConfigService<Configuracion, true>);
   const logger = new Logger('Arranque');
 

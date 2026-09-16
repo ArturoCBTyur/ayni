@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { BitacoraService, type ContextoPeticion } from '../../comun/bitacora/bitacora.service';
 import { PrismaService } from '../../comun/prisma/prisma.service';
 import type { ActualizarCampana, BuscarCausas, CrearCampana, CrearFondo } from './esquemas';
+import { soles } from '../../comun/dinero';
 import { calcularAvance } from './ongs.service';
 
 /** Fila que devuelve la consulta de busqueda por texto. */
@@ -195,7 +196,7 @@ export class CampanasService {
         valorNuevo: {
           nombre: fondo.nombre,
           categoriaGasto: fondo.categoriaGasto,
-          meta: fondo.meta.toFixed(),
+          meta: soles(fondo.meta),
         },
         ...contexto,
       });
@@ -231,11 +232,11 @@ export class CampanasService {
         nombre: f.nombre,
         categoriaGasto: f.categoriaGasto,
         estado: f.estado,
-        meta: f.meta.toFixed(),
-        recaudado: f.saldoRecaudado.toFixed(),
+        meta: soles(f.meta),
+        recaudado: soles(f.saldoRecaudado),
         // Lo retenido es lo que la ONG todavia debe justificar con evidencia.
-        retenido: f.saldoRetenido.toFixed(),
-        ejecutado: f.saldoEjecutado.toFixed(),
+        retenido: soles(f.saldoRetenido),
+        ejecutado: soles(f.saldoEjecutado),
         avance: calcularAvance(f.saldoRecaudado.toNumber(), f.meta.toNumber()),
       })),
     }));
@@ -309,14 +310,14 @@ export class CampanasService {
         imagenUrl: f.imagen_url,
         departamento: f.departamento,
         fondos: Number(f.fondos),
-        meta: f.meta_total.toFixed(),
-        recaudado: f.recaudado_total.toFixed(),
+        meta: soles(f.meta_total),
+        recaudado: soles(f.recaudado_total),
         avance: calcularAvance(f.recaudado_total.toNumber(), f.meta_total.toNumber()),
         ong: {
           id: f.ong_id,
           nombre: f.nombre_comercial ?? f.razon_social,
           verificada: f.verificada,
-          puntajeConfianza: f.puntaje_confianza.toFixed(),
+          puntajeConfianza: soles(f.puntaje_confianza),
         },
       })),
     };
@@ -350,7 +351,7 @@ export class CampanasService {
         id: campana.ong.id,
         nombre: campana.ong.nombreComercial ?? campana.ong.razonSocial,
         verificada: campana.ong.estadoVerificacion === 'VERIFICADA',
-        puntajeConfianza: campana.ong.puntajeConfianza.toFixed(),
+        puntajeConfianza: soles(campana.ong.puntajeConfianza),
         desglosePuntaje: campana.ong.desglosePuntaje,
       },
       fondos: campana.fondos.map((f) => ({
@@ -358,11 +359,11 @@ export class CampanasService {
         nombre: f.nombre,
         descripcion: f.descripcion,
         categoriaGasto: f.categoriaGasto,
-        meta: f.meta.toFixed(),
-        recaudado: f.saldoRecaudado.toFixed(),
+        meta: soles(f.meta),
+        recaudado: soles(f.saldoRecaudado),
         // El donante ve cuanto espera evidencia: es el corazon del modelo.
-        retenido: f.saldoRetenido.toFixed(),
-        ejecutado: f.saldoEjecutado.toFixed(),
+        retenido: soles(f.saldoRetenido),
+        ejecutado: soles(f.saldoEjecutado),
         avance: calcularAvance(f.saldoRecaudado.toNumber(), f.meta.toNumber()),
       })),
     };

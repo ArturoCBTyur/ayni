@@ -9,6 +9,8 @@ import { BitacoraModule } from './comun/bitacora/bitacora.module';
 import { PrismaModule } from './comun/prisma/prisma.module';
 import { SaludModule } from './comun/salud/salud.module';
 import { CampanasModule } from './modules/campanas/campanas.module';
+import { ContableModule } from './modules/contable/contable.module';
+import { DonacionesModule } from './modules/donaciones/donaciones.module';
 import { CumplimientoModule } from './modules/cumplimiento/cumplimiento.module';
 import { IdentidadModule } from './modules/identidad/identidad.module';
 
@@ -41,8 +43,10 @@ import { IdentidadModule } from './modules/identidad/identidad.module';
     // Fase 3 - Campanas y Fondos, incluida el alta y verificacion de ONG.
     CampanasModule,
 
-    // Fase 4  - DonacionesModule     (Donaciones y Pagos)
-    // Fase 4  - ContableModule       (Core Contable)
+    // Fase 4 - Core Contable y Donaciones y Pagos.
+    ContableModule,
+    DonacionesModule,
+
     // Fase 5  - GastosModule         (Gastos y Evidencias)
     // Fase 6  - VerificacionModule   (Integracion AIni)
     // Fase 7  - AuditoriaModule      (Auditoria y Alertas)
