@@ -14,8 +14,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   constructor() {
     super({
-      log:
-        process.env.NODE_ENV === 'development'
+      // Bajo Jest no se registra nada. Varias pruebas provocan violaciones de
+      // restriccion a proposito para comprobar que la base se defiende, y
+      // verlas como errores en la salida entrena a ignorar los errores reales.
+      log: process.env.JEST_WORKER_ID
+        ? []
+        : process.env.NODE_ENV === 'development'
           ? [{ emit: 'event', level: 'query' }, 'warn', 'error']
           : ['warn', 'error'],
     });

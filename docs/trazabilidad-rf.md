@@ -90,9 +90,24 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 | 0 · Cimientos del entorno | ✅ Cerrada — `/salud` responde con PostgreSQL 18.3 desde Flutter Web |
 | 1 · Modelo de datos e integridad | ✅ Cerrada — 28 tablas, 9 triggers, 25 pruebas de integridad |
 | 2 · Identidad y cumplimiento | ✅ Cerrada — acceso con MFA, RBAC, consentimientos, ARCO y bitácora |
-| 3 a 11 | ⬜ Planificadas |
+| 3 · ONG, campañas y fondos | ✅ Cerrada — alta y verificación de ONG, campañas, fondos, buscador y puntaje explicable |
+| 4 a 11 | ⬜ Planificadas |
 
-**Pruebas hoy:** 80 en el API (17 de reglas de RUC + 25 de integridad + 23 de identidad + 15 de cumplimiento) y 2 de widgets en Flutter.
+**Pruebas hoy:** 109 en el API (17 de RUC + 25 de integridad + 23 de identidad + 15 de cumplimiento + 29 de campañas) y 2 de widgets en Flutter.
+
+### Requerimientos funcionales cerrados en la Fase 3
+
+| ID | Requerimiento | Estado |
+|---|---|---|
+| RF-03 | Registro de ONG con RUC y documentación | ✅ RUC validado por módulo 11 en el borde de la API |
+| RF-04 | Gestión de campañas | ✅ Crear, editar, publicar, pausar y cerrar |
+| RF-05 | Gestión de fondos con categoría y meta | ✅ Nombre único por campaña |
+| RF-06 | Buscador de causas | ✅ Full-text en español (lematiza y ignora acentos), filtros por causa, departamento, puntaje y avance, con paginación |
+| RF-SO-01 | Sello de ONG verificada y puntaje explicable | ✅ Tres componentes con su detalle; no castiga la falta de historial |
+| RF-SO-04 | Debido proceso reputacional | ✅ El puntaje solo considera alertas con `afectaReputacion` |
+| RF-DE-05 | Términos de adhesión | ✅ Obligatorios al registrar la ONG |
+| CU12 | Consultar estado de fondos | ✅ Recaudado, retenido y ejecutado por fondo |
+| CU14 | Verificar ONG | ✅ Motivo obligatorio incluso al aprobar, con rastro en bitácora |
 
 ### Requerimientos funcionales cerrados en la Fase 2
 

@@ -120,6 +120,353 @@
           "identidad"
         ]
       }
+    },
+    "/api/v1/cumplimiento/consentimientos": {
+      "get": {
+        "operationId": "CumplimientoController_consentimientos",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-DE-01 · Consentimientos vigentes por finalidad",
+        "tags": [
+          "cumplimiento"
+        ]
+      },
+      "patch": {
+        "operationId": "CumplimientoController_actualizarConsentimiento",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-DE-01 · Otorgar o revocar un consentimiento",
+        "tags": [
+          "cumplimiento"
+        ]
+      }
+    },
+    "/api/v1/cumplimiento/arco": {
+      "post": {
+        "operationId": "CumplimientoController_crearArco",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "CU21 · Presentar una solicitud ARCO",
+        "tags": [
+          "cumplimiento"
+        ]
+      },
+      "get": {
+        "operationId": "CumplimientoController_misSolicitudes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Mis solicitudes ARCO y su estado",
+        "tags": [
+          "cumplimiento"
+        ]
+      }
+    },
+    "/api/v1/cumplimiento/arco/exportacion": {
+      "get": {
+        "operationId": "CumplimientoController_exportar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Derecho de acceso · Exportar mis datos personales",
+        "tags": [
+          "cumplimiento"
+        ]
+      }
+    },
+    "/api/v1/cumplimiento/arco/bandeja": {
+      "get": {
+        "operationId": "CumplimientoController_bandeja",
+        "parameters": [
+          {
+            "name": "todas",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "CU21 · Bandeja de solicitudes ARCO, las mas urgentes primero",
+        "tags": [
+          "cumplimiento"
+        ]
+      }
+    },
+    "/api/v1/cumplimiento/arco/{id}": {
+      "patch": {
+        "operationId": "CumplimientoController_responder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "CU21 · Responder una solicitud ARCO",
+        "tags": [
+          "cumplimiento"
+        ]
+      }
+    },
+    "/api/v1/causas": {
+      "get": {
+        "operationId": "CampanasController_buscar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-06 · Buscar causas de ONG verificadas",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/causas/{slug}": {
+      "get": {
+        "operationId": "CampanasController_detalle",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "CU02 · Ficha de una campaña con sus fondos",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/ongs/{id}": {
+      "get": {
+        "operationId": "CampanasController_fichaOng",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-SO-01 · Ficha de ONG con su puntaje explicado",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/ongs": {
+      "post": {
+        "operationId": "CampanasController_registrarOng",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "CU08 · Registrar una organizacion y pedir su verificacion",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/ongs/mias/listado": {
+      "get": {
+        "operationId": "CampanasController_misOngs",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Organizaciones a las que pertenezco",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/ongs/{id}/fondos": {
+      "get": {
+        "operationId": "CampanasController_estadoFondos",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "CU12 · Estado de fondos: recaudado, retenido y ejecutado",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/verificaciones/pendientes": {
+      "get": {
+        "operationId": "CampanasController_pendientes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "CU14 · Expedientes de ONG esperando verificacion",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/ongs/{id}/verificacion": {
+      "patch": {
+        "operationId": "CampanasController_verificarOng",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "CU14 · Verificar, rechazar o suspender una ONG",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/ongs/{id}/campanas": {
+      "post": {
+        "operationId": "CampanasController_crearCampana",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "CU09 · Crear una campaña",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/campanas/{id}": {
+      "patch": {
+        "operationId": "CampanasController_actualizarCampana",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-04 · Editar, publicar, pausar o cerrar una campaña",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/campanas/{id}/fondos": {
+      "post": {
+        "operationId": "CampanasController_crearFondo",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "CU09 · Crear un fondo con categoria de gasto y meta",
+        "tags": [
+          "causas"
+        ]
+      }
     }
   },
   "info": {

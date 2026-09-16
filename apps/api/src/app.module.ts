@@ -8,6 +8,7 @@ import { cargarConfiguracion } from './config/configuracion';
 import { BitacoraModule } from './comun/bitacora/bitacora.module';
 import { PrismaModule } from './comun/prisma/prisma.module';
 import { SaludModule } from './comun/salud/salud.module';
+import { CampanasModule } from './modules/campanas/campanas.module';
 import { CumplimientoModule } from './modules/cumplimiento/cumplimiento.module';
 import { IdentidadModule } from './modules/identidad/identidad.module';
 
@@ -37,7 +38,9 @@ import { IdentidadModule } from './modules/identidad/identidad.module';
     IdentidadModule,
     CumplimientoModule,
 
-    // Fase 3  - CampanasModule       (Campanas y Fondos)
+    // Fase 3 - Campanas y Fondos, incluida el alta y verificacion de ONG.
+    CampanasModule,
+
     // Fase 4  - DonacionesModule     (Donaciones y Pagos)
     // Fase 4  - ContableModule       (Core Contable)
     // Fase 5  - GastosModule         (Gastos y Evidencias)

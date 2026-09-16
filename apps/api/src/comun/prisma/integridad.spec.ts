@@ -78,21 +78,78 @@ async function movimiento(
   });
 }
 
+/**
+ * Crea una ONG y una campaña propias de esta corrida.
+ *
+ * Antes estas pruebas colgaban sus fondos de la campaña del seed, y como el
+ * libro contable no admite DELETE, cada ejecucion dejaba fondos huerfanos
+ * ahi para siempre: la campaña de demostracion llego a tener 117 fondos y
+ * una meta de S/ 1 170 000 inventada. Los datos de demostracion tienen que
+ * poder mostrarse a un jurado, asi que las pruebas ya no los tocan.
+ */
 beforeAll(async () => {
-  const usuario = await prisma.usuario.findFirstOrThrow({ where: { correo: 'ong.operador@demo.pe' } });
+  const usuario = await prisma.usuario.findFirstOrThrow({
+    where: { correo: 'ong.operador@demo.pe' },
+  });
   usuarioId = usuario.id;
-  ongId = (await prisma.ong.findFirstOrThrow()).id;
-  campanaId = (await prisma.campana.findFirstOrThrow({ where: { ongId } })).id;
   donanteId = (await prisma.donante.findFirstOrThrow()).id;
+
+  const ong = await prisma.ong.create({
+    data: {
+      ruc: `20${Math.floor(10_000_000 + Math.random() * 89_999_999)}9`,
+      razonSocial: `ONG de pruebas de integridad ${marca}`,
+      representanteLegal: 'Representante de Prueba',
+      documentoRepresentante: '00000000',
+      direccion: 'Sin direccion',
+      departamento: 'Huanuco',
+      correoContacto: `integridad-${marca}@prueba.pe`,
+      descripcion: 'Organizacion creada por las pruebas de integridad.',
+      estadoVerificacion: 'VERIFICADA',
+    },
+  });
+  ongId = ong.id;
+
+  const campana = await prisma.campana.create({
+    data: {
+      ongId,
+      titulo: `Campaña de pruebas de integridad ${marca}`,
+      slug: `pruebas-integridad-${marca}`,
+      descripcion: 'Campaña creada por las pruebas de integridad de la base de datos.',
+      causa: `Pruebas ${marca}`,
+      fechaInicio: new Date('2026-01-01'),
+      // En BORRADOR: no debe aparecer en el buscador publico.
+      estado: 'BORRADOR',
+    },
+  });
+  campanaId = campana.id;
 });
 
 afterAll(async () => {
-  // Se borra de adentro hacia afuera; el libro no admite DELETE, asi que los
-  // fondos de prueba quedan y se limpian con TRUNCATE en el reset de la BD.
+  // De adentro hacia afuera. El libro es de solo insercion por diseño, asi
+  // que hay que desactivar su trigger para poder retirar lo sembrado; se
+  // reactiva en el finally, porque si quedara apagado las pruebas de
+  // inmutabilidad empezarian a pasar por el motivo equivocado.
   await prisma.notificacion.deleteMany({ where: { asunto: { contains: marca } } });
-  await prisma.aplicacionDonacion.deleteMany({ where: { gasto: { fondo: { nombre: { contains: marca } } } } });
-  await prisma.gasto.deleteMany({ where: { fondo: { nombre: { contains: marca } } } });
-  await prisma.donacion.deleteMany({ where: { fondo: { nombre: { contains: marca } } } });
+  await prisma.evidencia.deleteMany({ where: { gasto: { ongId } } });
+  await prisma.aplicacionDonacion.deleteMany({ where: { gasto: { ongId } } });
+  await prisma.revisionAuditoria.deleteMany({ where: { gasto: { ongId } } });
+  await prisma.comprobante.deleteMany({ where: { gasto: { ongId } } });
+
+  await prisma.$executeRaw`ALTER TABLE movimientos_contables DISABLE TRIGGER tg_movimientos_no_delete`;
+  try {
+    await prisma.$executeRaw`
+      DELETE FROM movimientos_contables
+       WHERE fondo_id IN (SELECT id FROM fondos WHERE campana_id = ${campanaId}::uuid)
+    `;
+  } finally {
+    await prisma.$executeRaw`ALTER TABLE movimientos_contables ENABLE TRIGGER tg_movimientos_no_delete`;
+  }
+
+  await prisma.gasto.deleteMany({ where: { ongId } });
+  await prisma.donacion.deleteMany({ where: { fondo: { campanaId } } });
+  await prisma.fondo.deleteMany({ where: { campanaId } });
+  await prisma.campana.delete({ where: { id: campanaId } });
+  await prisma.ong.delete({ where: { id: ongId } });
   await prisma.$disconnect();
 });
 
