@@ -6,23 +6,43 @@ Ten esto abierto en otra ventana. Una página, nada más.
 
 ## Arrancar (si algo se cayó)
 
-Tres terminales. **La API primero**, que el worker de verificación vive ahí.
+> **PowerShell no acepta `&&`.** La versión 5.1 de Windows da un error de
+> sintaxis con ese separador. Cada comando va por separado; el `cd` solo hace
+> falta una vez por ventana.
+
+**Ventana 1 — la API.** Va primero: el worker de verificación vive ahí.
 
 ```bash
-cd apps/api && npm run start:prod
+cd C:\Users\User\Desktop\repositories\trazabilidad-radical\apps\api
 ```
 
 ```bash
-cd apps/app/build/web && python -m http.server 5000
+npm run start:prod
+```
+
+**Ventana 2 — la aplicación web.**
+
+```bash
+cd C:\Users\User\Desktop\repositories\trazabilidad-radical\apps\app\build\web
 ```
 
 ```bash
-cd apps/api && npm run demo:codigos
+python -m http.server 5000
+```
+
+**Ventana 3 — los códigos del segundo factor.**
+
+```bash
+cd C:\Users\User\Desktop\repositories\trazabilidad-radical\apps\api
+```
+
+```bash
+npm run demo:codigos
 ```
 
 La aplicación queda en **http://localhost:5000**
 
-Si la base quedara vacía: `npx tsx prisma/seed-demo.ts` y después `npm run demo:preparar`.
+Si la base quedara vacía, en la ventana 3: `npx tsx prisma/seed-demo.ts` y después `npm run demo:preparar`.
 
 ---
 
@@ -36,10 +56,10 @@ Si la base quedara vacía: `npx tsx prisma/seed-demo.ts` y después `npm run dem
 | Administradora de ONG | `ong.admin@demo.pe` | **sí** |
 | Administrador | `admin@demo.pe` | **sí** |
 
-**Los códigos del segundo factor ya están enrolados.** Para verlos:
+**Los códigos del segundo factor ya están enrolados.** Para verlos, en la ventana 3:
 
 ```bash
-cd apps/api && npm run demo:codigos
+npm run demo:codigos
 ```
 
 Cambian cada 30 segundos. El comando dice cuántos quedan; si estás por debajo de 10, vuelve a correrlo antes de teclear.
