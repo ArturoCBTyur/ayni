@@ -22,7 +22,9 @@
     "seed:demo": "tsx prisma/seed-demo.ts",
     "typecheck": "tsc -p tsconfig.scripts.json",
     "db:reset": "prisma migrate reset --force",
-    "medir:latencia": "tsx scripts/medir-latencia.ts"
+    "medir:latencia": "tsx scripts/medir-latencia.ts",
+    "demo:preparar": "tsx scripts/preparar-demo.ts",
+    "demo:codigos": "tsx scripts/preparar-demo.ts --codigos"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
