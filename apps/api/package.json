@@ -19,7 +19,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
-    "seed:demo": "tsx prisma/seed-demo.ts"
+    "seed:demo": "tsx prisma/seed-demo.ts",
+    "typecheck": "tsc -p tsconfig.scripts.json"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

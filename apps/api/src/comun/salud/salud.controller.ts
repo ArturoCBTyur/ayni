@@ -1,11 +1,13 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Publico } from '../../modules/identidad/decoradores';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * Criterio de salida de la Fase 0: este endpoint responde desde el
  * frontend Flutter y reporta la version real de PostgreSQL.
  */
+@Publico()
 @ApiTags('salud')
 @Controller('salud')
 export class SaludController {

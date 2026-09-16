@@ -19,7 +19,13 @@ export default tseslint.config(
       // anotacion explicita en cada punto añade ruido sin atrapar errores.
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      // ignoreRestSiblings permite el patron de omitir una clave por rest
+      // destructuring, que es como se saca el refresh token del cuerpo de
+      // la respuesta sin construir un objeto nuevo a mano.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
+      ],
       // Los importes de dinero son Decimal de Prisma: nunca deben convertirse
       // a number con aritmetica implicita.
       '@typescript-eslint/restrict-plus-operands': 'error',

@@ -15,6 +15,111 @@
           "salud"
         ]
       }
+    },
+    "/api/v1/identidad/registro": {
+      "post": {
+        "operationId": "IdentidadController_registrar",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "CU01 · Registrarse y otorgar consentimiento",
+        "tags": [
+          "identidad"
+        ]
+      }
+    },
+    "/api/v1/identidad/sesion": {
+      "post": {
+        "operationId": "IdentidadController_iniciarSesion",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Iniciar sesion; exige TOTP a ONG, auditor y administrador",
+        "tags": [
+          "identidad"
+        ]
+      }
+    },
+    "/api/v1/identidad/sesion/refrescar": {
+      "post": {
+        "operationId": "IdentidadController_refrescar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Canjear el refresh token por un par nuevo (rotacion)",
+        "tags": [
+          "identidad"
+        ]
+      }
+    },
+    "/api/v1/identidad/sesion/cerrar": {
+      "post": {
+        "operationId": "IdentidadController_cerrarSesion",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Cerrar sesion y revocar el refresh token",
+        "tags": [
+          "identidad"
+        ]
+      }
+    },
+    "/api/v1/identidad/perfil": {
+      "get": {
+        "operationId": "IdentidadController_perfil",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Perfil del usuario en sesion, con roles y consentimientos",
+        "tags": [
+          "identidad"
+        ]
+      }
+    },
+    "/api/v1/identidad/mfa/iniciar": {
+      "post": {
+        "operationId": "IdentidadController_iniciarMfa",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "RNF-02 · Generar el QR de enrolamiento TOTP",
+        "tags": [
+          "identidad"
+        ]
+      }
+    },
+    "/api/v1/identidad/mfa/confirmar": {
+      "post": {
+        "operationId": "IdentidadController_confirmarMfa",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RNF-02 · Confirmar el enrolamiento con un codigo valido",
+        "tags": [
+          "identidad"
+        ]
+      }
     }
   },
   "info": {

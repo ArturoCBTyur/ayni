@@ -13,7 +13,11 @@
     "paths": {
       "src/*": ["src/*"]
     },
-    "incremental": true,
+    // Sin compilacion incremental: nest-cli borra dist en cada build
+    // (deleteOutDir) y el .tsbuildinfo quedaba afirmando que ya habia
+    // emitido, con lo que el build solo generaba los .d.ts y el arranque
+    // fallaba por falta de dist/main.js.
+    "rootDir": "./src",
     "skipLibCheck": true,
     "strict": true,
     "strictNullChecks": true,
@@ -24,6 +28,6 @@
     "esModuleInterop": true,
     "resolveJsonModule": true
   },
-  "include": ["src/**/*", "prisma/**/*"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }

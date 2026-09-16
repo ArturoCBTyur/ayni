@@ -7,6 +7,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { cargarConfiguracion } from './config/configuracion';
 import { PrismaModule } from './comun/prisma/prisma.module';
 import { SaludModule } from './comun/salud/salud.module';
+import { IdentidadModule } from './modules/identidad/identidad.module';
 
 /**
  * Modulo raiz. Los modulos de dominio se registran aqui en el orden de las
@@ -28,7 +29,10 @@ import { SaludModule } from './comun/salud/salud.module';
     PrismaModule,
     SaludModule,
 
-    // Fase 2  - IdentidadModule      (Identidad y Acceso)
+    // Fase 2 - Identidad y Acceso. Registra el guard global de acceso, que
+    // niega por defecto: toda ruta nace cerrada salvo @Publico().
+    IdentidadModule,
+
     // Fase 2  - CumplimientoModule   (Privacidad y Cumplimiento)
     // Fase 3  - CampanasModule       (Campanas y Fondos)
     // Fase 4  - DonacionesModule     (Donaciones y Pagos)
