@@ -135,6 +135,9 @@ export class DonacionesService {
       return { procesado: false, motivo: 'referencia desconocida' };
     }
 
+    // Descarte temprano, para no abrir una transaccion por cada reintento de
+    // la pasarela. No es la guarda que protege: esa esta dentro de la
+    // transaccion, porque esta lectura puede quedar vieja.
     if (pago.eventoIdempotencia === evento.eventoId) {
       return { procesado: false, motivo: 'evento ya aplicado' };
     }
@@ -168,6 +171,20 @@ export class DonacionesService {
     // transaccion SERIALIZABLE, para que dos webhooks simultaneos del mismo
     // cargo no puedan duplicar los asientos.
     const resultado = await this.prisma.enTransaccionSerializable(async (tx) => {
+      // Se relee el pago aqui adentro, y no se reutiliza el de arriba, por dos
+      // razones que son la misma: otro webhook del mismo cargo pudo resolverlo
+      // entre la lectura y esta transaccion, y si esta transaccion se reintenta
+      // por un conflicto de serializacion, el dato de afuera ya no describe la
+      // base. Sin esta relectura, el reintento asentaria el ingreso dos veces.
+      const actual = await tx.pago.findUniqueOrThrow({ where: { id: pago.id } });
+
+      if (actual.eventoIdempotencia === evento.eventoId) {
+        return { yaResuelto: 'evento ya aplicado' };
+      }
+      if (actual.estado !== 'PENDIENTE') {
+        return { yaResuelto: `el pago ya estaba en estado ${actual.estado}` };
+      }
+
       const { neto } = await this.libro.asentarIngresoDonacion(tx, {
         fondoId: pago.donacion.fondoId,
         donacionId: pago.donacionId,
@@ -197,6 +214,10 @@ export class DonacionesService {
 
       return { neto };
     });
+
+    if ('yaResuelto' in resultado) {
+      return { procesado: false, motivo: resultado.yaResuelto };
+    }
 
     await this.bitacora.registrar({
       accion: 'DONACION_CONFIRMADA',
