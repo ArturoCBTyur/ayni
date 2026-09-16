@@ -16,7 +16,6 @@
  */
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import express from 'express';
 import type { Server } from 'node:http';
@@ -27,7 +26,6 @@ import { BitacoraModule } from '../../comun/bitacora/bitacora.module';
 import { PrismaModule } from '../../comun/prisma/prisma.module';
 import { PrismaService } from '../../comun/prisma/prisma.service';
 import { cargarConfiguracion } from '../../config/configuracion';
-import { AccesoGuard } from '../identidad/guards/acceso.guard';
 import { IdentidadModule } from '../identidad/identidad.module';
 import { TokensService } from '../identidad/servicios/tokens.service';
 import { AlmacenamientoDisco } from './almacenamiento/disco.storage';
@@ -196,12 +194,11 @@ beforeAll(async () => {
       ConfigModule.forRoot({ isGlobal: true, load: [() => cargarConfiguracion()] }),
       PrismaModule,
       BitacoraModule,
+      // Trae consigo el AccesoGuard global: es donde lo registra la aplicacion
+      // real, asi que montarlo a mano seria probar otra configuracion.
       IdentidadModule,
       GastosModule,
     ],
-    // El mismo guard global que monta la aplicacion real. Probar sin el seria
-    // probar otra aplicacion.
-    providers: [{ provide: APP_GUARD, useClass: AccesoGuard }],
   }).compile();
 
   // rawBody, igual que main.ts: la subida por URL firmada lee el cuerpo crudo.

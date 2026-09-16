@@ -32,10 +32,18 @@ async function arrancar(): Promise<void> {
   );
 
   app.setGlobalPrefix(config.get('API_PREFIX', { infer: true }));
-  app.enableCors({
-    origin: config.get('corsOrigenes', { infer: true }),
-    credentials: true,
-  });
+
+  const origenes = config.get('corsOrigenes', { infer: true });
+  // Un comodin con credentials:true deja que cualquier sitio haga peticiones
+  // autenticadas con la cookie de la victima. Los navegadores lo prohiben,
+  // pero un cliente que no sea un navegador no, y el error seria silencioso.
+  if (origenes.includes('*')) {
+    throw new Error(
+      'CORS_ORIGENES no puede contener "*": la API envia credenciales y un ' +
+        'comodin permitiria que cualquier origen las use. Liste los origenes.',
+    );
+  }
+  app.enableCors({ origin: origenes, credentials: true });
 
   // La validacion de entrada se hace con ZodPipe por ruta (ver
   // src/comun/validacion/zod.pipe.ts). No se registra el ValidationPipe de
@@ -43,6 +51,12 @@ async function arrancar(): Promise<void> {
   // proyecto ya usa Zod para la configuracion y los contratos.
 
   // RF-IN-04: API documentada con OpenAPI para integraciones futuras.
+  //
+  // El documento se genera siempre, porque el archivo de docs/ forma parte del
+  // entregable, pero la interfaz interactiva no se publica en produccion:
+  // enumera cada ruta, cada parametro y cada esquema, que es el mapa que un
+  // atacante armaria a mano.
+  const esProduccion = config.get('NODE_ENV', { infer: true }) === 'production';
   const documento = SwaggerModule.createDocument(
     app,
     new DocumentBuilder()
@@ -56,7 +70,7 @@ async function arrancar(): Promise<void> {
       .addBearerAuth()
       .build(),
   );
-  SwaggerModule.setup('docs', app, documento);
+  if (!esProduccion) SwaggerModule.setup('docs', app, documento);
 
   if (config.get('NODE_ENV', { infer: true }) === 'development') {
     writeFileSync('../../docs/openapi.json', JSON.stringify(documento, null, 2));
@@ -68,7 +82,7 @@ async function arrancar(): Promise<void> {
   await app.listen(puerto);
 
   logger.log(`API escuchando en http://localhost:${puerto}`);
-  logger.log(`OpenAPI en http://localhost:${puerto}/docs`);
+  if (!esProduccion) logger.log(`OpenAPI en http://localhost:${puerto}/docs`);
   logger.log(`Motor de verificacion: ${config.get('VERIFICACION_DRIVER', { infer: true })}`);
 }
 

@@ -32,7 +32,13 @@ import { IdentidadModule } from './modules/identidad/identidad.module';
       load: [() => cargarConfiguracion()],
     }),
     // RNF-03: proteccion frente a abuso de la API.
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    // Dos ventanas con nombre. La corta corta las rafagas; la larga es la que
+    // frena un ataque sostenido, que no ocurre en un minuto sino en horas.
+    // Las rutas que prueban credenciales las bajan con @Throttle (ASVS V2.2.1).
+    ThrottlerModule.forRoot([
+      { name: 'corto', ttl: 60_000, limit: 120 },
+      { name: 'largo', ttl: 3_600_000, limit: 2_000 },
+    ]),
     // Jobs programados: cola de verificacion, conciliacion diaria y
     // verificacion de la cadena de hashes (ADR-002, RF-CF-04, RNF-07).
     ScheduleModule.forRoot(),

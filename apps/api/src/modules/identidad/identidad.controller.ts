@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 
 import { ZodPipe } from '../../comun/validacion/zod.pipe';
@@ -54,6 +55,15 @@ export class IdentidadController {
     return publico;
   }
 
+  // 5 por minuto y 30 por hora desde la misma IP. El limite global de 120/min
+  // es razonable para navegar el catalogo y ruinoso aqui: permite 7200
+  // intentos de contrasena por hora contra una cuenta (ASVS V2.2.1). El
+  // segundo tramo es el que importa, porque un ataque no corre a rafagas de
+  // un minuto, corre durante horas.
+  @Throttle({
+    corto: { limit: 5, ttl: 60_000 },
+    largo: { limit: 30, ttl: 3_600_000 },
+  })
   @Publico()
   @Post('registro')
   @ApiOperation({ summary: 'CU01 · Registrarse y otorgar consentimiento' })
@@ -61,6 +71,10 @@ export class IdentidadController {
     return this.identidad.registrar(datos, this.contexto(req));
   }
 
+  @Throttle({
+    corto: { limit: 5, ttl: 60_000 },
+    largo: { limit: 30, ttl: 3_600_000 },
+  })
   @Publico()
   @Post('sesion')
   @HttpCode(200)
@@ -74,6 +88,7 @@ export class IdentidadController {
     return { usuario, ...this.responderConSesion(res, sesion) };
   }
 
+  @Throttle({ corto: { limit: 20, ttl: 60_000 } })
   @Publico()
   @Post('sesion/refrescar')
   @HttpCode(200)

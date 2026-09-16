@@ -21,7 +21,7 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 |---|---|---|---|---|
 | RNF-01 | Cifrado en tránsito y reposo | ⬜ Fase 5/11 | TLS en despliegue; cifrado de archivos en `StorageAdapter` | — |
 | RNF-02 | Autenticación robusta y RBAC | ✅ | `modules/identidad`: Argon2id, JWT corto + refresh rotativo en cookie httpOnly, TOTP obligatorio, guard global que niega por defecto | `identidad.spec.ts` · 15 casos |
-| RNF-03 | OWASP ASVS nivel 2 | 🟡 | `helmet`, `ThrottlerModule`, validación Zod en todo DTO, guard que niega por defecto y URLs firmadas con caducidad | `gastos.http.spec.ts` · 19 casos por HTTP: IDOR entre organizaciones, `@Roles`, token ausente o falsificado, firma alterada, enlace vencido y salida de la carpeta de almacenamiento. Falta la revisión ASVS completa por capítulo |
+| RNF-03 | OWASP ASVS nivel 2 | 🟡 | Revisión por capítulo en [revision-asvs-l2.md](revision-asvs-l2.md), con cuatro hallazgos corregidos: límite de 5/min en las rutas que prueban credenciales (antes 7 200 intentos/hora), Swagger fuera de producción, comodín de CORS rechazado al arrancar y `sharp` actualizado | `gastos.http.spec.ts` (19 casos) e `identidad.http.spec.ts` (5). Falta prueba de penetración independiente y cifrado en reposo |
 | RNF-04 | No almacenar datos de tarjeta | ✅ | Solo token y últimos 4; la tokenización ocurre en la pasarela | `donaciones.spec.ts` |
 | RNF-05 | Privacidad desde el diseño | ✅ | Consentimiento por finalidad con revocación que conserva la historia, ARCO con plazos en días hábiles y exportación de datos sin credenciales | `cumplimiento.spec.ts` · 15 casos |
 | RNF-06 | Anonimización de beneficiarios | 🟡 | Difuminado manual en el servidor + trigger de la base | `imagen.spec.ts`, `gastos.spec.ts`, `integridad.spec.ts`. Automático diferido a AIni |
@@ -100,7 +100,7 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 | Frontend Flutter | ✅ Sesión con segundo factor, causas, donación, historial, narrativas, panel de ONG, bandeja de auditoría, tablero de indicadores y derechos ARCO |
 | 10 y 11 | ⬜ Planificadas |
 
-**Pruebas hoy:** 276 en el API y 20 en Flutter (12 de widgets + 8 de formato). El detalle por suite está en la salida de `npm test`.
+**Pruebas hoy:** 281 en el API y 20 en Flutter (12 de widgets + 8 de formato). El detalle por suite está en la salida de `npm test`.
 
 Las suites del API corren en un solo worker a propósito: escriben sobre la misma base y sobre un libro contable que es un recurso global, con transacciones SERIALIZABLE y advisory locks por fondo. En paralelo se estorban y producen fallos intermitentes, que enseñan a desconfiar de la suite en lugar de a corregir el código.
 
@@ -111,7 +111,8 @@ Las suites del API corren en un solo worker a propósito: escriben sobre la mism
 | RNF-19 · Cobertura ≥ 70 % en `contable` y `gastos` | ✅ Cumplida y exigida por CI. Medirla no fue un trámite: el controlador de gastos estaba en 0 % y su ruta de subida leía `req.rawBody`, que nunca se llena para `image/*`, así que **toda subida respondía "no se recibió ningún archivo"** con el archivo entero en el cuerpo. Corregido y cubierto por una prueba que sube y descarga el mismo archivo |
 | RNF-03 · Control de acceso verificado (IDOR) | ✅ Un operador no puede listar ni registrar gastos de otra organización, aunque use la misma ruta y el mismo rol: lo que autoriza es la membresía |
 | RNF-03 · URLs firmadas | ✅ Firma alterada, enlace vencido, ausencia de token y recorrido de directorio, los cuatro rechazados |
-| RNF-03 · Revisión ASVS L2 por capítulo | ⬜ Pendiente |
+| RNF-03 · Revisión ASVS L2 por capítulo | ✅ [revision-asvs-l2.md](revision-asvs-l2.md). Cuatro hallazgos corregidos; el más grave era que el login admitía 7 200 intentos de contraseña por hora desde una IP, porque el límite de 120/min era global y se aplicaba igual a buscar campañas que a probar contraseñas |
+| RNF-03 · Prueba de penetración independiente | ⬜ No se ha hecho. La revisión la hizo quien escribió el código, y eso es una limitación real del entregable |
 | RNF-15 · WCAG 2.1 AA con NVDA | ⬜ Pendiente |
 | RNF-14 · Medición SUS con usuarios reales | ⬜ Pendiente |
 | RNF-10 · p95 de la API | ⬜ Pendiente |
