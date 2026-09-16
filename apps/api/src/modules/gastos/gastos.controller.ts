@@ -113,7 +113,12 @@ export class GastosController {
       throw new UnauthorizedException('El enlace de subida es invalido o ya expiro.');
     }
 
-    const contenido = req.rawBody;
+    // express.raw deja el binario en req.body; req.rawBody solo lo llenan los
+    // parsers que registra Nest (json, urlencoded), que no atienden image/*.
+    // Se aceptan los dos para no depender de cual middleware atendio la
+    // peticion. Leer solo rawBody hacia que toda subida respondiera "no se
+    // recibio ningun archivo", con el archivo entero en el cuerpo.
+    const contenido = Buffer.isBuffer(req.body) ? req.body : req.rawBody;
     if (!contenido?.byteLength) {
       throw new BadRequestException('No se recibio ningun archivo.');
     }
