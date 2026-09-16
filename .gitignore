@@ -45,3 +45,6 @@ desktop.ini
 
 # Contiene la contrasena generada del rol de la app
 apps/api/prisma/sql/00-crear-base.sql
+
+# Evidencias y comprobantes subidos en desarrollo
+storage/

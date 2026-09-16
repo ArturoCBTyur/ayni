@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import express from 'express';
 import helmet from 'helmet';
 import { writeFileSync } from 'node:fs';
 
@@ -23,6 +24,12 @@ async function arrancar(): Promise<void> {
   app.use(helmet());
   // El refresh token viaja en cookie httpOnly firmada (RNF-02).
   app.use(cookieParser(config.get('COOKIE_SECRET', { infer: true })));
+
+  // Las subidas llegan como binario crudo a las URLs firmadas, no como
+  // multipart: es lo que hace un PUT contra una URL prefirmada de S3.
+  app.use(
+    express.raw({ type: ['image/*', 'application/pdf', 'video/*', 'application/octet-stream'], limit: '25mb' }),
+  );
 
   app.setGlobalPrefix(config.get('API_PREFIX', { infer: true }));
   app.enableCors({
