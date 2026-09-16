@@ -14,6 +14,7 @@ import { DonacionesModule } from './modules/donaciones/donaciones.module';
 import { GastosModule } from './modules/gastos/gastos.module';
 import { AuditoriaModule } from './modules/auditoria/auditoria.module';
 import { RetornoModule } from './modules/retorno/retorno.module';
+import { AnaliticaModule } from './modules/analitica/analitica.module';
 import { VerificacionModule } from './modules/verificacion/verificacion.module';
 import { CumplimientoModule } from './modules/cumplimiento/cumplimiento.module';
 import { IdentidadModule } from './modules/identidad/identidad.module';
@@ -63,7 +64,8 @@ import { IdentidadModule } from './modules/identidad/identidad.module';
     // Fase 7 - Auditoria y Alertas.
     AuditoriaModule,
 
-    // Fase 9  - AnaliticaModule      (Analitica de Impacto)
+    // Fase 9 - Analitica de Impacto: conciliacion, indicadores y reportes.
+    AnaliticaModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

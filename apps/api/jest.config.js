@@ -7,6 +7,15 @@ module.exports = {
   collectCoverageFrom: ['**/*.(t|j)s', '!**/*.module.ts', '!**/main.ts'],
   coverageDirectory: '../coverage',
   testEnvironment: 'node',
+  // Un solo worker, a proposito. Estas no son pruebas unitarias: casi todas
+  // escriben en la misma base PostgreSQL, sobre un libro contable que es un
+  // recurso global, con transacciones SERIALIZABLE y advisory locks por fondo.
+  // En paralelo se estorban entre si: los asientos de una suite hacen fallar
+  // la conciliacion de otra, y la prueba de manipulacion del libro toma un
+  // lock ACCESS EXCLUSIVE sobre movimientos_contables que bloquea al resto.
+  // Los fallos que produce son intermitentes, que es la peor clase de fallo:
+  // ensena a desconfiar de la suite en lugar de a corregir el codigo.
+  maxWorkers: 1,
   moduleNameMapper: { '^src/(.*)$': '<rootDir>/$1' },
   // RNF-19: cobertura >= 70 % en los módulos contable y de gastos.
   coverageThreshold: {
