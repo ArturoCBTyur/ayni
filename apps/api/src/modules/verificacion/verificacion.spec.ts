@@ -12,6 +12,8 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import { BitacoraService } from '../../comun/bitacora/bitacora.service';
 import { PrismaService } from '../../comun/prisma/prisma.service';
+import { NarrativaService } from '../retorno/narrativa.service';
+import { RetornoService } from '../retorno/retorno.service';
 import { cargarConfiguracion } from '../../config/configuracion';
 import { AplicacionFifoService } from '../contable/aplicacion-fifo.service';
 import { LibroService } from '../contable/libro.service';
@@ -170,6 +172,8 @@ beforeAll(async () => {
       BitacoraService,
       LibroService,
       AplicacionFifoService,
+      NarrativaService,
+      RetornoService,
       VerificacionService,
       ColaVerificacionService,
       MotorReglasV0,

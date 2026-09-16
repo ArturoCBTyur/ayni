@@ -13,6 +13,7 @@ import { horasHabilesEntre, sumarHorasHabiles } from '../../comun/fechas';
 import { PrismaService } from '../../comun/prisma/prisma.service';
 import { OngsService } from '../campanas/ongs.service';
 import { AplicacionFifoService } from '../contable/aplicacion-fifo.service';
+import { RetornoService } from '../retorno/retorno.service';
 import type { BandejaFiltros, Reasignar, Revision } from './esquemas';
 
 /** RN-07: tiempo maximo de resolucion de un caso de auditoria. */
@@ -53,6 +54,7 @@ export class AuditoriaService {
     private readonly bitacora: BitacoraService,
     private readonly fifo: AplicacionFifoService,
     private readonly ongs: OngsService,
+    private readonly retorno: RetornoService,
   ) {}
 
   /**
@@ -234,6 +236,18 @@ export class AuditoriaService {
           notaResolucion: 'Resuelta por decision de auditoria.',
         },
       });
+
+      // Cierra el ciclo con el donante. Un fallo aqui no revierte una
+      // aprobacion ya asentada en el libro.
+      try {
+        await this.retorno.notificarImpacto(gasto.id);
+      } catch (error) {
+        this.logger.error(
+          `Gasto ${gasto.id} aprobado en auditoria, pero fallo la notificacion: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
 
       return {
         estado: 'APROBADO',

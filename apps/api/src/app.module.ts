@@ -13,6 +13,7 @@ import { ContableModule } from './modules/contable/contable.module';
 import { DonacionesModule } from './modules/donaciones/donaciones.module';
 import { GastosModule } from './modules/gastos/gastos.module';
 import { AuditoriaModule } from './modules/auditoria/auditoria.module';
+import { RetornoModule } from './modules/retorno/retorno.module';
 import { VerificacionModule } from './modules/verificacion/verificacion.module';
 import { CumplimientoModule } from './modules/cumplimiento/cumplimiento.module';
 import { IdentidadModule } from './modules/identidad/identidad.module';
@@ -53,13 +54,15 @@ import { IdentidadModule } from './modules/identidad/identidad.module';
     // Fase 5 - Gastos y Evidencias.
     GastosModule,
 
+    // Fase 8 - Motor de Retorno. Global: lo invocan verificacion y auditoria.
+    RetornoModule,
+
     // Fase 6 - Integracion AIni: hoy el Motor de Reglas v0, sin IA.
     VerificacionModule,
 
     // Fase 7 - Auditoria y Alertas.
     AuditoriaModule,
 
-    // Fase 8  - RetornoModule        (Motor de Retorno)
     // Fase 9  - AnaliticaModule      (Analitica de Impacto)
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

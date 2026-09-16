@@ -39,7 +39,7 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 | RNF-18 | Escalabilidad sin rediseño | 🟡 | Servicios sin estado; cola desacoplada | — |
 | RNF-19 | Cobertura ≥ 70 % en contable y gastos | 🟡 | Umbral activo en `jest.config.js` | Se hace exigible al existir los módulos |
 | RNF-20 | Español peruano y soles | 🟡 | `Config.locale`, `monedaSimbolo` | — |
-| RNF-21 | Narrativas veraces | ⬜ Fase 8 | Plantillas `.eta` versionadas | — |
+| RNF-21 | Narrativas veraces | ✅ | Un Proxy hace fallar cualquier plantilla que referencie un dato no verificado; el filtro de lenguaje corre sobre toda la biblioteca en las pruebas | `retorno.spec.ts` · 5 casos |
 
 ## Reglas de negocio del Entregable 2
 
@@ -68,8 +68,8 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 | RF-IA-06 | Detección de anomalías | ✅ Reglas estadísticas (±2σ, proveedor nuevo, fraccionamiento, registro tardío) en lugar de modelo |
 | RF-IA-07 | Puntaje 0-100 y nivel | ✅ **Implementado completo**: tres señales ponderadas, umbrales configurables, bloqueos duros |
 | RF-IA-08 | Explicación legible | ✅ Cada motivo con regla, resultado, mensaje en español y valor que lo disparó |
-| RF-IA-09 | Narrativa de impacto | ⬜ Fase 8 — por plantillas, que es lo que el propio entregable especifica |
-| RF-IA-10 | Recomendar fondos | ⬜ Fase 8 — por afinidad de causa, sin ML |
+| RF-IA-09 | Narrativa de impacto | ✅ Por plantillas, que es lo que el propio entregable especifica. Una por donante con su monto exacto |
+| RF-IA-10 | Recomendar fondos | ✅ Por afinidad de causa y categoría, sin ML, explicando el motivo de cada sugerencia |
 | RF-IA-11 | Etiquetas y versionado de modelos | ✅ `modelos_ia` tiene `reglas-v0` como versión activa; `revisiones_auditoria` acumulará las etiquetas |
 | RF-IA-12 | Puntaje histórico de la ONG | ✅ Se recalcula tras cada decisión de auditoría y al vencer un plazo de subsanación |
 
@@ -95,9 +95,21 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 | 5 · Gasto, comprobante y evidencia | ✅ Cerrada — hashes, dHash, nitidez, difuminado manual, URLs firmadas |
 | 6 · Motor de Verificación v0 | ✅ Cerrada — el seam de AIni, con los tres niveles y aplicación FIFO |
 | 7 · Auditoría, alertas y FIFO | ✅ Cerrada — decisión fundamentada, conflicto de interés, debido proceso reputacional |
-| 8 a 11 | ⬜ Planificadas |
+| 8 · Motor de Retorno y control social | ✅ Cerrada — narrativa por donante, filtro ético, reporte que abre caso real |
+| 9 a 11 | ⬜ Planificadas |
 
-**Pruebas hoy:** 219 en el API y 2 de widgets en Flutter. El detalle por suite está en la salida de `npm test`.
+**Pruebas hoy:** 239 en el API y 2 de widgets en Flutter. El detalle por suite está en la salida de `npm test`.
+
+### Requerimientos funcionales cerrados en la Fase 8
+
+| ID | Requerimiento | Estado |
+|---|---|---|
+| RF-12 | Notificaciones | 🟡 In-app completo; el envío por correo entra con SMTP configurado ([ADR-0004](adr/0004-notificaciones-sin-push.md)) |
+| RF-CO-01 | Narrativa personalizada por donante | ✅ Con monto aplicado, concepto, ONG, fecha y evidencia |
+| RF-CO-02 | Biblioteca de plantillas éticas | ✅ Filtro de lenguaje tolerante a acentos y flexión de género |
+| RF-PS-02 | Notificación de impacto con foto y comprobante | ✅ La evidencia solo se adjunta si está anonimizada |
+| RF-PS-04 | Preferencias de frecuencia | ✅ Quien pidió resumen no recibe aviso por cada gasto |
+| RF-SO-02 | Control social del donante | ✅ Reportar abre un caso de auditoría y devuelve el gasto a revisión |
 
 ### Requerimientos funcionales cerrados en la Fase 7
 

@@ -4,6 +4,7 @@ import { BitacoraService } from '../../comun/bitacora/bitacora.service';
 import { PrismaService } from '../../comun/prisma/prisma.service';
 import { AplicacionFifoService } from '../contable/aplicacion-fifo.service';
 import { distanciaHamming } from '../gastos/imagen';
+import { RetornoService } from '../retorno/retorno.service';
 import type { EntradaAnalisis, ResultadoAnalisis } from './contrato/analisis.contrato';
 import { MOTOR_VERIFICACION, type MotorVerificacion } from './puertos/motor-verificacion.port';
 
@@ -20,6 +21,7 @@ export class VerificacionService {
     private readonly prisma: PrismaService,
     private readonly bitacora: BitacoraService,
     private readonly fifo: AplicacionFifoService,
+    private readonly retorno: RetornoService,
     @Inject(MOTOR_VERIFICACION) private readonly motor: MotorVerificacion,
   ) {}
 
@@ -262,6 +264,7 @@ export class VerificacionService {
         },
       });
 
+      await this.notificarSinRomper(gastoId);
       return 'aprobado_automaticamente';
     }
 
@@ -297,5 +300,25 @@ export class VerificacionService {
     });
 
     return 'observado_para_subsanacion';
+  }
+
+  /**
+   * Cierra el ciclo avisando al donante, sin poner en riesgo la aprobacion.
+   *
+   * Si la narrativa falla, el gasto ya esta aprobado y el asiento contable
+   * hecho: revertir todo eso por un correo seria desproporcionado. Se deja
+   * constancia en el log y la notificacion puede reenviarse despues.
+   */
+  private async notificarSinRomper(gastoId: string): Promise<void> {
+    try {
+      const r = await this.retorno.notificarImpacto(gastoId);
+      this.logger.log(`Gasto ${gastoId}: ${r.notificaciones} donante(s) notificados.`);
+    } catch (error) {
+      this.logger.error(
+        `Gasto ${gastoId} aprobado, pero fallo la notificacion al donante: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 }
