@@ -32,13 +32,13 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 | RNF-11 | Análisis en tiempo razonable | ✅ | El motor de reglas resuelve en milisegundos; `duracionMs` se persiste en cada análisis | `verificacion.spec.ts` |
 | RNF-12 | Disponibilidad 99,5 % | ⬜ Fase 11 | — | — |
 | RNF-13 | Respaldo y recuperación | ⬜ Fase 11 | — | — |
-| RNF-14 | Experiencia de baja fricción | 🟡 | Área de toque 48 dp en `TemaApp` | Falta medición SUS de Fase 10 |
-| RNF-15 | Accesibilidad WCAG 2.1 AA | 🟡 | Contraste y toque en `TemaApp` | **Riesgo conocido**, ver ADR-0001 |
+| RNF-14 | Experiencia de baja fricción | 🟡 | Registro de gasto en 3 pantallas; toque de 48 dp | Falta medición SUS de Fase 10 |
+| RNF-15 | Accesibilidad WCAG 2.1 AA | 🟡 | Contraste, toque de 48 dp y `Semantics` en los widgets compartidos | **Riesgo confirmado**: el canvas de Flutter Web no expone elementos al DOM. Ver la evidencia en [ADR-0001](adr/0001-frontend-flutter-web.md) |
 | RNF-16 | Operación con conectividad limitada | 🟡 | El backend conserva la hora original de captura al sincronizar | `gastos.spec.ts`. Falta la cola offline en Flutter |
 | RNF-17 | Multiplataforma real | 🟡 | Flutter web + Android + iOS habilitados | `flutter build web` en CI |
 | RNF-18 | Escalabilidad sin rediseño | 🟡 | Servicios sin estado; cola desacoplada | — |
 | RNF-19 | Cobertura ≥ 70 % en contable y gastos | 🟡 | Umbral activo en `jest.config.js` | Se hace exigible al existir los módulos |
-| RNF-20 | Español peruano y soles | 🟡 | `Config.locale`, `monedaSimbolo` | — |
+| RNF-20 | Español peruano y soles | ✅ | `Formato.soles` entrega "S/ 1,234.50", el formato real del país; fechas en español | `formato_test.dart` · 8 casos |
 | RNF-21 | Narrativas veraces | ✅ | Un Proxy hace fallar cualquier plantilla que referencie un dato no verificado; el filtro de lenguaje corre sobre toda la biblioteca en las pruebas | `retorno.spec.ts` · 5 casos |
 
 ## Reglas de negocio del Entregable 2
@@ -96,9 +96,10 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 | 6 · Motor de Verificación v0 | ✅ Cerrada — el seam de AIni, con los tres niveles y aplicación FIFO |
 | 7 · Auditoría, alertas y FIFO | ✅ Cerrada — decisión fundamentada, conflicto de interés, debido proceso reputacional |
 | 8 · Motor de Retorno y control social | ✅ Cerrada — narrativa por donante, filtro ético, reporte que abre caso real |
+| Frontend Flutter (adelantado) | ✅ Sesión, causas, donación, historial, narrativas, panel de ONG y bandeja de auditoría |
 | 9 a 11 | ⬜ Planificadas |
 
-**Pruebas hoy:** 239 en el API y 2 de widgets en Flutter. El detalle por suite está en la salida de `npm test`.
+**Pruebas hoy:** 239 en el API y 10 en Flutter (2 de widgets + 8 de formato). El detalle por suite está en la salida de `npm test`.
 
 ### Requerimientos funcionales cerrados en la Fase 8
 

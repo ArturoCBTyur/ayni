@@ -467,6 +467,633 @@
           "causas"
         ]
       }
+    },
+    "/api/v1/donaciones": {
+      "post": {
+        "operationId": "DonacionesController_donar",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "CU03 · Donar a un fondo especifico",
+        "tags": [
+          "donaciones"
+        ]
+      }
+    },
+    "/api/v1/donaciones/historial": {
+      "get": {
+        "operationId": "DonacionesController_historial",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-13 · Historial con la linea de tiempo de cada aporte",
+        "tags": [
+          "donaciones"
+        ]
+      }
+    },
+    "/api/v1/suscripciones": {
+      "post": {
+        "operationId": "DonacionesController_suscribir",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "CU04 · Suscribir una donacion recurrente",
+        "tags": [
+          "donaciones"
+        ]
+      },
+      "get": {
+        "operationId": "DonacionesController_misSuscripciones",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Mis donaciones recurrentes",
+        "tags": [
+          "donaciones"
+        ]
+      }
+    },
+    "/api/v1/suscripciones/{id}": {
+      "patch": {
+        "operationId": "DonacionesController_cambiarSuscripcion",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-08 · Pausar, reanudar o cancelar en un clic",
+        "tags": [
+          "donaciones"
+        ]
+      }
+    },
+    "/api/v1/webhooks/pasarela": {
+      "post": {
+        "operationId": "DonacionesController_webhook",
+        "parameters": [
+          {
+            "name": "x-pasarela-firma",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Confirmacion de cobro firmada por la pasarela",
+        "tags": [
+          "donaciones"
+        ]
+      }
+    },
+    "/api/v1/gastos/url-subida": {
+      "post": {
+        "operationId": "GastosController_urlSubida",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Emitir URL firmada para subir comprobante o evidencia",
+        "tags": [
+          "gastos"
+        ]
+      }
+    },
+    "/api/v1/gastos": {
+      "post": {
+        "operationId": "GastosController_registrar",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "CU10 · Registrar gasto con comprobante y evidencia",
+        "tags": [
+          "gastos"
+        ]
+      }
+    },
+    "/api/v1/gastos/{id}": {
+      "get": {
+        "operationId": "GastosController_detalle",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Detalle del gasto con su analisis y evidencias",
+        "tags": [
+          "gastos"
+        ]
+      }
+    },
+    "/api/v1/ongs/{id}/gastos": {
+      "get": {
+        "operationId": "GastosController_listar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Gastos registrados por una ONG",
+        "tags": [
+          "gastos"
+        ]
+      }
+    },
+    "/api/v1/evidencias/{id}/anonimizar": {
+      "post": {
+        "operationId": "GastosController_anonimizar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "RF-DE-04 · Difuminar manualmente los rostros marcados",
+        "tags": [
+          "gastos"
+        ]
+      }
+    },
+    "/api/v1/almacenamiento/{ruta}": {
+      "put": {
+        "operationId": "GastosController_subir",
+        "parameters": [
+          {
+            "name": "ruta",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Subir un archivo con URL firmada",
+        "tags": [
+          "gastos"
+        ]
+      },
+      "get": {
+        "operationId": "GastosController_descargar",
+        "parameters": [
+          {
+            "name": "ruta",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Descargar un archivo con URL firmada",
+        "tags": [
+          "gastos"
+        ]
+      }
+    },
+    "/api/v1/almacenamiento-estado": {
+      "get": {
+        "operationId": "GastosController_estadoAlmacenamiento",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Proveedor de almacenamiento activo",
+        "tags": [
+          "gastos"
+        ]
+      }
+    },
+    "/api/v1/notificaciones": {
+      "get": {
+        "operationId": "RetornoController_bandeja",
+        "parameters": [
+          {
+            "name": "noLeidas",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "CU06 · Narrativas de impacto recibidas",
+        "tags": [
+          "retorno"
+        ]
+      }
+    },
+    "/api/v1/notificaciones/{id}/leida": {
+      "post": {
+        "operationId": "RetornoController_marcarLeida",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Marcar una notificacion como leida",
+        "tags": [
+          "retorno"
+        ]
+      }
+    },
+    "/api/v1/feedback": {
+      "post": {
+        "operationId": "RetornoController_feedback",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "CU07 · Valorar la evidencia o reportar una inconsistencia",
+        "tags": [
+          "retorno"
+        ]
+      }
+    },
+    "/api/v1/recomendaciones": {
+      "get": {
+        "operationId": "RetornoController_recomendaciones",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-IA-10 · Fondos afines al historial, sin presion comercial",
+        "tags": [
+          "retorno"
+        ]
+      }
+    },
+    "/api/v1/gastos/{id}/notificar": {
+      "post": {
+        "operationId": "RetornoController_notificar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Reenviar las narrativas de un gasto ya aprobado",
+        "tags": [
+          "retorno"
+        ]
+      }
+    },
+    "/api/v1/verificacion/estado": {
+      "get": {
+        "operationId": "VerificacionController_estado",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Motor activo, regla vigente y estado de la cola",
+        "tags": [
+          "verificacion"
+        ]
+      }
+    },
+    "/api/v1/verificacion/regla": {
+      "post": {
+        "operationId": "VerificacionController_configurarRegla",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "CU18 · Configurar umbrales y pesos de confianza",
+        "tags": [
+          "verificacion"
+        ]
+      }
+    },
+    "/api/v1/verificacion/gastos/{id}/reanalizar": {
+      "post": {
+        "operationId": "VerificacionController_reanalizar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Volver a analizar un gasto con la regla vigente",
+        "tags": [
+          "verificacion"
+        ]
+      }
+    },
+    "/api/v1/verificacion/cola/procesar": {
+      "post": {
+        "operationId": "VerificacionController_procesarCola",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Forzar una pasada de la cola de verificacion",
+        "tags": [
+          "verificacion"
+        ]
+      }
+    },
+    "/api/v1/auditoria/bandeja": {
+      "get": {
+        "operationId": "AuditoriaController_bandeja",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "CU15 · Casos por revisar, por antiguedad o monto",
+        "tags": [
+          "auditoria"
+        ]
+      }
+    },
+    "/api/v1/auditoria/indicadores": {
+      "get": {
+        "operationId": "AuditoriaController_indicadores",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RN-08 · Falsos aprobados, SLA y reparto de niveles",
+        "tags": [
+          "auditoria"
+        ]
+      }
+    },
+    "/api/v1/auditoria/gastos/{id}/revision": {
+      "post": {
+        "operationId": "AuditoriaController_revisar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "CU15 · Aprobar, observar o rechazar con comentario obligatorio",
+        "tags": [
+          "auditoria"
+        ]
+      }
+    },
+    "/api/v1/auditoria/gastos/{id}/reasignar": {
+      "post": {
+        "operationId": "AuditoriaController_reasignar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "CU15 · Reasignar un caso por conflicto de interes",
+        "tags": [
+          "auditoria"
+        ]
+      }
+    },
+    "/api/v1/auditoria/muestreo": {
+      "post": {
+        "operationId": "AuditoriaController_muestreo",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "RN-08 · Seleccionar casos ALTO para auditoria por muestreo",
+        "tags": [
+          "auditoria"
+        ]
+      }
+    },
+    "/api/v1/ongs/{id}/alertas": {
+      "get": {
+        "operationId": "AuditoriaController_alertasDeOng",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Observaciones abiertas de la organizacion",
+        "tags": [
+          "auditoria"
+        ]
+      }
+    },
+    "/api/v1/alertas/{id}/subsanar": {
+      "post": {
+        "operationId": "AuditoriaController_subsanar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "CU11 · Responder una observacion; el gasto vuelve a analisis",
+        "tags": [
+          "auditoria"
+        ]
+      }
+    },
+    "/api/v1/alertas/{id}/descartar": {
+      "post": {
+        "operationId": "AuditoriaController_descartar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Cerrar una alerta que no corresponde",
+        "tags": [
+          "auditoria"
+        ]
+      }
     }
   },
   "info": {

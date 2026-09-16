@@ -23,6 +23,8 @@ Se mantiene **Flutter Web** en el canal stable, empezando por el objetivo web y 
 
 - Coste de aprendizaje de Dart y del modelo de widgets sobre el plazo del MVP. Se mitiga ordenando las fases de menor a mayor complejidad de interfaz.
 - **La accesibilidad es el riesgo real.** Flutter Web renderiza a canvas y su árbol de semántica para lectores de pantalla es más frágil que el HTML nativo. Cumplir WCAG 2.1 AA (RNF-15) exige `Semantics` explícito desde el inicio y verificación con NVDA en la Fase 10. Si algún criterio no se alcanza, se documenta como limitación en el informe en lugar de declararlo cumplido.
+
+  **Evidencia temprana del riesgo.** Al verificar la aplicación construida se confirmaron dos síntomas del mismo problema de fondo: extraer el texto de la página devuelve vacío, porque no hay nodos de DOM que leer, y localizar un control por su etiqueta no funciona, porque no existe como elemento. Para una herramienta automatizada eso significa tener que calcular coordenadas; para un lector de pantalla significa que, sin `Semantics` explícito, no hay nada que anunciar. No es un problema de esta implementación sino de cómo Flutter dibuja en web, y es la razón por la que RNF-15 se trata como riesgo abierto y no como un pendiente rutinario.
 - El desarrollo local usa Edge (`flutter run -d edge`) porque esta máquina no tiene Chrome instalado.
 
 ## Versiones fijadas
