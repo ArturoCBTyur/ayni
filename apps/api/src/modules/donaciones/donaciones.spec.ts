@@ -558,3 +558,106 @@ describe('Integridad del libro con varias donaciones', () => {
     expect(extracto.map((m) => m.secuencia)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 });
+
+describe('Concurrencia sobre el mismo fondo', () => {
+  /** Crea el cobro pendiente y devuelve lo necesario para disparar su webhook. */
+  async function cobroPendiente(monto: number, fondo: string) {
+    const r = await donaciones.donar(
+      donanteUsuarioId,
+      { fondoId: fondo, monto, tokenTarjeta: 'tok_ok_4242', anonima: false },
+      {},
+    );
+    const pago = await prisma.pago.findUniqueOrThrow({
+      where: { referenciaExterna: r.referenciaExterna },
+    });
+    return { ...r, monto, comision: Number(pago.comision) };
+  }
+
+  it('tres donaciones confirmadas a la vez no pierden ni duplican asientos', async () => {
+    const fondoPropio = await prisma.fondo.create({
+      data: {
+        campanaId,
+        nombre: `Fondo concurrente ${marca}`,
+        categoriaGasto: 'ALIMENTOS',
+        meta: 10_000,
+      },
+    });
+
+    // Se crean antes y de a uno: donar() no toca el libro, asi que la carrera
+    // que interesa empieza recien cuando llegan los webhooks.
+    const cobros: Awaited<ReturnType<typeof cobroPendiente>>[] = [];
+    for (const monto of [40, 65, 90]) {
+      cobros.push(await cobroPendiente(monto, fondoPropio.id));
+    }
+
+    const resultados = await Promise.all(
+      cobros.map((c) =>
+        donaciones.procesarWebhook(
+          eventoPara(c.referenciaExterna, c.donacionId, {
+            monto: c.monto,
+            comision: c.comision,
+          }),
+        ),
+      ),
+    );
+
+    // Ninguno falla. Sin reintento, PostgreSQL aborta a los que pierden la
+    // carrera de serializacion y esos donantes reciben un error con la
+    // tarjeta ya cobrada.
+    expect(resultados.every((r) => r.procesado)).toBe(true);
+
+    const cadena = await libro.verificarCadena(fondoPropio.id);
+    expect(cadena.rota).toBe(false);
+    expect(cadena.movimientos).toBe(9); // 3 donaciones x 3 asientos
+
+    // La secuencia sigue siendo continua: el encadenamiento serializo lo que
+    // llego en paralelo, sin huecos ni numeros repetidos.
+    const extracto = await libro.extracto(fondoPropio.id);
+    expect(extracto.map((m) => m.secuencia)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+    const netoEsperado = cobros.reduce(
+      (suma, c) => suma.plus(new Prisma.Decimal(c.monto).minus(c.comision)),
+      new Prisma.Decimal(0),
+    );
+    const f = await prisma.fondo.findUniqueOrThrow({ where: { id: fondoPropio.id } });
+    expect(f.saldoRetenido.toFixed(2)).toBe(netoEsperado.toFixed(2));
+  });
+
+  it('el mismo evento entregado dos veces a la vez se asienta una sola vez', async () => {
+    const fondoPropio = await prisma.fondo.create({
+      data: {
+        campanaId,
+        nombre: `Fondo evento doble ${marca}`,
+        categoriaGasto: 'ALIMENTOS',
+        meta: 10_000,
+      },
+    });
+
+    const cobro = await cobroPendiente(150, fondoPropio.id);
+    const evento = eventoPara(cobro.referenciaExterna, cobro.donacionId, {
+      monto: cobro.monto,
+      comision: cobro.comision,
+    });
+
+    // La misma entrega, dos veces, sin espera entre una y otra: las dos leen
+    // el pago en PENDIENTE antes de que ninguna lo resuelva. Es el caso que
+    // la guarda de idempotencia de afuera no alcanza a cubrir.
+    const [a, b] = await Promise.all([
+      donaciones.procesarWebhook(evento),
+      donaciones.procesarWebhook(evento),
+    ]);
+
+    const aplicados = [a, b].filter((r) => r.procesado);
+    expect(aplicados).toHaveLength(1);
+
+    // Lo que de verdad importa: el libro. Seis asientos en vez de tres serian
+    // el doble del dinero que entro.
+    const cadena = await libro.verificarCadena(fondoPropio.id);
+    expect(cadena.movimientos).toBe(3);
+    expect(cadena.rota).toBe(false);
+
+    const neto = new Prisma.Decimal(cobro.monto).minus(cobro.comision);
+    const f = await prisma.fondo.findUniqueOrThrow({ where: { id: fondoPropio.id } });
+    expect(f.saldoRetenido.toFixed(2)).toBe(neto.toFixed(2));
+  });
+});

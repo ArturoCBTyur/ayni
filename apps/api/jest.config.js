@@ -16,6 +16,9 @@ module.exports = {
   // Los fallos que produce son intermitentes, que es la peor clase de fallo:
   // ensena a desconfiar de la suite en lugar de a corregir el codigo.
   maxWorkers: 1,
+  // Reactiva los triggers de inmutabilidad del libro por si una corrida
+  // anterior se interrumpio con alguno apagado. Ver preparar-pruebas.ts.
+  globalSetup: '<rootDir>/comun/prisma/preparar-pruebas.ts',
   moduleNameMapper: { '^src/(.*)$': '<rootDir>/$1' },
   // RNF-19: cobertura >= 70 % en los módulos contable y de gastos.
   coverageThreshold: {

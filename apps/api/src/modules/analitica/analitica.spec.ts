@@ -194,15 +194,6 @@ beforeAll(async () => {
   fifo = modulo.get(AplicacionFifoService);
   await prisma.$connect();
 
-  // Se reactivan por si una corrida anterior se interrumpio con ellos
-  // apagados. Es idempotente y evita que la suite herede una base sin
-  // protecciones, que es justamente lo que aqui se esta probando.
-  for (const trigger of TRIGGERS_INMUTABILIDAD) {
-    await prisma.$executeRawUnsafe(
-      `ALTER TABLE movimientos_contables ENABLE TRIGGER ${trigger}`,
-    );
-  }
-
   const ong = await prisma.ong.create({
     data: {
       ruc: `20${Math.floor(10_000_000 + Math.random() * 89_999_999)}1`,

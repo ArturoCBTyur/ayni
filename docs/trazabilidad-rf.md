@@ -25,7 +25,7 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 | RNF-04 | No almacenar datos de tarjeta | ✅ | Solo token y últimos 4; la tokenización ocurre en la pasarela | `donaciones.spec.ts` |
 | RNF-05 | Privacidad desde el diseño | ✅ | Consentimiento por finalidad con revocación que conserva la historia, ARCO con plazos en días hábiles y exportación de datos sin credenciales | `cumplimiento.spec.ts` · 15 casos |
 | RNF-06 | Anonimización de beneficiarios | 🟡 | Difuminado manual en el servidor + trigger de la base | `imagen.spec.ts`, `gastos.spec.ts`, `integridad.spec.ts`. Automático diferido a AIni |
-| RNF-07 | Libro de movimientos inalterable | ✅ | `fn_libro_solo_insercion`, `fn_movimiento_encadenar`, `fn_verificar_cadena` | `integridad.spec.ts` · 7 casos |
+| RNF-07 | Libro de movimientos inalterable | ✅ | `fn_libro_solo_insercion`, `fn_movimiento_encadenar`, `fn_verificar_cadena`, más la verificación diaria de todas las cadenas en `ConciliacionService` | `integridad.spec.ts` · 7 casos; `analitica.spec.ts` altera un movimiento y comprueba que la conciliación lo detecta |
 | RNF-08 | Bitácora de acciones sensibles | ✅ | `BitacoraService` como punto único de escritura, con comparación antes/después; registro atómico dentro de transacción donde hace falta | `identidad.spec.ts`, `cumplimiento.spec.ts` |
 | RNF-09 | Explicabilidad de las decisiones | ✅ | Cada motivo dice qué regla evaluó, cómo salió y con qué valor; el análisis queda atado al motor y a la regla vigente | `reglas-v0.motor.spec.ts`, `verificacion.spec.ts` |
 | RNF-10 | p95 de API bajo 500 ms lectura | ⬜ Fase 10 | — | — |
@@ -36,7 +36,7 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 | RNF-15 | Accesibilidad WCAG 2.1 AA | 🟡 | Contraste, toque de 48 dp y `Semantics` en los widgets compartidos | **Riesgo confirmado**: el canvas de Flutter Web no expone elementos al DOM. Ver la evidencia en [ADR-0001](adr/0001-frontend-flutter-web.md) |
 | RNF-16 | Operación con conectividad limitada | 🟡 | El backend conserva la hora original de captura al sincronizar | `gastos.spec.ts`. Falta la cola offline en Flutter |
 | RNF-17 | Multiplataforma real | 🟡 | Flutter web + Android + iOS habilitados | `flutter build web` en CI |
-| RNF-18 | Escalabilidad sin rediseño | 🟡 | Servicios sin estado; cola desacoplada | — |
+| RNF-18 | Escalabilidad sin rediseño | 🟡 | Servicios sin estado; cola desacoplada; las transacciones contables reintentan ante conflicto de serialización, que es lo que exige SERIALIZABLE bajo concurrencia real | `donaciones.spec.ts` · tres donaciones confirmadas a la vez sobre un mismo fondo, y el mismo webhook entregado dos veces en paralelo |
 | RNF-19 | Cobertura ≥ 70 % en contable y gastos | 🟡 | Umbral activo en `jest.config.js` | Se hace exigible al existir los módulos |
 | RNF-20 | Español peruano y soles | ✅ | `Formato.soles` entrega "S/ 1,234.50", el formato real del país; fechas en español | `formato_test.dart` · 8 casos |
 | RNF-21 | Narrativas veraces | ✅ | Un Proxy hace fallar cualquier plantilla que referencie un dato no verificado; el filtro de lenguaje corre sobre toda la biblioteca en las pruebas | `retorno.spec.ts` · 5 casos |
@@ -46,7 +46,7 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 | ID | Regla | Estado | Prueba |
 |---|---|---|---|
 | RN-01 | Toda donación pertenece a un único fondo | ✅ | `integridad.spec.ts` · "pertenece a otro fondo" |
-| RN-02 | La comisión se registra como movimiento separado | ✅ | `donaciones.spec.ts` |
+| RN-02 | La comisión se registra como movimiento separado | ✅ | `donaciones.spec.ts`. Un mismo cobro no se asienta dos veces ni aunque el webhook llegue dos veces en paralelo: la guarda de idempotencia se evalúa **dentro** de la transacción, porque una leída antes queda vieja si hay reintento |
 | RN-03 | Los movimientos no se editan ni eliminan | ✅ | `integridad.spec.ts` · 3 casos |
 | RN-04 | La suma aplicada iguala el monto aprobado | ✅ | `integridad.spec.ts` · "no iguala el monto aprobado" |
 | RN-05 | Toda evidencia con rostros se anonimiza | ✅ | `integridad.spec.ts` · 2 casos de privacidad |
@@ -96,10 +96,27 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 | 6 · Motor de Verificación v0 | ✅ Cerrada — el seam de AIni, con los tres niveles y aplicación FIFO |
 | 7 · Auditoría, alertas y FIFO | ✅ Cerrada — decisión fundamentada, conflicto de interés, debido proceso reputacional |
 | 8 · Motor de Retorno y control social | ✅ Cerrada — narrativa por donante, filtro ético, reporte que abre caso real |
+| 9 · Conciliación, analítica y reportes | 🟡 API completa — conciliación entre fuentes independientes, indicadores de la Tabla 3 y exportaciones. Falta el tablero de KPIs en Flutter, que es parte del criterio de salida de la fase |
 | Frontend Flutter (adelantado) | ✅ Sesión, causas, donación, historial, narrativas, panel de ONG y bandeja de auditoría |
-| 9 a 11 | ⬜ Planificadas |
+| 10 y 11 | ⬜ Planificadas |
 
-**Pruebas hoy:** 239 en el API y 10 en Flutter (2 de widgets + 8 de formato). El detalle por suite está en la salida de `npm test`.
+**Pruebas hoy:** 257 en el API y 10 en Flutter (2 de widgets + 8 de formato). El detalle por suite está en la salida de `npm test`.
+
+Las suites del API corren en un solo worker a propósito: escriben sobre la misma base y sobre un libro contable que es un recurso global, con transacciones SERIALIZABLE y advisory locks por fondo. En paralelo se estorban y producen fallos intermitentes, que enseñan a desconfiar de la suite en lugar de a corregir el código.
+
+### Requerimientos funcionales cerrados en la Fase 9
+
+| ID | Requerimiento | Estado |
+|---|---|---|
+| RF-15 | Exportación de reportes | ✅ CSV según RFC 4180 del libro, los gastos y la conciliación. El extracto incluye `hash_previo` y `hash_actual` para que un tercero recalcule la cadena por su cuenta |
+| RF-CF-04 | Conciliación con reporte de diferencias | ✅ Seis comprobaciones entre fuentes escritas por caminos independientes; no recalcula desde una sola, porque entonces cuadraría siempre y no probaría nada |
+| CU16 | Conciliación contable | ✅ Automática cada madrugada, forzable por el administrador. Las pruebas rompen el libro a propósito y verifican que la detecta, la nombra y reporta la diferencia |
+| CU17 | Informe de auditoría de una organización | ✅ Incluye la verificación de cadena de cada fondo, las decisiones de auditoría con su comentario y el estado de verificación de la ONG |
+| CU20 | Tablero de indicadores transdisciplinarios | ✅ Los de la Tabla 3. Los que no se pueden medir todavía se declaran **con su motivo** en vez de omitirse: un tablero que solo muestra lo que sabe medir sugiere que eso era todo lo que había que medir |
+| RNF-07 | Verificación diaria de la cadena | ✅ Corre con la conciliación y reporta qué fondo se rompió |
+| CU20 (interfaz) | Tablero de KPIs para el administrador | ⬜ El endpoint `/analitica/tablero` entrega los indicadores; falta la pantalla en Flutter con `fl_chart` |
+
+Tres indicadores de la Tabla 3 quedan sin valor y así se muestran: SOC-1 y PSI-1 necesitan instrumentos externos (encuesta Likert y prueba de usabilidad), e INF-3 mide la exactitud de una extracción automática de campos que esta versión no hace — se podrá medir cuando AIni lea el comprobante y haya una lectura que contrastar.
 
 ### Requerimientos funcionales cerrados en la Fase 8
 

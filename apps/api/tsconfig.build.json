@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  // nest build toma este archivo por convencion. Sin el, las 14 suites de
+  // pruebas terminaban compiladas dentro de dist/ y viajaban al despliegue.
+  // Importa mas que el tamano: varias contienen sentencias que apagan los
+  // triggers de inmutabilidad de movimientos_contables para poder simular una
+  // manipulacion del libro. Eso es codigo util en una base de pruebas y es lo
+  // ultimo que deberia existir dentro del artefacto que corre en produccion.
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/**/*.spec.ts",
+    "src/comun/prisma/preparar-pruebas.ts"
+  ]
+}
