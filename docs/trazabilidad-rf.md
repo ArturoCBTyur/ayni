@@ -51,8 +51,8 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 | RN-04 | La suma aplicada iguala el monto aprobado | ✅ | `integridad.spec.ts` · "no iguala el monto aprobado" |
 | RN-05 | Toda evidencia con rostros se anonimiza | ✅ | `integridad.spec.ts` · 2 casos de privacidad |
 | RN-06 | El nivel se calcula con la regla vigente y queda registrado | ✅ | `verificacion.spec.ts` · cambiar umbrales no reescribe análisis anteriores |
-| RN-07 | Resolución de auditoría en 48 h hábiles | ⬜ Fase 7 | — |
-| RN-08 | Muestreo de casos ALTO | ⬜ Fase 7 | Campo `esMuestreo` ya existe |
+| RN-07 | Resolución de auditoría en 48 h hábiles | ✅ | `auditoria.spec.ts` · el SLA cuenta horas hábiles saltando fines de semana |
+| RN-08 | Muestreo de casos ALTO | ✅ | 10 % de los aprobados automáticamente; alimenta el indicador de falsos aprobados |
 
 ## Requerimientos funcionales de AIni — sustituciones sin IA
 
@@ -71,7 +71,7 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 | RF-IA-09 | Narrativa de impacto | ⬜ Fase 8 — por plantillas, que es lo que el propio entregable especifica |
 | RF-IA-10 | Recomendar fondos | ⬜ Fase 8 — por afinidad de causa, sin ML |
 | RF-IA-11 | Etiquetas y versionado de modelos | ✅ `modelos_ia` tiene `reglas-v0` como versión activa; `revisiones_auditoria` acumulará las etiquetas |
-| RF-IA-12 | Puntaje histórico de la ONG | 🟡 Campo y desglose creados; el recálculo entra en Fase 7 |
+| RF-IA-12 | Puntaje histórico de la ONG | ✅ Se recalcula tras cada decisión de auditoría y al vencer un plazo de subsanación |
 
 ## Requerimientos externos que necesitan credenciales
 
@@ -94,9 +94,19 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 | 4 · Donación, pago y retención | ✅ Cerrada — pasarela simulada con webhook firmado, libro cuadrando |
 | 5 · Gasto, comprobante y evidencia | ✅ Cerrada — hashes, dHash, nitidez, difuminado manual, URLs firmadas |
 | 6 · Motor de Verificación v0 | ✅ Cerrada — el seam de AIni, con los tres niveles y aplicación FIFO |
-| 7 a 11 | ⬜ Planificadas |
+| 7 · Auditoría, alertas y FIFO | ✅ Cerrada — decisión fundamentada, conflicto de interés, debido proceso reputacional |
+| 8 a 11 | ⬜ Planificadas |
 
-**Pruebas hoy:** 199 en el API y 2 de widgets en Flutter. El detalle por suite está en la salida de `npm test`.
+**Pruebas hoy:** 219 en el API y 2 de widgets en Flutter. El detalle por suite está en la salida de `npm test`.
+
+### Requerimientos funcionales cerrados en la Fase 7
+
+| ID | Requerimiento | Estado |
+|---|---|---|
+| RF-14 | Panel de auditoría con vista comparativa | ✅ Bandeja por antigüedad o monto, con nivel, score, SLA y alertas abiertas |
+| CU11 | Subsanar alerta o justificar | ✅ Responder devuelve el gasto a análisis, no lo aprueba |
+| CU15 | Revisar casos de confianza media | ✅ Comentario obligatorio; aprobar usa la misma ruta FIFO que la aprobación automática |
+| RF-SO-04 | Debido proceso reputacional | ✅ Un job horario activa `afectaReputacion` solo al vencer el plazo, y nunca sobre una alerta ya respondida |
 
 ### Requerimientos funcionales cerrados en la Fase 3
 

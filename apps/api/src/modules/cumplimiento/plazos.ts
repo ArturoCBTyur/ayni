@@ -1,5 +1,9 @@
 import type { TipoArco } from '@prisma/client';
 
+import { sumarDiasHabiles } from '../../comun/fechas';
+
+export { sumarDiasHabiles };
+
 /**
  * Plazos de atencion de los derechos ARCO.
  *
@@ -17,27 +21,6 @@ export const DIAS_HABILES_ARCO: Record<TipoArco, number> = {
   CANCELACION: 10,
   OPOSICION: 10,
 };
-
-/**
- * Suma dias habiles a una fecha, saltando sabados y domingos.
- *
- * No contempla feriados nacionales: incorporarlos exige un calendario
- * mantenido. Al no restarlos, el plazo calculado es mas corto que el legal,
- * asi que el sistema se exige a si mismo antes de tiempo. Es el lado seguro
- * del error.
- */
-export function sumarDiasHabiles(desde: Date, dias: number): Date {
-  const fecha = new Date(desde);
-  let restantes = dias;
-
-  while (restantes > 0) {
-    fecha.setDate(fecha.getDate() + 1);
-    const dia = fecha.getDay();
-    if (dia !== 0 && dia !== 6) restantes -= 1;
-  }
-
-  return fecha;
-}
 
 export function calcularPlazoArco(tipo: TipoArco, desde = new Date()): Date {
   return sumarDiasHabiles(desde, DIAS_HABILES_ARCO[tipo]);
