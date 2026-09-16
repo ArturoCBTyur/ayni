@@ -1,0 +1,980 @@
+// ===========================================================================
+//  Trazabilidad Radical - Modelo de datos
+//  Entregable 2, seccion 6. 26 tablas de dominio en 5 dominios + 2 operativas.
+//
+//  Criterios de diseño (seccion 6.1):
+//   - PK UUID para evitar enumeracion de recursos desde la API   [INF DER]
+//   - Importes en NUMERIC(12,2), nunca punto flotante            [CYF]
+//   - JSONB solo para datos semiestructurados                    [INF]
+//   - Libro de movimientos de solo insercion con cadena de hashes [CYF INF]
+//   - Archivos fuera de la BD: URL + SHA-256 + hash perceptual   [DER INF]
+//   - Cumplimiento (consentimientos, ARCO, bitacora) de primer nivel [DER]
+//
+//  Las reglas de integridad de la seccion 6.6 (triggers, cadena de hashes,
+//  inmutabilidad del libro) viven en migraciones SQL escritas a mano, porque
+//  Prisma no las modela. Ver prisma/migrations/.
+// ===========================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================================================================
+//  DOMINIO 1 - IDENTIDAD Y CUMPLIMIENTO                          [INF DER]
+// ===========================================================================
+
+enum EstadoUsuario {
+  PENDIENTE_VERIFICACION
+  ACTIVO
+  BLOQUEADO
+}
+
+/// Cuenta de acceso de cualquier persona usuaria.
+model Usuario {
+  id                 String        @id @default(uuid()) @db.Uuid
+  correo             String        @unique
+  hashPassword       String        @map("hash_password")
+  nombres            String
+  apellidos          String
+  telefono           String?
+  estado             EstadoUsuario @default(PENDIENTE_VERIFICACION)
+  correoVerificadoEn DateTime?     @map("correo_verificado_en") @db.Timestamptz(6)
+  /// Secreto TOTP cifrado. RNF-02: MFA obligatorio para ONG, auditor y admin.
+  totpSecreto        String?       @map("totp_secreto")
+  totpHabilitado     Boolean       @default(false) @map("totp_habilitado")
+  ultimoAccesoEn     DateTime?     @map("ultimo_acceso_en") @db.Timestamptz(6)
+  creadoEn           DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn      DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(6)
+
+  roles                UsuarioRol[]
+  consentimientos      Consentimiento[]
+  solicitudesArco      SolicitudArco[]      @relation("SolicitanteArco")
+  solicitudesAtendidas SolicitudArco[]      @relation("AtendidoPorArco")
+  bitacora             BitacoraAuditoria[]
+  sesiones             Sesion[]
+  donante              Donante?
+  membresias           OngMiembro[]
+  gastosRegistrados    Gasto[]
+  revisiones           RevisionAuditoria[]
+  notificaciones       Notificacion[]
+  rolesAsignados       UsuarioRol[]         @relation("AsignadoPor")
+  ongsVerificadas      Ong[]                @relation("VerificadoPor")
+  reglasConfiguradas   ReglaConfianza[]
+  alertasResueltas     Alerta[]
+  movimientosCreados   MovimientoContable[]
+
+  @@index([estado])
+  @@map("usuarios")
+}
+
+/// Catalogo de roles (RBAC). RF-02.
+model Rol {
+  id          String   @id @default(uuid()) @db.Uuid
+  codigo      String   @unique
+  nombre      String
+  descripcion String?
+  creadoEn    DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  usuarios UsuarioRol[]
+
+  @@map("roles")
+}
+
+/// Asignacion de roles a usuarios, con rastro de quien la hizo (RNF-08).
+model UsuarioRol {
+  usuarioId   String   @map("usuario_id") @db.Uuid
+  rolId       String   @map("rol_id") @db.Uuid
+  asignadoPor String?  @map("asignado_por") @db.Uuid
+  asignadoEn  DateTime @default(now()) @map("asignado_en") @db.Timestamptz(6)
+
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  rol       Rol      @relation(fields: [rolId], references: [id], onDelete: Restrict)
+  asignador Usuario? @relation("AsignadoPor", fields: [asignadoPor], references: [id], onDelete: SetNull)
+
+  @@id([usuarioId, rolId])
+  @@index([rolId])
+  @@map("usuario_roles")
+}
+
+enum FinalidadConsentimiento {
+  TRATAMIENTO_DATOS
+  COMUNICACIONES
+  USO_IMAGEN
+}
+
+/// Consentimiento por finalidad, con version de politica y revocacion.
+/// RF-DE-01, RNF-05. Ley N.o 29733.                                  [DER]
+model Consentimiento {
+  id              String                  @id @default(uuid()) @db.Uuid
+  usuarioId       String                  @map("usuario_id") @db.Uuid
+  finalidad       FinalidadConsentimiento
+  versionPolitica String                  @map("version_politica")
+  otorgado        Boolean
+  otorgadoEn      DateTime                @default(now()) @map("otorgado_en") @db.Timestamptz(6)
+  revocadoEn      DateTime?               @map("revocado_en") @db.Timestamptz(6)
+  ip              String?
+  userAgent       String?                 @map("user_agent")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId, finalidad])
+  @@map("consentimientos")
+}
+
+enum TipoArco {
+  ACCESO
+  RECTIFICACION
+  CANCELACION
+  OPOSICION
+}
+
+enum EstadoArco {
+  RECIBIDA
+  EN_PROCESO
+  ATENDIDA
+  RECHAZADA
+}
+
+/// Solicitudes de acceso, rectificacion, cancelacion y oposicion.
+/// RF-DE-02. El plazo legal se controla con plazoLimite.              [DER]
+model SolicitudArco {
+  id           String     @id @default(uuid()) @db.Uuid
+  usuarioId    String     @map("usuario_id") @db.Uuid
+  tipo         TipoArco
+  detalle      String
+  estado       EstadoArco @default(RECIBIDA)
+  plazoLimite  DateTime   @map("plazo_limite") @db.Timestamptz(6)
+  respuesta    String?
+  atendidoPor  String?    @map("atendido_por") @db.Uuid
+  respondidoEn DateTime?  @map("respondido_en") @db.Timestamptz(6)
+  creadoEn     DateTime   @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  usuario      Usuario  @relation("SolicitanteArco", fields: [usuarioId], references: [id], onDelete: Cascade)
+  atendidoPorU Usuario? @relation("AtendidoPorArco", fields: [atendidoPor], references: [id], onDelete: SetNull)
+
+  @@index([estado, plazoLimite])
+  @@map("solicitudes_arco")
+}
+
+/// Registro de toda accion sensible con valor anterior y nuevo.
+/// RNF-08: retencion minima de 5 años.                            [DER CYF]
+model BitacoraAuditoria {
+  id            String   @id @default(uuid()) @db.Uuid
+  usuarioId     String?  @map("usuario_id") @db.Uuid
+  accion        String
+  entidad       String
+  entidadId     String?  @map("entidad_id")
+  valorAnterior Json?    @map("valor_anterior")
+  valorNuevo    Json?    @map("valor_nuevo")
+  ip            String?
+  userAgent     String?  @map("user_agent")
+  creadoEn      DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([entidad, entidadId])
+  @@index([creadoEn])
+  @@map("bitacora_auditoria")
+}
+
+// ===========================================================================
+//  DOMINIO 2 - ONG, CAMPAÑAS, FONDOS Y LIBRO CONTABLE            [SOC CYF]
+// ===========================================================================
+
+enum EstadoVerificacionOng {
+  PENDIENTE
+  EN_REVISION
+  VERIFICADA
+  RECHAZADA
+  SUSPENDIDA
+}
+
+/// Organizacion, RUC, registros, estado de verificacion y puntaje.
+/// CU08, CU14, RF-SO-01.                                          [SOC DER]
+model Ong {
+  id                     String                @id @default(uuid()) @db.Uuid
+  ruc                    String                @unique @db.VarChar(11)
+  razonSocial            String                @map("razon_social")
+  nombreComercial        String?               @map("nombre_comercial")
+  representanteLegal     String                @map("representante_legal")
+  documentoRepresentante String                @map("documento_representante")
+  direccion              String
+  departamento           String
+  provincia              String?
+  distrito               String?
+  correoContacto         String                @map("correo_contacto")
+  telefono               String?
+  sitioWeb               String?               @map("sitio_web")
+  descripcion            String?
+  logoUrl                String?               @map("logo_url")
+  estadoVerificacion     EstadoVerificacionOng @default(PENDIENTE) @map("estado_verificacion")
+  verificadaEn           DateTime?             @map("verificada_en") @db.Timestamptz(6)
+  verificadaPor          String?               @map("verificada_por") @db.Uuid
+  motivoRechazo          String?               @map("motivo_rechazo")
+  /// Puntaje publico y explicable (RF-SO-01). Recalculado por RF-IA-12.
+  puntajeConfianza       Decimal               @default(50.00) @map("puntaje_confianza") @db.Decimal(5, 2)
+  desglosePuntaje        Json?                 @map("desglose_puntaje")
+  cuentaRecaudacion      String?               @map("cuenta_recaudacion")
+  banco                  String?
+  /// RF-DE-05: terminos de adhesion que obligan a justificar cada sol.
+  terminosAceptadosEn    DateTime?             @map("terminos_aceptados_en") @db.Timestamptz(6)
+  versionTerminos        String?               @map("version_terminos")
+  creadoEn               DateTime              @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn          DateTime              @updatedAt @map("actualizado_en") @db.Timestamptz(6)
+
+  verificador   Usuario?      @relation("VerificadoPor", fields: [verificadaPor], references: [id], onDelete: SetNull)
+  miembros      OngMiembro[]
+  campanas      Campana[]
+  gastos        Gasto[]
+  alertas       Alerta[]
+  suscripciones Suscripcion[]
+
+  @@index([estadoVerificacion])
+  @@map("ongs")
+}
+
+enum CargoOng {
+  ADMINISTRADOR
+  OPERADOR
+}
+
+/// Vinculo entre usuarios y ONG con su cargo.                     [SOC INF]
+model OngMiembro {
+  id        String   @id @default(uuid()) @db.Uuid
+  ongId     String   @map("ong_id") @db.Uuid
+  usuarioId String   @map("usuario_id") @db.Uuid
+  cargo     CargoOng
+  activo    Boolean  @default(true)
+  creadoEn  DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  ong     Ong     @relation(fields: [ongId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([ongId, usuarioId])
+  @@index([usuarioId])
+  @@map("ong_miembros")
+}
+
+enum EstadoCampana {
+  BORRADOR
+  ACTIVA
+  PAUSADA
+  CERRADA
+}
+
+/// Causa comunicada al publico con fechas y estado. RF-04.        [COM SOC]
+model Campana {
+  id            String        @id @default(uuid()) @db.Uuid
+  ongId         String        @map("ong_id") @db.Uuid
+  titulo        String
+  slug          String        @unique
+  descripcion   String
+  causa         String
+  imagenUrl     String?       @map("imagen_url")
+  departamento  String?
+  fechaInicio   DateTime      @map("fecha_inicio") @db.Date
+  fechaFin      DateTime?     @map("fecha_fin") @db.Date
+  estado        EstadoCampana @default(BORRADOR)
+  creadoEn      DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(6)
+
+  ong    Ong     @relation(fields: [ongId], references: [id], onDelete: Cascade)
+  fondos Fondo[]
+
+  @@index([estado, causa])
+  @@map("campanas")
+}
+
+/// Categoria de gasto del fondo. En el MVP es una taxonomia cerrada;
+/// RF-17 la vuelve configurable cuando se agregue el catalogo editable.
+enum CategoriaGasto {
+  ALIMENTOS
+  ATENCION_VETERINARIA
+  MEDICAMENTOS
+  INSUMOS
+  TRANSPORTE
+  INFRAESTRUCTURA
+  ESTERILIZACION
+  OTROS
+}
+
+enum EstadoFondo {
+  ACTIVO
+  PAUSADO
+  CERRADO
+}
+
+/// Destino especifico del dinero con meta y saldos.
+/// RF-05, RF-CF-01: el saldo retenido solo se libera contra gasto aprobado. [CYF]
+model Fondo {
+  id             String         @id @default(uuid()) @db.Uuid
+  campanaId      String         @map("campana_id") @db.Uuid
+  nombre         String
+  descripcion    String?
+  categoriaGasto CategoriaGasto @map("categoria_gasto")
+  meta           Decimal        @db.Decimal(12, 2)
+  saldoRecaudado Decimal        @default(0) @map("saldo_recaudado") @db.Decimal(12, 2)
+  saldoRetenido  Decimal        @default(0) @map("saldo_retenido") @db.Decimal(12, 2)
+  saldoEjecutado Decimal        @default(0) @map("saldo_ejecutado") @db.Decimal(12, 2)
+  estado         EstadoFondo    @default(ACTIVO)
+  creadoEn       DateTime       @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn  DateTime       @updatedAt @map("actualizado_en") @db.Timestamptz(6)
+
+  campana       Campana              @relation(fields: [campanaId], references: [id], onDelete: Cascade)
+  donaciones    Donacion[]
+  gastos        Gasto[]
+  movimientos   MovimientoContable[]
+  suscripciones Suscripcion[]
+
+  @@index([campanaId, estado])
+  @@map("fondos")
+}
+
+enum TipoMovimiento {
+  INGRESO
+  COMISION
+  RETENCION
+  EJECUCION
+  REVERSO
+  REASIGNACION
+}
+
+/// Libro de solo insercion con partida doble y cadena de hashes.
+/// RF-CF-02, RNF-07. Triggers prohiben UPDATE y DELETE; las correcciones
+/// se registran como movimientos de tipo REVERSO (RN-03).         [CYF INF]
+model MovimientoContable {
+  id                    String         @id @default(uuid()) @db.Uuid
+  fondoId               String         @map("fondo_id") @db.Uuid
+  tipo                  TipoMovimiento
+  cuentaDebe            String         @map("cuenta_debe")
+  cuentaHaber           String         @map("cuenta_haber")
+  monto                 Decimal        @db.Decimal(12, 2)
+  descripcion           String
+  donacionId            String?        @map("donacion_id") @db.Uuid
+  gastoId               String?        @map("gasto_id") @db.Uuid
+  pagoId                String?        @map("pago_id") @db.Uuid
+  movimientoReversadoId String?        @map("movimiento_reversado_id") @db.Uuid
+  /// Secuencia monotonica por fondo, asignada por trigger.
+  secuencia             BigInt
+  hashPrevio            String?        @map("hash_previo") @db.Char(64)
+  hashActual            String         @map("hash_actual") @db.Char(64)
+  creadoPor             String?        @map("creado_por") @db.Uuid
+  creadoEn              DateTime       @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  fondo    Fondo     @relation(fields: [fondoId], references: [id], onDelete: Restrict)
+  donacion Donacion? @relation(fields: [donacionId], references: [id], onDelete: Restrict)
+  gasto    Gasto?    @relation(fields: [gastoId], references: [id], onDelete: Restrict)
+  creador  Usuario?  @relation(fields: [creadoPor], references: [id], onDelete: SetNull)
+
+  @@unique([fondoId, secuencia])
+  @@index([fondoId, creadoEn])
+  @@index([gastoId])
+  @@map("movimientos_contables")
+}
+
+// ===========================================================================
+//  DOMINIO 3 - DONANTES, DONACIONES Y PAGOS                      [CYF PSI]
+// ===========================================================================
+
+enum FrecuenciaNotificacion {
+  CADA_GASTO
+  SEMANAL
+  MENSUAL
+}
+
+/// Perfil del donante: alias, anonimato, preferencias y frecuencia.
+/// RF-PS-04: evita la fatiga de notificaciones.                   [PSI DER]
+model Donante {
+  id                     String                 @id @default(uuid()) @db.Uuid
+  usuarioId              String                 @unique @map("usuario_id") @db.Uuid
+  alias                  String?
+  anonimoPorDefecto      Boolean                @default(false) @map("anonimo_por_defecto")
+  documentoTipo          String?                @map("documento_tipo")
+  documentoNumero        String?                @map("documento_numero")
+  frecuenciaNotificacion FrecuenciaNotificacion @default(CADA_GASTO) @map("frecuencia_notificacion")
+  preferencias           Json?
+  creadoEn               DateTime               @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  usuario       Usuario           @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  donaciones    Donacion[]
+  suscripciones Suscripcion[]
+  feedback      FeedbackDonante[]
+
+  @@map("donantes")
+}
+
+enum EstadoSuscripcion {
+  ACTIVA
+  PAUSADA
+  CANCELADA
+  FALLIDA
+}
+
+/// Donaciones recurrentes programadas. RF-08, CU04.               [PSI CYF]
+model Suscripcion {
+  id             String            @id @default(uuid()) @db.Uuid
+  donanteId      String            @map("donante_id") @db.Uuid
+  fondoId        String?           @map("fondo_id") @db.Uuid
+  ongId          String?           @map("ong_id") @db.Uuid
+  monto          Decimal           @db.Decimal(12, 2)
+  diaCobro       Int               @map("dia_cobro")
+  estado         EstadoSuscripcion @default(ACTIVA)
+  tokenPago      String            @map("token_pago")
+  proximoCobroEn DateTime          @map("proximo_cobro_en") @db.Timestamptz(6)
+  pausadaEn      DateTime?         @map("pausada_en") @db.Timestamptz(6)
+  canceladaEn    DateTime?         @map("cancelada_en") @db.Timestamptz(6)
+  creadoEn       DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn  DateTime          @updatedAt @map("actualizado_en") @db.Timestamptz(6)
+
+  donante    Donante    @relation(fields: [donanteId], references: [id], onDelete: Cascade)
+  fondo      Fondo?     @relation(fields: [fondoId], references: [id], onDelete: SetNull)
+  ong        Ong?       @relation(fields: [ongId], references: [id], onDelete: SetNull)
+  donaciones Donacion[]
+
+  @@index([estado, proximoCobroEn])
+  @@map("suscripciones")
+}
+
+enum EstadoDonacion {
+  PENDIENTE
+  CONFIRMADA
+  FALLIDA
+  REVERSADA
+}
+
+/// Aporte de un donante a un fondo. RN-01: toda donacion pertenece a un
+/// unico fondo. montoAplicado lo mantiene el trigger de aplicaciones y es
+/// la base del consumo FIFO (RF-CF-03).                                [CYF]
+model Donacion {
+  id            String         @id @default(uuid()) @db.Uuid
+  donanteId     String         @map("donante_id") @db.Uuid
+  fondoId       String         @map("fondo_id") @db.Uuid
+  suscripcionId String?        @map("suscripcion_id") @db.Uuid
+  monto         Decimal        @db.Decimal(12, 2)
+  /// Monto neto tras comision de pasarela (RN-02).
+  montoNeto     Decimal        @default(0) @map("monto_neto") @db.Decimal(12, 2)
+  /// Parte del monto neto ya aplicada a gastos aprobados.
+  montoAplicado Decimal        @default(0) @map("monto_aplicado") @db.Decimal(12, 2)
+  anonima       Boolean        @default(false)
+  mensaje       String?
+  estado        EstadoDonacion @default(PENDIENTE)
+  confirmadaEn  DateTime?      @map("confirmada_en") @db.Timestamptz(6)
+  creadoEn      DateTime       @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  donante        Donante              @relation(fields: [donanteId], references: [id], onDelete: Restrict)
+  fondo          Fondo                @relation(fields: [fondoId], references: [id], onDelete: Restrict)
+  suscripcion    Suscripcion?         @relation(fields: [suscripcionId], references: [id], onDelete: SetNull)
+  pago           Pago?
+  aplicaciones   AplicacionDonacion[]
+  movimientos    MovimientoContable[]
+  notificaciones Notificacion[]
+
+  /// Indice que sostiene el orden FIFO de consumo por fondo.
+  @@index([fondoId, estado, confirmadaEn])
+  @@index([donanteId, creadoEn])
+  @@map("donaciones")
+}
+
+enum EstadoPago {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+  REVERSADO
+}
+
+/// Transaccion en la pasarela con token, comision y estado.
+/// RNF-04: la plataforma nunca almacena datos de tarjeta.         [CYF DER]
+model Pago {
+  id                 String     @id @default(uuid()) @db.Uuid
+  donacionId         String     @unique @map("donacion_id") @db.Uuid
+  pasarela           String
+  referenciaExterna  String     @unique @map("referencia_externa")
+  tokenTarjeta       String?    @map("token_tarjeta")
+  monto              Decimal    @db.Decimal(12, 2)
+  comision           Decimal    @default(0) @db.Decimal(12, 2)
+  montoNeto          Decimal    @map("monto_neto") @db.Decimal(12, 2)
+  estado             EstadoPago @default(PENDIENTE)
+  metodo             String?
+  ultimos4           String?    @map("ultimos4") @db.VarChar(4)
+  marca              String?
+  motivoRechazo      String?    @map("motivo_rechazo")
+  /// Idempotencia de webhooks (RNF: webhooks firmados e idempotentes).
+  eventoIdempotencia String?    @unique @map("evento_idempotencia")
+  payload            Json?
+  procesadoEn        DateTime?  @map("procesado_en") @db.Timestamptz(6)
+  creadoEn           DateTime   @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  donacion Donacion @relation(fields: [donacionId], references: [id], onDelete: Cascade)
+
+  @@index([estado, creadoEn])
+  @@map("pagos")
+}
+
+// ===========================================================================
+//  DOMINIO 4 - GASTOS, COMPROBANTES Y EVIDENCIAS                 [CYF DER]
+// ===========================================================================
+
+enum EstadoGasto {
+  BORRADOR
+  EN_ANALISIS
+  EN_REVISION
+  OBSERVADO
+  APROBADO
+  RECHAZADO
+}
+
+/// Gasto declarado por la ONG contra un fondo, con su ciclo de estados.
+/// CU10. capturadoEn conserva la hora original de la captura offline
+/// (RF-IN-03, RNF-16).                                                 [CYF]
+model Gasto {
+  id              String      @id @default(uuid()) @db.Uuid
+  fondoId         String      @map("fondo_id") @db.Uuid
+  ongId           String      @map("ong_id") @db.Uuid
+  registradoPor   String      @map("registrado_por") @db.Uuid
+  montoDeclarado  Decimal     @map("monto_declarado") @db.Decimal(12, 2)
+  montoAprobado   Decimal?    @map("monto_aprobado") @db.Decimal(12, 2)
+  concepto        String
+  proveedorNombre String      @map("proveedor_nombre")
+  proveedorRuc    String?     @map("proveedor_ruc") @db.VarChar(11)
+  fechaGasto      DateTime    @map("fecha_gasto") @db.Date
+  estado          EstadoGasto @default(BORRADOR)
+  /// Hora original de captura en el dispositivo, preservada al sincronizar.
+  capturadoEn     DateTime?   @map("capturado_en") @db.Timestamptz(6)
+  sincronizadoEn  DateTime?   @map("sincronizado_en") @db.Timestamptz(6)
+  latitud         Decimal?    @db.Decimal(10, 7)
+  longitud        Decimal?    @db.Decimal(10, 7)
+  aprobadoEn      DateTime?   @map("aprobado_en") @db.Timestamptz(6)
+  creadoEn        DateTime    @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn   DateTime    @updatedAt @map("actualizado_en") @db.Timestamptz(6)
+
+  fondo          Fondo                 @relation(fields: [fondoId], references: [id], onDelete: Restrict)
+  ong            Ong                   @relation(fields: [ongId], references: [id], onDelete: Restrict)
+  registrador    Usuario               @relation(fields: [registradoPor], references: [id], onDelete: Restrict)
+  comprobante    Comprobante?
+  evidencias     Evidencia[]
+  aplicaciones   AplicacionDonacion[]
+  analisis       AnalisisAini[]
+  alertas        Alerta[]
+  revisiones     RevisionAuditoria[]
+  movimientos    MovimientoContable[]
+  trabajos       TrabajoVerificacion[]
+  notificaciones Notificacion[]
+  feedback       FeedbackDonante[]
+
+  @@index([fondoId, estado])
+  @@index([ongId, estado])
+  @@index([estado, creadoEn])
+  @@map("gastos")
+}
+
+enum TipoComprobante {
+  FACTURA
+  BOLETA
+  RECIBO_HONORARIOS
+  NOTA_VENTA
+}
+
+enum ValidezCpe {
+  NO_VALIDADO
+  VALIDO
+  INVALIDO
+  NO_DISPONIBLE
+}
+
+/// Factura o boleta: serie, numero, RUC, monto, archivo, hash y validez.
+/// La unicidad de (ruc, tipo, serie, numero) y de hash_sha256 es lo que
+/// impide reutilizar un comprobante (seccion 6.6).                [DER CYF]
+model Comprobante {
+  id                String          @id @default(uuid()) @db.Uuid
+  gastoId           String          @unique @map("gasto_id") @db.Uuid
+  tipo              TipoComprobante
+  rucEmisor         String          @map("ruc_emisor") @db.VarChar(11)
+  razonSocialEmisor String?         @map("razon_social_emisor")
+  serie             String          @db.VarChar(8)
+  numero            String          @db.VarChar(20)
+  fechaEmision      DateTime        @map("fecha_emision") @db.Date
+  subtotal          Decimal         @db.Decimal(12, 2)
+  igv               Decimal         @db.Decimal(12, 2)
+  total             Decimal         @db.Decimal(12, 2)
+  moneda            String          @default("PEN") @db.VarChar(3)
+  archivoUrl        String          @map("archivo_url")
+  archivoMime       String          @map("archivo_mime")
+  archivoBytes      Int             @map("archivo_bytes")
+  hashSha256        String          @unique @map("hash_sha256") @db.Char(64)
+  validezCpe        ValidezCpe      @default(NO_VALIDADO) @map("validez_cpe")
+  validezDetalle    Json?           @map("validez_detalle")
+  validadoEn        DateTime?       @map("validado_en") @db.Timestamptz(6)
+  creadoEn          DateTime        @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  gasto Gasto @relation(fields: [gastoId], references: [id], onDelete: Cascade)
+
+  @@unique([rucEmisor, tipo, serie, numero])
+  @@index([rucEmisor])
+  @@map("comprobantes")
+}
+
+enum TipoEvidencia {
+  FOTO
+  VIDEO
+}
+
+/// Foto o video con hashes, ubicacion opcional y marca de anonimizacion.
+/// RNF-06: una evidencia solo puede asociarse a una notificacion si
+/// anonimizada = true (trigger en la seccion 6.6).                [DER INF]
+model Evidencia {
+  id                    String        @id @default(uuid()) @db.Uuid
+  gastoId               String        @map("gasto_id") @db.Uuid
+  tipo                  TipoEvidencia @default(FOTO)
+  archivoUrl            String        @map("archivo_url")
+  /// Version con rostros difuminados, la unica visible para donantes.
+  archivoAnonimizadoUrl String?       @map("archivo_anonimizado_url")
+  archivoMime           String        @map("archivo_mime")
+  archivoBytes          Int           @map("archivo_bytes")
+  ancho                 Int?
+  alto                  Int?
+  hashSha256            String        @map("hash_sha256") @db.Char(64)
+  /// dHash perceptual de 64 bits en hexadecimal. RF-IA-05.
+  hashPerceptual        String?       @map("hash_perceptual") @db.Char(16)
+  /// Nitidez por varianza del laplaciano, senal del score visual.
+  nitidez               Decimal?      @db.Decimal(10, 2)
+  exifCapturadoEn       DateTime?     @map("exif_capturado_en") @db.Timestamptz(6)
+  latitud               Decimal?      @db.Decimal(10, 7)
+  longitud              Decimal?      @db.Decimal(10, 7)
+  /// RF-DE-04: declaracion obligatoria de presencia de personas.
+  contienePersonas      Boolean       @default(false) @map("contiene_personas")
+  anonimizada           Boolean       @default(false)
+  regionesDifuminadas   Json?         @map("regiones_difuminadas")
+  consentimientoImagen  Boolean       @default(false) @map("consentimiento_imagen")
+  creadoEn              DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  gasto          Gasto          @relation(fields: [gastoId], references: [id], onDelete: Cascade)
+  notificaciones Notificacion[]
+
+  @@index([gastoId])
+  @@index([hashSha256])
+  @@index([hashPerceptual])
+  @@map("evidencias")
+}
+
+/// Parte de cada donacion que financia cada gasto: la trazabilidad a nivel
+/// de sol. RN-04: la suma por gasto debe igualar su monto aprobado, lo
+/// garantiza un trigger.                                          [CYF PSI]
+model AplicacionDonacion {
+  id         String   @id @default(uuid()) @db.Uuid
+  gastoId    String   @map("gasto_id") @db.Uuid
+  donacionId String   @map("donacion_id") @db.Uuid
+  monto      Decimal  @db.Decimal(12, 2)
+  creadoEn   DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  gasto          Gasto          @relation(fields: [gastoId], references: [id], onDelete: Restrict)
+  donacion       Donacion       @relation(fields: [donacionId], references: [id], onDelete: Restrict)
+  notificaciones Notificacion[]
+
+  @@unique([gastoId, donacionId])
+  @@index([donacionId])
+  @@map("aplicaciones_donacion")
+}
+
+// ===========================================================================
+//  DOMINIO 5 - VERIFICACION, AUDITORIA Y RETORNO AL DONANTE  [INF SOC COM]
+//
+//  En el MVP v1 el analisis lo produce el Motor de Reglas v0, sin IA, pero
+//  el esquema es el mismo que consumira AIni: mismo contrato, misma tabla.
+//  Por eso modelos_ia registra "reglas-v0" como una version mas.
+// ===========================================================================
+
+enum TipoModelo {
+  REGLAS
+  ML_CLASICO
+  DEEP_LEARNING
+}
+
+enum EstadoModelo {
+  ACTIVO
+  INACTIVO
+  EN_PRUEBAS
+}
+
+/// Versiones de los motores de analisis con sus metricas. RF-IA-11.
+/// En v1 contiene la fila reglas-v0; AIni agregara las suyas y se podran
+/// comparar con las etiquetas de revisiones_auditoria.                 [INF]
+model ModeloIa {
+  id          String       @id @default(uuid()) @db.Uuid
+  nombre      String
+  version     String
+  tipo        TipoModelo
+  descripcion String?
+  metricas    Json?
+  estado      EstadoModelo @default(EN_PRUEBAS)
+  activadoEn  DateTime?    @map("activado_en") @db.Timestamptz(6)
+  creadoEn    DateTime     @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  analisis AnalisisAini[]
+
+  @@unique([nombre, version])
+  @@map("modelos_ia")
+}
+
+/// Umbrales ALTO y MEDIO vigentes, pesos de las señales y quien los
+/// configuro. RF-IA-07, CU18. Cada analisis guarda cual regla lo evaluo
+/// (RN-06), asi que editarla no reescribe el pasado.              [INF CYF]
+model ReglaConfianza {
+  id             String    @id @default(uuid()) @db.Uuid
+  umbralAlto     Int       @default(90) @map("umbral_alto")
+  umbralMedio    Int       @default(60) @map("umbral_medio")
+  pesoDocumental Decimal   @default(0.45) @map("peso_documental") @db.Decimal(4, 3)
+  pesoVisual     Decimal   @default(0.25) @map("peso_visual") @db.Decimal(4, 3)
+  pesoAnomalia   Decimal   @default(0.30) @map("peso_anomalia") @db.Decimal(4, 3)
+  activa         Boolean   @default(true)
+  vigenteDesde   DateTime  @default(now()) @map("vigente_desde") @db.Timestamptz(6)
+  vigenteHasta   DateTime? @map("vigente_hasta") @db.Timestamptz(6)
+  configuradoPor String?   @map("configurado_por") @db.Uuid
+  creadoEn       DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  configurador Usuario?       @relation(fields: [configuradoPor], references: [id], onDelete: SetNull)
+  analisis     AnalisisAini[]
+
+  @@map("reglas_confianza")
+}
+
+enum NivelConfianza {
+  ALTO
+  MEDIO
+  BAJO
+}
+
+/// Puntajes parciales y final, nivel, datos extraidos y explicacion.
+/// RNF-09: toda decision es explicable y queda atada a la version del
+/// motor y a la regla de umbrales vigente al momento.             [INF SOC]
+model AnalisisAini {
+  id                String         @id @default(uuid()) @db.Uuid
+  gastoId           String         @map("gasto_id") @db.Uuid
+  modeloId          String         @map("modelo_id") @db.Uuid
+  reglaId           String         @map("regla_id") @db.Uuid
+  scoreDocumental   Decimal        @map("score_documental") @db.Decimal(5, 2)
+  scoreVisual       Decimal        @map("score_visual") @db.Decimal(5, 2)
+  scoreAnomalia     Decimal        @map("score_anomalia") @db.Decimal(5, 2)
+  scoreFinal        Decimal        @map("score_final") @db.Decimal(5, 2)
+  nivel             NivelConfianza
+  /// Campos del comprobante. En v1 la fuente es "declarado"; con AIni sera "ocr".
+  datosExtraidos    Json           @map("datos_extraidos")
+  /// Lista de motivos legibles: regla, resultado y valor que la disparo.
+  explicacion       Json
+  narrativaBorrador String?        @map("narrativa_borrador")
+  duracionMs        Int?           @map("duracion_ms")
+  creadoEn          DateTime       @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  gasto      Gasto               @relation(fields: [gastoId], references: [id], onDelete: Cascade)
+  modelo     ModeloIa            @relation(fields: [modeloId], references: [id], onDelete: Restrict)
+  regla      ReglaConfianza      @relation(fields: [reglaId], references: [id], onDelete: Restrict)
+  alertas    Alerta[]
+  revisiones RevisionAuditoria[]
+
+  @@index([gastoId, creadoEn])
+  @@index([nivel])
+  @@map("analisis_aini")
+}
+
+enum SeveridadAlerta {
+  ALTA
+  MEDIA
+  BAJA
+}
+
+enum EstadoAlerta {
+  ABIERTA
+  EN_SUBSANACION
+  RESUELTA
+  DESCARTADA
+}
+
+/// Inconsistencias detectadas con severidad y estado de resolucion.
+/// RF-SO-04: afectaReputacion se mantiene en false hasta que venza el
+/// plazo de subsanacion, para no estigmatizar errores subsanables. [SOC CYF]
+model Alerta {
+  id               String          @id @default(uuid()) @db.Uuid
+  ongId            String          @map("ong_id") @db.Uuid
+  gastoId          String?         @map("gasto_id") @db.Uuid
+  analisisId       String?         @map("analisis_id") @db.Uuid
+  tipo             String
+  severidad        SeveridadAlerta
+  titulo           String
+  descripcion      String
+  estado           EstadoAlerta    @default(ABIERTA)
+  plazoSubsanacion DateTime?       @map("plazo_subsanacion") @db.Timestamptz(6)
+  afectaReputacion Boolean         @default(false) @map("afecta_reputacion")
+  resueltaEn       DateTime?       @map("resuelta_en") @db.Timestamptz(6)
+  resueltaPor      String?         @map("resuelta_por") @db.Uuid
+  notaResolucion   String?         @map("nota_resolucion")
+  creadoEn         DateTime        @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  ong            Ong               @relation(fields: [ongId], references: [id], onDelete: Cascade)
+  gasto          Gasto?            @relation(fields: [gastoId], references: [id], onDelete: Cascade)
+  analisis       AnalisisAini?     @relation(fields: [analisisId], references: [id], onDelete: SetNull)
+  resolutor      Usuario?          @relation(fields: [resueltaPor], references: [id], onDelete: SetNull)
+  feedbackOrigen FeedbackDonante[]
+
+  @@index([ongId, estado])
+  @@index([estado, severidad])
+  @@map("alertas")
+}
+
+enum DecisionAuditoria {
+  APROBAR
+  OBSERVAR
+  RECHAZAR
+}
+
+/// Decision humana sobre un analisis, con comentario obligatorio.
+/// Cada fila es tambien una etiqueta para el futuro reentrenamiento de
+/// AIni (RF-IA-11): es el dataset que esta version va acumulando. [CYF SOC]
+model RevisionAuditoria {
+  id               String            @id @default(uuid()) @db.Uuid
+  gastoId          String            @map("gasto_id") @db.Uuid
+  analisisId       String?           @map("analisis_id") @db.Uuid
+  auditorId        String            @map("auditor_id") @db.Uuid
+  decision         DecisionAuditoria
+  comentario       String
+  montoAprobado    Decimal?          @map("monto_aprobado") @db.Decimal(12, 2)
+  /// RN-08: auditoria por muestreo de casos de nivel ALTO.
+  esMuestreo       Boolean           @default(false) @map("es_muestreo")
+  conflictoInteres Boolean           @default(false) @map("conflicto_interes")
+  creadoEn         DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  gasto    Gasto         @relation(fields: [gastoId], references: [id], onDelete: Cascade)
+  analisis AnalisisAini? @relation(fields: [analisisId], references: [id], onDelete: SetNull)
+  auditor  Usuario       @relation(fields: [auditorId], references: [id], onDelete: Restrict)
+
+  @@index([auditorId, creadoEn])
+  @@index([gastoId])
+  @@map("revisiones_auditoria")
+}
+
+enum CanalNotificacion {
+  IN_APP
+  CORREO
+  PUSH
+}
+
+enum EstadoNotificacion {
+  PENDIENTE
+  ENVIADA
+  FALLIDA
+}
+
+/// Mensaje enviado al usuario con la narrativa, canal y lectura.
+/// Dos reglas de la seccion 6.6 se aplican aqui por trigger: solo se puede
+/// referenciar una evidencia anonimizada, y las notificaciones no
+/// transaccionales exigen consentimiento vigente.                 [COM PSI]
+model Notificacion {
+  id            String             @id @default(uuid()) @db.Uuid
+  usuarioId     String             @map("usuario_id") @db.Uuid
+  tipo          String
+  canal         CanalNotificacion
+  asunto        String
+  cuerpo        String
+  narrativa     String?
+  gastoId       String?            @map("gasto_id") @db.Uuid
+  donacionId    String?            @map("donacion_id") @db.Uuid
+  evidenciaId   String?            @map("evidencia_id") @db.Uuid
+  aplicacionId  String?            @map("aplicacion_id") @db.Uuid
+  montoAplicado Decimal?           @map("monto_aplicado") @db.Decimal(12, 2)
+  /// Las transaccionales no requieren consentimiento de comunicaciones.
+  transaccional Boolean            @default(false)
+  estado        EstadoNotificacion @default(PENDIENTE)
+  plantilla     String?
+  enviadaEn     DateTime?          @map("enviada_en") @db.Timestamptz(6)
+  leidaEn       DateTime?          @map("leida_en") @db.Timestamptz(6)
+  error         String?
+  creadoEn      DateTime           @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  usuario    Usuario             @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  gasto      Gasto?              @relation(fields: [gastoId], references: [id], onDelete: SetNull)
+  donacion   Donacion?           @relation(fields: [donacionId], references: [id], onDelete: SetNull)
+  evidencia  Evidencia?          @relation(fields: [evidenciaId], references: [id], onDelete: SetNull)
+  aplicacion AplicacionDonacion? @relation(fields: [aplicacionId], references: [id], onDelete: SetNull)
+  feedback   FeedbackDonante[]
+
+  @@index([usuarioId, leidaEn])
+  @@index([estado, creadoEn])
+  @@map("notificaciones")
+}
+
+/// Reaccion, comentario y reporte de inconsistencia del donante.
+/// RF-SO-02: el donante tambien audita; reportar abre un caso. [PSI SOC]
+model FeedbackDonante {
+  id                    String   @id @default(uuid()) @db.Uuid
+  donanteId             String   @map("donante_id") @db.Uuid
+  notificacionId        String?  @map("notificacion_id") @db.Uuid
+  gastoId               String?  @map("gasto_id") @db.Uuid
+  valoracion            Int?
+  comentario            String?
+  reportaInconsistencia Boolean  @default(false) @map("reporta_inconsistencia")
+  alertaGeneradaId      String?  @map("alerta_generada_id") @db.Uuid
+  creadoEn              DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  donante        Donante       @relation(fields: [donanteId], references: [id], onDelete: Cascade)
+  notificacion   Notificacion? @relation(fields: [notificacionId], references: [id], onDelete: SetNull)
+  gasto          Gasto?        @relation(fields: [gastoId], references: [id], onDelete: SetNull)
+  alertaGenerada Alerta?       @relation(fields: [alertaGeneradaId], references: [id], onDelete: SetNull)
+
+  @@index([donanteId, creadoEn])
+  @@map("feedback_donante")
+}
+
+// ===========================================================================
+//  TABLAS OPERATIVAS (no forman parte de las 26 de dominio)
+//  Documentadas en docs/adr/0002 y 0006 para que el informe las distinga.
+// ===========================================================================
+
+/// Sesiones con refresh token rotativo y revocable (RNF-02).
+/// Solo se guarda el hash del token, nunca el token.
+model Sesion {
+  id          String    @id @default(uuid()) @db.Uuid
+  usuarioId   String    @map("usuario_id") @db.Uuid
+  refreshHash String    @unique @map("refresh_hash") @db.Char(64)
+  userAgent   String?   @map("user_agent")
+  ip          String?
+  expiraEn    DateTime  @map("expira_en") @db.Timestamptz(6)
+  revocadaEn  DateTime? @map("revocada_en") @db.Timestamptz(6)
+  creadoEn    DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId, revocadaEn])
+  @@map("sesiones")
+}
+
+enum EstadoTrabajo {
+  PENDIENTE
+  PROCESANDO
+  COMPLETADO
+  FALLIDO
+}
+
+/// Cola de analisis en PostgreSQL (ADR-002), consumida con
+/// FOR UPDATE SKIP LOCKED. Sustituye a BullMQ/Redis en el MVP y conserva
+/// el contrato asincrono de RF-IN-02. Cuando AIni llegue, cambia el
+/// productor, no el consumidor.
+model TrabajoVerificacion {
+  id               String        @id @default(uuid()) @db.Uuid
+  gastoId          String        @map("gasto_id") @db.Uuid
+  estado           EstadoTrabajo @default(PENDIENTE)
+  intentos         Int           @default(0)
+  maxIntentos      Int           @default(3) @map("max_intentos")
+  proximoIntentoEn DateTime      @default(now()) @map("proximo_intento_en") @db.Timestamptz(6)
+  tomadoEn         DateTime?     @map("tomado_en") @db.Timestamptz(6)
+  completadoEn     DateTime?     @map("completado_en") @db.Timestamptz(6)
+  error            String?
+  creadoEn         DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  gasto Gasto @relation(fields: [gastoId], references: [id], onDelete: Cascade)
+
+  @@index([estado, proximoIntentoEn])
+  @@map("trabajos_verificacion")
+}

@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    name: API (NestJS)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: tr_app
+          POSTGRES_PASSWORD: tr_app_ci
+          POSTGRES_DB: trazabilidad_radical
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://tr_app:tr_app_ci@localhost:5432/trazabilidad_radical?schema=public
+      JWT_ACCESS_SECRET: ci-secreto-de-acceso-para-pruebas-solamente
+      JWT_REFRESH_SECRET: ci-secreto-de-refresh-para-pruebas-solamente
+      COOKIE_SECRET: ci-secreto-de-cookie-para-pruebas-solamente
+      STORAGE_URL_SECRET: ci-secreto-de-urls-para-pruebas-solamente
+      PASARELA_WEBHOOK_SECRET: ci-secreto-de-webhook-para-pruebas-solo
+      NODE_ENV: test
+
+    defaults:
+      run:
+        working-directory: apps/api
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+
+      - run: npm ci
+
+      - name: Generar cliente Prisma
+        run: npx prisma generate
+
+      # Aplica la migracion inicial y las reglas de integridad de la
+      # seccion 6.6. Si un trigger no compila, CI falla aqui.
+      - name: Aplicar migraciones
+        run: npx prisma migrate deploy
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Compilar
+        run: npm run build
+
+      # El umbral de cobertura de RNF-19 (>= 70 % en contable y gastos)
+      # esta configurado en jest.config.js y hace fallar el job.
+      - name: Pruebas con cobertura
+        run: npm run test:cov
+
+  app:
+    name: App (Flutter Web)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: apps/app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.4
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Analisis estatico
+        run: flutter analyze
+
+      - name: Pruebas de widgets
+        run: flutter test
+
+      - name: Compilar para web
+        run: flutter build web --release

@@ -1,0 +1,47 @@
+# Dependencias
+node_modules/
+.pnp
+.pnp.js
+
+# Compilados
+dist/
+build/
+*.tsbuildinfo
+
+# Entorno
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Almacenamiento local de evidencias (StorageAdapter en disco)
+storage/
+!storage/.gitkeep
+
+# Logs y cobertura
+logs/
+*.log
+npm-debug.log*
+coverage/
+.nyc_output/
+
+# Flutter / Dart
+apps/app/.dart_tool/
+apps/app/.flutter-plugins
+apps/app/.flutter-plugins-dependencies
+apps/app/build/
+apps/app/.packages
+apps/app/pubspec.lock
+*.iml
+
+# Editores y SO
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Contiene la contrasena generada del rol de la app
+apps/api/prisma/sql/00-crear-base.sql

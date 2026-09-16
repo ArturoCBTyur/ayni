@@ -1,0 +1,44 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+
+import { cargarConfiguracion } from './config/configuracion';
+import { PrismaModule } from './comun/prisma/prisma.module';
+import { SaludModule } from './comun/salud/salud.module';
+
+/**
+ * Modulo raiz. Los modulos de dominio se registran aqui en el orden de las
+ * fases del plan; cada uno corresponde 1:1 a una fila de la Tabla 15 del
+ * Entregable 2.
+ */
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      cache: true,
+      load: [() => cargarConfiguracion()],
+    }),
+    // RNF-03: proteccion frente a abuso de la API.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    // Jobs programados: cola de verificacion, conciliacion diaria y
+    // verificacion de la cadena de hashes (ADR-002, RF-CF-04, RNF-07).
+    ScheduleModule.forRoot(),
+    PrismaModule,
+    SaludModule,
+
+    // Fase 2  - IdentidadModule      (Identidad y Acceso)
+    // Fase 2  - CumplimientoModule   (Privacidad y Cumplimiento)
+    // Fase 3  - CampanasModule       (Campanas y Fondos)
+    // Fase 4  - DonacionesModule     (Donaciones y Pagos)
+    // Fase 4  - ContableModule       (Core Contable)
+    // Fase 5  - GastosModule         (Gastos y Evidencias)
+    // Fase 6  - VerificacionModule   (Integracion AIni)
+    // Fase 7  - AuditoriaModule      (Auditoria y Alertas)
+    // Fase 8  - RetornoModule        (Motor de Retorno)
+    // Fase 9  - AnaliticaModule      (Analitica de Impacto)
+  ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+})
+export class AppModule {}

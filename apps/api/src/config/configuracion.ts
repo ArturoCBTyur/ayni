@@ -1,0 +1,70 @@
+import { z } from 'zod';
+
+/**
+ * Configuracion validada al arrancar. Si falta o es invalida una variable,
+ * la API no levanta: es preferible fallar al inicio que a mitad de una
+ * transaccion contable.
+ */
+const esquema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  PORT: z.coerce.number().int().positive().default(3000),
+  API_PREFIX: z.string().default('api/v1'),
+
+  DATABASE_URL: z.string().url(),
+
+  JWT_ACCESS_SECRET: z.string().min(24),
+  JWT_ACCESS_TTL: z.coerce.number().int().positive().default(900),
+  JWT_REFRESH_SECRET: z.string().min(24),
+  JWT_REFRESH_TTL: z.coerce.number().int().positive().default(604800),
+  COOKIE_SECRET: z.string().min(24),
+
+  TOTP_EMISOR: z.string().default('Trazabilidad Radical'),
+
+  CORS_ORIGENES: z.string().default('http://localhost:5000'),
+
+  STORAGE_DRIVER: z.enum(['disco', 's3']).default('disco'),
+  STORAGE_DIR: z.string().default('../../storage'),
+  STORAGE_URL_SECRET: z.string().min(24),
+  STORAGE_URL_TTL: z.coerce.number().int().positive().default(900),
+
+  PASARELA_DRIVER: z.enum(['fake', 'culqi']).default('fake'),
+  PASARELA_COMISION_PORCENTAJE: z.coerce.number().min(0).default(3.44),
+  PASARELA_COMISION_FIJA: z.coerce.number().min(0).default(1.0),
+  PASARELA_WEBHOOK_SECRET: z.string().min(24),
+
+  CPE_DRIVER: z.enum(['fake', 'sunat']).default('fake'),
+
+  /** El seam de AIni: conmuta la implementacion de MotorVerificacion. */
+  VERIFICACION_DRIVER: z.enum(['reglas-v0', 'aini']).default('reglas-v0'),
+  AINI_URL: z.string().url().optional(),
+
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  CORREO_REMITENTE: z.string().default('Trazabilidad Radical <no-responder@localhost>'),
+});
+
+export type Configuracion = z.infer<typeof esquema> & {
+  corsOrigenes: string[];
+};
+
+export function cargarConfiguracion(): Configuracion {
+  const resultado = esquema.safeParse(process.env);
+
+  if (!resultado.success) {
+    const detalles = resultado.error.issues
+      .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
+      .join('\n');
+    throw new Error(
+      `Configuracion invalida. Revise el archivo .env (vea .env.example):\n${detalles}`,
+    );
+  }
+
+  return {
+    ...resultado.data,
+    corsOrigenes: resultado.data.CORS_ORIGENES.split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
+  };
+}
