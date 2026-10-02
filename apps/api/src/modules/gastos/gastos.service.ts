@@ -275,17 +275,40 @@ export class GastosService {
       },
     });
 
-    return gastos.map((g) => ({
-      id: g.id,
-      estado: g.estado,
-      monto: soles(g.montoDeclarado),
-      concepto: g.concepto,
-      proveedor: g.proveedorNombre,
-      fechaGasto: g.fechaGasto,
-      fondo: g.fondo.nombre,
-      nivel: g.analisis[0]?.nivel ?? null,
-      scoreFinal: g.analisis[0] ? Number(g.analisis[0].scoreFinal) : null,
-    }));
+    return gastos.map((g) => {
+      const analisis = g.analisis[0];
+      const explicacion = analisis?.explicacion as
+        | { resumen?: string; motivos?: { resultado?: string; mensaje?: string }[] }
+        | undefined;
+
+      return {
+        id: g.id,
+        estado: g.estado,
+        monto: soles(g.montoDeclarado),
+        concepto: g.concepto,
+        proveedor: g.proveedorNombre,
+        fechaGasto: g.fechaGasto,
+        fondo: g.fondo.nombre,
+        nivel: analisis?.nivel ?? null,
+        scoreFinal: analisis ? Number(analisis.scoreFinal) : null,
+
+        // La explicacion tambien va a la ONG, no solo al auditor.
+        //
+        // Sin esto, el operador ve "OBSERVADO · BAJO 0" y no tiene como saber
+        // que corregir: la explicacion existe, la exige el RNF-09, y se quedaba
+        // del lado de quien audita en vez de llegar a quien tiene que subsanar.
+        //
+        // Solo viajan los motivos que piden accion. Los "ok" son utiles para
+        // auditar una decision, pero aqui multiplicarian por diez el tamaño de
+        // una lista de cien gastos sin decirle nada nuevo a quien la lee.
+        resumen: explicacion?.resumen ?? null,
+        observaciones:
+          explicacion?.motivos
+            ?.filter((m) => m.resultado !== 'ok')
+            .map((m) => m.mensaje)
+            .filter((m): m is string => Boolean(m)) ?? [],
+      };
+    });
   }
 
   // -------------------------------------------------------------------------

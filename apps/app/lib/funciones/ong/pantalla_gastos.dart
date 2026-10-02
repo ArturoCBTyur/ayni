@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../comun/widgets.dart';
 import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
+import '../../nucleo/tema.dart';
 import 'pantalla_fondos.dart';
 import 'pantalla_registrar_gasto.dart';
 
@@ -106,6 +107,8 @@ class _TarjetaGasto extends StatelessWidget {
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
     final nivel = gasto['nivel'] as String?;
+    final observaciones =
+        (gasto['observaciones'] as List<dynamic>?)?.cast<String>() ?? const <String>[];
 
     return Card(
       child: Padding(
@@ -150,6 +153,38 @@ class _TarjetaGasto extends StatelessWidget {
                 ),
               ],
             ),
+            // Por que el motor decidio lo que decidio.
+            //
+            // Sin esto la tarjeta dice "OBSERVADO · BAJO 0" y nada mas, y quien
+            // tiene que corregir el gasto se queda sin saber que corregir. La
+            // explicacion es el centro del RNF-09: existe para que una persona
+            // pueda actuar, no solo para que un auditor pueda revisar.
+            if (observaciones.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              for (final observacion in observaciones)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Icon(
+                          Icons.info_outline,
+                          size: 15,
+                          color: TemaApp.colorNivel(nivel ?? 'MEDIO'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(observacion, style: tema.textTheme.bodySmall),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ],
         ),
       ),
