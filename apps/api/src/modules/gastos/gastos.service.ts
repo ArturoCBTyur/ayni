@@ -232,6 +232,7 @@ export class GastosService {
             serie: gasto.comprobante.serie,
             numero: gasto.comprobante.numero,
             rucEmisor: gasto.comprobante.rucEmisor,
+            fechaEmision: gasto.comprobante.fechaEmision,
             total: soles(gasto.comprobante.total),
             validezCpe: gasto.comprobante.validezCpe,
             // Solo el auditor recibe URL del archivo original.
@@ -254,6 +255,12 @@ export class GastosService {
             nivel: analisis.nivel,
             scoreFinal: Number(analisis.scoreFinal),
             explicacion: analisis.explicacion,
+            // Los campos que el motor saco del documento, con su `fuente`.
+            // Cuando vale "ocr" son los que el lector encontro en la imagen y
+            // pueden diferir de los declarados: esa diferencia es justamente
+            // lo que el auditor necesita ver, y sin esto solo le llegaba
+            // narrada dentro de un motivo.
+            datosExtraidos: analisis.datosExtraidos,
             creadoEn: analisis.creadoEn,
           }
         : null,

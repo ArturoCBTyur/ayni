@@ -20,7 +20,27 @@ cd C:\Users\User\Desktop\repositories\trazabilidad-radical\apps\api
 npm run start:prod
 ```
 
-**Ventana 2 — la aplicación web.**
+**Ventana 2 — AIni.** El motor de IA. Tarda unos segundos en cargar spaCy.
+
+```bash
+cd C:\Users\User\Desktop\repositories\trazabilidad-radical\apps\aini
+```
+
+```bash
+python -m uvicorn aini.main:app --host 127.0.0.1 --port 8000
+```
+
+Comprobar que está arriba, y que el lector de comprobantes está encendido:
+
+```bash
+curl http://127.0.0.1:8000/salud
+```
+
+Debe decir `"lectorComprobantes":{"activo":true}`. Si dice `false`, el OCR está apagado por la variable `AINI_OCR` y todos los gastos saldrán con «no se pudo leer el comprobante».
+
+**Para que la API use AIni y no el motor de reglas**, en `apps/api/.env`: `VERIFICACION_DRIVER=aini`. Si AIni no responde, la API **no** se queda sin verificar: cae al motor de reglas y lo anota en el análisis.
+
+**Ventana 3 — la aplicación web.**
 
 ```bash
 cd C:\Users\User\Desktop\repositories\trazabilidad-radical\apps\app\build\web
@@ -30,7 +50,7 @@ cd C:\Users\User\Desktop\repositories\trazabilidad-radical\apps\app\build\web
 python -m http.server 5000
 ```
 
-**Ventana 3 — los códigos del segundo factor.**
+**Ventana 4 — los códigos del segundo factor.**
 
 ```bash
 cd C:\Users\User\Desktop\repositories\trazabilidad-radical\apps\api
@@ -42,7 +62,7 @@ npm run demo:codigos
 
 La aplicación queda en **http://localhost:5000**
 
-Si la base quedara vacía, en la ventana 3: `npx tsx prisma/seed-demo.ts` y después `npm run demo:preparar`.
+Si la base quedara vacía, en la ventana 4: `npx tsx prisma/seed-demo.ts` y después `npm run demo:preparar`.
 
 ---
 
@@ -56,7 +76,7 @@ Si la base quedara vacía, en la ventana 3: `npx tsx prisma/seed-demo.ts` y desp
 | Administradora de ONG | `ong.admin@demo.pe` | **sí** |
 | Administrador | `admin@demo.pe` | **sí** |
 
-**Los códigos del segundo factor ya están enrolados.** Para verlos, en la ventana 3:
+**Los códigos del segundo factor ya están enrolados.** Para verlos, en la ventana 4:
 
 ```bash
 npm run demo:codigos
@@ -68,16 +88,22 @@ Cambian cada 30 segundos. El comando dice cuántos quedan; si estás por debajo 
 
 ## Qué hay preparado
 
-Cuatro gastos, uno por cada cosa que quieres enseñar:
+Seis gastos, uno por cada cosa que quieres enseñar. Los dos últimos los decidió **AIni**; los cuatro primeros, el motor de reglas:
 
-| Monto | Estado | Nivel | Qué demuestra |
-|---|---|---|---|
-| S/ 118 | Aprobado | **ALTO** 97 | El camino feliz: el motor resolvió solo y el donante ya recibió su narrativa |
-| S/ 189 | **En revisión** | MEDIO 79 | **El auditor decide.** El motor no se atrevió: el dígito verificador del RUC no cuadra |
-| S/ 64 | Aprobado | ALTO 100 | Segundo caso automático |
-| S/ 72 | **Observado** | **BAJO** 0 | **Lo mejor que tienes.** Evidencia reciclada, detectada a distancia 1 de 64 bits con un SHA-256 distinto |
+| Monto | Estado | Nivel | Motor | Qué demuestra |
+|---|---|---|---|---|
+| S/ 118 | Aprobado | **ALTO** 97 | reglas | El camino feliz: resolvió solo y el donante ya recibió su narrativa |
+| S/ 189 | **En revisión** | MEDIO 79 | reglas | **El auditor decide.** El dígito verificador del RUC no cuadra |
+| S/ 64 | Aprobado | ALTO 100 | reglas | Segundo caso automático |
+| S/ 72 | **Observado** | **BAJO** 0 | reglas | Evidencia reciclada, detectada a distancia 1 de 64 bits con un SHA-256 **distinto** |
+| S/ 145 | **En revisión** | MEDIO 76.37 | **AIni** | **Un alquiler de oficina cargado al fondo veterinario.** Comprobante impecable; ninguna regla aritmética lo ve. El modelo de lenguaje sí |
+| S/ 185 | **En revisión** | MEDIO 68.47 | **AIni** | **Declara S/ 185 sobre una boleta de S/ 158.** El lector leyó el papel. Ninguna regla podía: el dato tecleado es perfecto |
 
-Fondo «Atención veterinaria»: recaudado S/ 335.96 · **retenido S/ 217.96** · ejecutado S/ 118.
+Fondo «Atención veterinaria»: recaudado S/ 383.24 · **retenido S/ 201.24** · ejecutado S/ 182.
+
+> Que la tabla diga qué motor decidió cada gasto **no es decoración**: `analisis_aini` guarda el modelo y la regla de umbrales vigentes al momento (RN-06). Dos años después se puede saber con qué criterio se aprobó un gasto, no solo que se aprobó.
+
+**Los dos casos de AIni son los que valen en el curso de IA.** Si solo te da tiempo para uno, usa el de S/ 185: un número impreso contra otro tecleado se entiende sin explicar nada.
 
 ---
 
@@ -95,10 +121,20 @@ Gastos → abre el de **S/ 72**, el observado.
 
 > «El archivo es distinto, los bytes no coinciden. Lo que coincide es la imagen. Distancia 1 de 64 bits.»
 
-**3 · Auditor** (`auditor@demo.pe` + código)
-Auditoría → el caso de **S/ 189** → comprobante, evidencia y señales lado a lado → aprueba con comentario.
+**3 · Auditor** (`auditor@demo.pe` + código) — **el momento de IA**
+Auditoría → el caso de **S/ 185** → comprobante, evidencia y señales lado a lado.
 
-> «El motor no decide esto. Decide una persona, y su comentario queda guardado: **es la etiqueta con la que se entrenará AIni.**»
+Baja a la tarjeta **«Lo que el modelo leyó en el papel»**. Campo por campo: RUC ✓, documento ✓, fecha ✓, y el importe en rojo — **S/ 158.00**, con «se declaró S/ 185.00» debajo.
+
+> «El RUC es válido, el IGV cuadra, las fechas están bien. Todas las reglas del sistema miran el dato que el operador escribió, y ese dato es impecable. El modelo leyó la boleta, y la boleta dice otra cosa: el fondo iba a pagar S/ 27 que el comprobante no respalda.»
+
+→ Aprueba u observa **con comentario obligatorio**.
+
+> «El modelo no decide esto. Encontró el problema y lo explicó en español; decide una persona, y su comentario queda guardado en `revisiones_auditoria`: **es la etiqueta con la que se reentrenará AIni.**»
+
+**3b · El otro caso de AIni**, si hay tiempo: el de **S/ 145**, un alquiler de oficina cargado al fondo veterinario.
+
+> «Este comprobante no tiene nada mal. El RUC existe, el IGV cuadra, el monto es razonable. Lo único que está mal es que es dinero donado para curar animales, pagando una renta — y eso no lo ve ninguna regla aritmética, hay que entender qué dice el concepto.»
 
 **4 · Donante otra vez** → Impacto
 La narrativa nombra **su monto exacto aplicado**, no el total del gasto.
@@ -112,16 +148,48 @@ Arriba: **«El libro contable cuadra»**. Abajo: los indicadores, y los que dice
 
 ## Si te sobra tiempo
 
-El CSV del libro incluye `hash_previo` y `hash_actual` de cada movimiento: **un tercero puede recalcular la cadena por su cuenta, sin confiar en que el sistema diga la verdad sobre sí mismo.**
+### Intentar romperlo, en vivo
 
-Y las cuatro cosas que la base de datos no deja hacer, ni siquiera con un bug del backend: editar el libro, repetir un comprobante, aprobar más de lo retenido, notificar una evidencia sin anonimizar.
+```bash
+npm run demo:romper
+```
+
+Siete intentos de estafar al donante, en SQL directo contra PostgreSQL, por fuera de la API y de toda validación: alterar el libro, borrar un movimiento, repetir un comprobante, reutilizar el archivo, cobrar más de lo que entró, notificar una foto sin difuminar, falsificar la cadena de hashes. **La base rechaza los siete**, y al final recalcula cada SHA-256 fondo por fondo.
+
+> «Ninguna de estas defensas está en el código de la aplicación. Viven en la base, así que un error en el backend —o alguien con acceso a la base y malas intenciones— no las puede sortear.»
+
+Es seguro correrlo minutos antes de exponer: cada intento vive en una transacción que **siempre** se deshace.
+
+### El lector de comprobantes, con otros números
+
+```bash
+python probar.py boleta --impreso 158 --monto 185
+```
+
+Desde `apps/aini`. Dibuja la boleta, la lee y muestra el cotejo campo por campo. Pon los dos importes iguales y el gasto sale ALTO: sirve para mostrar que el lector no busca problemas donde no hay.
+
+### El libro, verificable por un tercero
+
+El CSV del libro incluye `hash_previo` y `hash_actual` de cada movimiento: **un tercero puede recalcular la cadena por su cuenta, sin confiar en que el sistema diga la verdad sobre sí mismo.**
 
 ---
 
 ## Las tres preguntas que te van a hacer
 
-**«¿Esto usa IA?»**
-No, y es a propósito. El puntaje sale de reglas deterministas: dígito verificador del RUC, aritmética del IGV, huella perceptual, desviación del monto. **El contrato de datos es exactamente el que consumirá AIni** — cambiar una variable de entorno conmuta el motor sin tocar la base, la contabilidad ni la aplicación. Y cada decisión del auditor ya se está guardando: esta versión sin IA está generando el conjunto etiquetado que AIni necesitará.
+**«¿Esto usa IA?»** — la que importa en este curso.
+Sí, tres modelos distintos, y **ninguno es una API de terceros**: corren en `apps/aini`, en esta máquina.
+
+| Señal | Técnica | Qué hace que una regla no pueda |
+|---|---|---|
+| Lectura del comprobante | **OCR, redes ONNX** | Lee el papel y lo compara con lo tecleado |
+| Coherencia concepto ↔ categoría | **spaCy, vectores de palabras** | Entiende que un alquiler no es atención veterinaria |
+| Perfil del gasto | **Isolation Forest** (scikit-learn) | Ve *combinaciones* raras, no señales sueltas |
+
+Y una señal que **deliberadamente no** usa aprendizaje automático: la visual. Nitidez, EXIF y distancia de Hamming son magnitudes exactas; someterlas a una predicción las haría menos precisas y menos explicables. Saber dónde *no* poner un modelo es parte del diseño.
+
+El puntaje nunca lo decide el modelo solo: **los pesos y los umbrales llegan en cada petición** y quedan registrados con el análisis (RN-06), así que el administrador los cambia sin redesplegar nada.
+
+**Si te preguntan por la precisión, no infles la cifra.** Está medida y es modesta: el detector de anomalías se entrenó con 600 gastos sintéticos porque la base real tiene cuatro; la señal de lenguaje deja pasar ~13 % de las categorizaciones erróneas; el lector solo se probó sobre boletas que generamos nosotros, no sobre papel térmico real. **Por eso las tres señales restan puntos y derivan a una persona en vez de decidir solas.** Eso es un argumento de diseño, no una disculpa.
 
 **«¿Los pagos son reales?»**
 No. La pasarela está simulada, con webhook firmado e idempotente. Culqi implementa la misma interfaz cuando haya cuenta de comercio.
@@ -139,5 +207,7 @@ No, y el sistema **lo dice** en vez de simularlo. Se valida el RUC por módulo 1
 | El código del segundo factor no entra | Caducó. `npm run demo:codigos` otra vez |
 | La pantalla queda en blanco | Recarga con Ctrl+F5 |
 | Un gasto sigue «en análisis» | El worker corre cada 5 s. Espera y recarga |
+| Todo sale «no se pudo leer el comprobante» | AIni está caída o el OCR apagado: `curl http://127.0.0.1:8000/salud` |
+| Los análisis dicen `reglas-v0` y esperabas AIni | Falta `VERIFICACION_DRIVER=aini` en `.env`; reinicia la API |
 
 **No cierres la terminal de la API durante la exposición.**

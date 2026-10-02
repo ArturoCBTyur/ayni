@@ -131,10 +131,212 @@ class _Detalle extends ConsumerWidget {
               ),
             ],
 
+            if (analisis?['datosExtraidos'] != null) ...[
+              const SizedBox(height: 20),
+              _LoQueDiceElPapel(
+                extraidos: analisis!['datosExtraidos'] as Map<String, dynamic>,
+                comprobante: comprobante,
+              ),
+            ],
+
             const SizedBox(height: 28),
             _Acciones(gastoId: gastoId, montoDeclarado: datos['monto'] as String),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// RF-IA-02 · Lo que el lector sacó del documento, frente a lo declarado.
+///
+/// El auditor ya veía la discrepancia narrada dentro de un motivo —«el
+/// comprobante dice S/ 158.00 y se declaró S/ 185.00»— perdida entre quince
+/// líneas de otras comprobaciones. Puesta campo a campo al lado de lo
+/// declarado se ve de un golpe, que es lo que necesita quien tiene que decidir.
+///
+/// El veredicto no lo da esta tarjeta: lo dan los motivos de abajo, que son los
+/// que el motor calculó con su tolerancia. Aquí la marca de diferencia es una
+/// ayuda visual sobre los importes ya redondeados a céntimos.
+class _LoQueDiceElPapel extends StatelessWidget {
+  const _LoQueDiceElPapel({required this.extraidos, required this.comprobante});
+
+  final Map<String, dynamic> extraidos;
+  final Map<String, dynamic>? comprobante;
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = Theme.of(context);
+
+    // Sin lectura no hay nada que cotejar, y decirlo importa: significa que
+    // los datos del comprobante no se verificaron contra el documento.
+    if (extraidos['fuente'] != 'ocr') {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 18, color: tema.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'El modelo no pudo leer el comprobante. Los datos se evaluaron tal '
+              'como se declararon, sin contrastarlos con el documento.',
+              style: tema.textTheme.bodySmall?.copyWith(
+                color: tema.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final serie = extraidos['serie'];
+    final numero = extraidos['numero'];
+    final leidoDocumento = serie == null || numero == null ? null : '$serie-$numero';
+    final declaradoDocumento = comprobante == null
+        ? null
+        : '${comprobante!['serie']}-${comprobante!['numero']}';
+
+    final totalLeido = (extraidos['total'] as num?)?.toDouble();
+    final totalDeclarado = double.tryParse('${comprobante?['total']}');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.document_scanner_outlined, size: 18, color: tema.colorScheme.primary),
+            const SizedBox(width: 8),
+            Text('Lo que el modelo leyó en el papel', style: tema.textTheme.titleSmall),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _FilaCotejo(
+                  etiqueta: 'Documento',
+                  leido: leidoDocumento,
+                  declarado: declaradoDocumento,
+                  coincide: leidoDocumento != null &&
+                      _mismoNumero(leidoDocumento, declaradoDocumento),
+                ),
+                _FilaCotejo(
+                  etiqueta: 'RUC emisor',
+                  leido: extraidos['rucEmisor'] as String?,
+                  declarado: comprobante?['rucEmisor'] as String?,
+                  coincide: extraidos['rucEmisor'] == comprobante?['rucEmisor'],
+                ),
+                _FilaCotejo(
+                  etiqueta: 'Fecha de emisión',
+                  leido: Formato.fecha(Formato.aFecha(extraidos['fechaEmision'])),
+                  declarado: Formato.fecha(Formato.aFecha(comprobante?['fechaEmision'])),
+                  coincide: Formato.aFecha(extraidos['fechaEmision']) ==
+                      Formato.aFecha(comprobante?['fechaEmision']),
+                ),
+                _FilaCotejo(
+                  etiqueta: 'Importe total',
+                  leido: Formato.soles(totalLeido?.toString()),
+                  declarado: Formato.soles(comprobante?['total'] as String?),
+                  coincide: totalLeido != null &&
+                      totalDeclarado != null &&
+                      (totalLeido - totalDeclarado).abs() <= 0.05,
+                  destacado: true,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// «004521» y «4521» son el mismo comprobante: el cero de relleno depende
+  /// de cómo lo imprime cada emisor, no del documento.
+  static bool _mismoNumero(String leido, String? declarado) {
+    if (declarado == null) return false;
+    String limpiar(String v) {
+      final partes = v.split('-');
+      if (partes.length < 2) return v.toUpperCase();
+      return '${partes[0].toUpperCase()}-${partes[1].replaceFirst(RegExp(r'^0+'), '')}';
+    }
+
+    return limpiar(leido) == limpiar(declarado);
+  }
+}
+
+class _FilaCotejo extends StatelessWidget {
+  const _FilaCotejo({
+    required this.etiqueta,
+    required this.leido,
+    required this.declarado,
+    required this.coincide,
+    this.destacado = false,
+  });
+
+  final String etiqueta;
+  final String? leido;
+  final String? declarado;
+  final bool coincide;
+  final bool destacado;
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = Theme.of(context);
+    final sinLeer = leido == null || leido == '—';
+
+    final color = sinLeer
+        ? tema.colorScheme.onSurfaceVariant
+        : coincide
+            ? TemaApp.nivelAlto
+            : TemaApp.nivelBajo;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 160,
+            child: Text(
+              etiqueta,
+              style: tema.textTheme.labelLarge?.copyWith(
+                color: tema.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  sinLeer ? 'no se pudo leer' : leido!,
+                  style: (destacado ? tema.textTheme.titleMedium : tema.textTheme.bodyMedium)
+                      ?.copyWith(
+                    color: color,
+                    fontWeight: destacado ? FontWeight.w600 : null,
+                    fontStyle: sinLeer ? FontStyle.italic : null,
+                  ),
+                ),
+                if (!sinLeer && !coincide)
+                  Text(
+                    'se declaró ${declarado ?? '—'}',
+                    style: tema.textTheme.bodySmall?.copyWith(color: TemaApp.nivelBajo),
+                  ),
+              ],
+            ),
+          ),
+          if (!sinLeer)
+            Semantics(
+              label: coincide ? 'Coincide con lo declarado' : 'No coincide con lo declarado',
+              child: Icon(
+                coincide ? Icons.check_circle_outline : Icons.error_outline,
+                size: 18,
+                color: color,
+              ),
+            ),
+        ],
       ),
     );
   }

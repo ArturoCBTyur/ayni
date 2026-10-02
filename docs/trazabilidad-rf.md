@@ -25,7 +25,7 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 | RNF-04 | No almacenar datos de tarjeta | ✅ | Solo token y últimos 4; la tokenización ocurre en la pasarela | `donaciones.spec.ts` |
 | RNF-05 | Privacidad desde el diseño | ✅ | Consentimiento por finalidad con revocación que conserva la historia, ARCO con plazos en días hábiles y exportación de datos sin credenciales | `cumplimiento.spec.ts` · 15 casos |
 | RNF-06 | Anonimización de beneficiarios | 🟡 | Difuminado manual en el servidor + trigger de la base | `imagen.spec.ts`, `gastos.spec.ts`, `integridad.spec.ts`. Automático diferido a AIni |
-| RNF-07 | Libro de movimientos inalterable | ✅ | `fn_libro_solo_insercion`, `fn_movimiento_encadenar`, `fn_verificar_cadena`, más la verificación diaria de todas las cadenas en `ConciliacionService` | `integridad.spec.ts` · 7 casos; `analitica.spec.ts` altera un movimiento y comprueba que la conciliación lo detecta |
+| RNF-07 | Libro de movimientos inalterable | ✅ | `fn_libro_solo_insercion`, `fn_movimiento_encadenar`, `fn_verificar_cadena`, más la verificación diaria de todas las cadenas en `ConciliacionService` | `integridad.spec.ts` · 7 casos; `analitica.spec.ts` altera un movimiento y comprueba que la conciliación lo detecta; `npm run demo:romper` lo demuestra en vivo |
 | RNF-08 | Bitácora de acciones sensibles | ✅ | `BitacoraService` como punto único de escritura, con comparación antes/después; registro atómico dentro de transacción donde hace falta | `identidad.spec.ts`, `cumplimiento.spec.ts` |
 | RNF-09 | Explicabilidad de las decisiones | ✅ | Cada motivo dice qué regla evaluó, cómo salió y con qué valor; el análisis queda atado al motor y a la regla vigente | `reglas-v0.motor.spec.ts`, `verificacion.spec.ts` |
 | RNF-10 | p95 de API bajo 500 ms lectura | 🟡 | `npm run medir:latencia`, que distingue un rechazo del limitador de una latencia alta | Línea base local: p95 entre 2.8 y 4.3 ms en las cuatro rutas públicas de lectura. **Falta la medición contra el despliegue**, que es la única que responde el requisito: la local no incluye red, arranque en frío ni distancia a la base |
@@ -61,7 +61,7 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 | ID | Requerimiento | Estado en v1 |
 |---|---|---|
 | RF-IA-01 | Difuminado automático de rostros | ⏸️ Se sustituye por difuminado **manual** con declaración obligatoria. La restricción de BD que protege al beneficiario sigue activa e igual de estricta |
-| RF-IA-02 | Extracción OCR de campos | ✅ `aini/ocr.py` (rapidocr-onnxruntime) + `aini/cotejo.py`; `datos_extraidos.fuente = "ocr"`. Probado solo sobre boletas sintéticas, no sobre papel térmico real |
+| RF-IA-02 | Extracción OCR de campos | ✅ `aini/ocr.py` (rapidocr-onnxruntime) + `aini/cotejo.py`; `datos_extraidos.fuente = "ocr"`. El auditor lo ve campo por campo contra lo declarado en `pantalla_revision.dart` (`cotejo_test.dart` · 6 casos). Probado solo sobre boletas sintéticas, no sobre papel térmico real |
 | RF-IA-03 | Comparar extraído contra declarado | 🟡 Se compara declarado contra categoría del fondo y saldo; sin fuente OCR que contrastar |
 | RF-IA-04 | Coherencia visual por visión computacional | ⏸️ Se sustituye por señales deterministas de calidad, EXIF y novedad |
 | RF-IA-05 | Detectar evidencias reutilizadas | ✅ **Implementado completo sin IA**: SHA-256 + dHash + Hamming. Detecta una foto reciclada aunque la hayan recortado y recomprimido |

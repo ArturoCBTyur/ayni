@@ -25,7 +25,8 @@
     "medir:latencia": "tsx scripts/medir-latencia.ts",
     "demo:preparar": "tsx scripts/preparar-demo.ts",
     "demo:codigos": "tsx scripts/preparar-demo.ts --codigos",
-    "demo:comparar": "tsx scripts/comparar-motores.ts"
+    "demo:comparar": "tsx scripts/comparar-motores.ts",
+    "demo:romper": "tsx scripts/romper.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
