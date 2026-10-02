@@ -16,7 +16,49 @@ import { PrismaClient } from '@prisma/client';
 
 const TRIGGERS_INMUTABILIDAD = ['tg_movimientos_no_update', 'tg_movimientos_no_delete'];
 
+/**
+ * Comprueba que no haya un servidor de la API corriendo contra la misma base.
+ *
+ * Su trabajador de cola consulta `trabajos_verificacion` cada cinco segundos y
+ * abre transacciones SERIALIZABLE sobre los mismos fondos que tocan las
+ * pruebas. El resultado son fallos intermitentes que cambian de suite entre
+ * corridas y no tienen nada que ver con el codigo que se esta probando: ya
+ * paso dos veces en este proyecto y las dos costo horas entender por que.
+ *
+ * Se falla en vez de advertir. Una suite que a veces pasa ensena a desconfiar
+ * de la suite, que es peor que no tenerla.
+ */
+async function exigirQueNadieMasEsteEscribiendo(): Promise<void> {
+  const puerto = process.env.PORT ?? '3000';
+  const prefijo = process.env.API_PREFIX ?? 'api/v1';
+
+  try {
+    const r = await fetch(`http://localhost:${puerto}/${prefijo}/salud`, {
+      signal: AbortSignal.timeout(1500),
+    });
+    if (!r.ok) return;
+  } catch {
+    // Nadie escuchando, que es lo que se espera. En CI tampoco hay servidor.
+    return;
+  }
+
+  throw new Error(
+    [
+      '',
+      `Hay un servidor de la API respondiendo en el puerto ${puerto}.`,
+      '',
+      'Su trabajador de cola escribe en la misma base que estas pruebas y produce',
+      'fallos intermitentes ajenos al codigo que se esta probando.',
+      '',
+      'Detengalo antes de correr la suite (Ctrl+C en su terminal).',
+      '',
+    ].join('\n'),
+  );
+}
+
 export default async function prepararPruebas(): Promise<void> {
+  await exigirQueNadieMasEsteEscribiendo();
+
   const prisma = new PrismaClient({ log: [] });
   try {
     for (const trigger of TRIGGERS_INMUTABILIDAD) {
