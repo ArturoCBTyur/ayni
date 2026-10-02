@@ -201,14 +201,32 @@ export class VerificacionService {
   }
 
   /** Persiste el resultado integro, atado al motor y a la regla usada. */
-  private async persistir(
-    gastoId: string,
-    entrada: EntradaAnalisis,
-    resultado: ResultadoAnalisis,
-  ) {
+  private async persistir(gastoId: string, entrada: EntradaAnalisis, resultado: ResultadoAnalisis) {
     const [nombre, version] = resultado.versionModelo.split('@');
-    const modelo = await this.prisma.modeloIa.findUniqueOrThrow({
+
+    // Se registra el motor la primera vez que se le ve, en vez de exigir que
+    // ya este en el catalogo.
+    //
+    // La alternativa era fallar, y seria peor: un gasto quedaria sin verificar
+    // —y una ONG esperando su dinero— porque falta una fila de catalogo, que
+    // es un problema de despliegue y no del gasto. Ademas, cada version nueva
+    // del servicio de analisis estrenaria su propia caida silenciosa hasta que
+    // alguien la insertara a mano.
+    //
+    // Registrarlo solo ensancha el catalogo, que es justamente para lo que
+    // existe: saber que motor evaluo cada analisis y poder comparar versiones
+    // entre si (RF-IA-11).
+    const modelo = await this.prisma.modeloIa.upsert({
       where: { nombre_version: { nombre, version } },
+      update: {},
+      create: {
+        nombre,
+        version,
+        tipo: version.startsWith('reglas') ? 'REGLAS' : 'ML_CLASICO',
+        descripcion: `Registrado automaticamente la primera vez que ${version} analizo un gasto.`,
+        estado: 'ACTIVO',
+        activadoEn: new Date(),
+      },
     });
 
     return this.prisma.analisisAini.create({

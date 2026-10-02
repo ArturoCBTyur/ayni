@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# El modelo entrenado es un artefacto, no fuente: se regenera con
+# `python -m entrenamiento.entrenar` y pesa. Su ficha SI se versiona, porque
+# documenta con que se entreno el que este corriendo.
+modelos/*.joblib

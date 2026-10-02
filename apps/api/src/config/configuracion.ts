@@ -42,6 +42,15 @@ const esquema = z.object({
   /** El seam de AIni: conmuta la implementacion de MotorVerificacion. */
   VERIFICACION_DRIVER: z.enum(['reglas-v0', 'aini']).default('reglas-v0'),
   AINI_URL: z.string().url().optional(),
+  /** Token compartido con el servicio. Opcional en local, exigido fuera. */
+  AINI_TOKEN: z.string().optional(),
+  /**
+   * Sin limite de tiempo, un servicio que acepta la conexion y no responde
+   * deja colgado al trabajador de la cola y detiene la verificacion de todos
+   * los demas gastos. 20 s da margen a la carga del modelo y corta antes de
+   * que un gasto bloquee la fila.
+   */
+  AINI_TIMEOUT_MS: z.coerce.number().int().positive().default(20_000),
 
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),

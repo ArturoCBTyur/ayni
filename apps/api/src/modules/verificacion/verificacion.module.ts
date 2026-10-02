@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Configuracion } from '../../config/configuracion';
 import { ColaVerificacionService } from './cola.service';
 import { FakeSunatService } from './cpe/fake-sunat.service';
+import { MotorAIni } from './motores/aini.motor';
 import { MotorReglasV0 } from './motores/reglas-v0.motor';
 import { MOTOR_VERIFICACION } from './puertos/motor-verificacion.port';
 import { SERVICIO_CPE } from './puertos/servicio-cpe.port';
@@ -32,18 +33,34 @@ import { VerificacionService } from './verificacion.service';
     VerificacionService,
     ColaVerificacionService,
     MotorReglasV0,
+    MotorAIni,
     FakeSunatService,
     { provide: SERVICIO_CPE, useExisting: FakeSunatService },
     {
       provide: MOTOR_VERIFICACION,
-      inject: [ConfigService, MotorReglasV0],
-      useFactory: (config: ConfigService<Configuracion, true>, reglas: MotorReglasV0) => {
+      inject: [ConfigService, MotorReglasV0, MotorAIni],
+      useFactory: (
+        config: ConfigService<Configuracion, true>,
+        reglas: MotorReglasV0,
+        aini: MotorAIni,
+      ) => {
         const driver = config.get('VERIFICACION_DRIVER', { infer: true });
-        if (driver !== 'reglas-v0') {
-          new Logger('VerificacionModule').warn(
-            `VERIFICACION_DRIVER="${driver}" todavia no esta implementado; se usa ${reglas.version}.`,
-          );
+        const logger = new Logger('VerificacionModule');
+
+        if (driver === 'aini') {
+          // Pedir AIni sin decir donde vive no puede arrancar a medias: o se
+          // configura, o se dice por que no se usa.
+          if (!config.get('AINI_URL', { infer: true })) {
+            logger.warn(
+              'VERIFICACION_DRIVER="aini" pero falta AINI_URL; se usa el motor de reglas.',
+            );
+            return reglas;
+          }
+          logger.log('Motor de verificacion: AIni, con respaldo en el motor de reglas.');
+          return aini;
         }
+
+        logger.log(`Motor de verificacion: ${reglas.version}.`);
         return reglas;
       },
     },

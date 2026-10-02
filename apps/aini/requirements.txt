@@ -1,0 +1,19 @@
+# AIni - servicio de verificacion de gastos de Ayni.
+#
+#   pip install -r requirements.txt
+#   python -m spacy download es_core_news_md
+#
+# El modelo de lenguaje se descarga aparte porque no es un paquete de PyPI:
+# son datos entrenados y pesan ~40 MB.
+
+fastapi==0.142.2
+uvicorn[standard]==0.41.0
+pydantic==2.12.4
+scikit-learn==1.9.1
+spacy==3.8.16
+joblib==1.5.2
+numpy==2.3.4
+
+# Opcional: solo para `entrenar --real`, que suma los gastos de la base al
+# conjunto de entrenamiento. Sin esto el entrenamiento sintetico funciona igual.
+# psycopg[binary]==3.2.3

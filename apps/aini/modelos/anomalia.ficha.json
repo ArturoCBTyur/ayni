@@ -1,0 +1,21 @@
+{
+  "generadoEn": "2026-10-02T03:17:04.665002+00:00",
+  "algoritmo": "IsolationForest",
+  "caracteristicas": [
+    "monto",
+    "z_categoria",
+    "proveedor_nuevo",
+    "gastos_recientes",
+    "fraccion_saldo",
+    "dias_emision_a_gasto",
+    "dias_gasto_a_captura"
+  ],
+  "muestras": {
+    "sinteticas": 600,
+    "reales": 0,
+    "total": 600
+  },
+  "semilla": 2026,
+  "contaminacion": 0.04,
+  "advertencia": "El conjunto es mayoritariamente sintetico. El modelo reconoce lo que esta distribucion considera raro, no lo que esta organizacion considera raro. Reentrenar con --real a medida que se acumulen gastos aprobados."
+}

@@ -27,18 +27,53 @@ const prisma = new PrismaClient();
 const CLAVE_DEMO = 'Demo.2026!tr';
 
 const ROLES = [
-  { codigo: 'DONANTE', nombre: 'Donante', descripcion: 'Aporta a fondos y recibe evidencia del impacto.' },
-  { codigo: 'ONG_ADMIN', nombre: 'Administrador de ONG', descripcion: 'Crea campañas y fondos de su organizacion.' },
-  { codigo: 'ONG_OPERADOR', nombre: 'Operador de ONG', descripcion: 'Registra gastos con comprobante y evidencia desde el celular.' },
-  { codigo: 'AUDITOR', nombre: 'Auditor', descripcion: 'Verifica ONG, revisa casos de confianza media y audita la conciliacion.' },
-  { codigo: 'ADMIN', nombre: 'Administrador de plataforma', descripcion: 'Gestiona usuarios, roles, umbrales e indicadores.' },
+  {
+    codigo: 'DONANTE',
+    nombre: 'Donante',
+    descripcion: 'Aporta a fondos y recibe evidencia del impacto.',
+  },
+  {
+    codigo: 'ONG_ADMIN',
+    nombre: 'Administrador de ONG',
+    descripcion: 'Crea campañas y fondos de su organizacion.',
+  },
+  {
+    codigo: 'ONG_OPERADOR',
+    nombre: 'Operador de ONG',
+    descripcion: 'Registra gastos con comprobante y evidencia desde el celular.',
+  },
+  {
+    codigo: 'AUDITOR',
+    nombre: 'Auditor',
+    descripcion: 'Verifica ONG, revisa casos de confianza media y audita la conciliacion.',
+  },
+  {
+    codigo: 'ADMIN',
+    nombre: 'Administrador de plataforma',
+    descripcion: 'Gestiona usuarios, roles, umbrales e indicadores.',
+  },
 ] as const;
 
 const CUENTAS = [
   { correo: 'donante@demo.pe', nombres: 'Rosa Elena', apellidos: 'Chavez Flores', rol: 'DONANTE' },
-  { correo: 'ong.admin@demo.pe', nombres: 'Miguel Angel', apellidos: 'Tapia Rojas', rol: 'ONG_ADMIN' },
-  { correo: 'ong.operador@demo.pe', nombres: 'Lucia', apellidos: 'Vargas Huaman', rol: 'ONG_OPERADOR' },
-  { correo: 'auditor@demo.pe', nombres: 'Carlos Alberto', apellidos: 'Mendoza Silva', rol: 'AUDITOR' },
+  {
+    correo: 'ong.admin@demo.pe',
+    nombres: 'Miguel Angel',
+    apellidos: 'Tapia Rojas',
+    rol: 'ONG_ADMIN',
+  },
+  {
+    correo: 'ong.operador@demo.pe',
+    nombres: 'Lucia',
+    apellidos: 'Vargas Huaman',
+    rol: 'ONG_OPERADOR',
+  },
+  {
+    correo: 'auditor@demo.pe',
+    nombres: 'Carlos Alberto',
+    apellidos: 'Mendoza Silva',
+    rol: 'AUDITOR',
+  },
   { correo: 'admin@demo.pe', nombres: 'Sofia', apellidos: 'Ramirez Leon', rol: 'ADMIN' },
 ] as const;
 
@@ -93,6 +128,31 @@ async function sembrarReglaConfianza() {
  * auditores vayan dejando en revisiones_auditoria (RF-IA-11).
  */
 async function sembrarMotor() {
+  // AIni queda registrada en EN_PRUEBAS y no ACTIVO: existir en el catalogo
+  // es lo que permite comparar sus analisis contra los del motor de reglas,
+  // pero declararla activa sin haberla evaluado seria afirmar algo que todavia
+  // nadie midio. La activa el administrador cuando las metricas lo respalden.
+  await prisma.modeloIa.upsert({
+    where: { nombre_version: { nombre: 'motor-verificacion', version: 'aini-0.1-sklearn' } },
+    update: {},
+    create: {
+      nombre: 'motor-verificacion',
+      version: 'aini-0.1-sklearn',
+      tipo: 'ML_CLASICO',
+      descripcion:
+        'AIni basica: Isolation Forest sobre el perfil del gasto (scikit-learn) y ' +
+        'coherencia semantica concepto/categoria con vectores de palabras (spaCy ' +
+        'es_core_news_md). Corre en apps/aini como servicio propio, sin API externa.',
+      estado: 'EN_PRUEBAS',
+      metricas: {
+        nota:
+          'El detector de anomalias se entreno con un conjunto mayoritariamente ' +
+          'sintetico; reconoce lo que esa distribucion considera raro. Ver ' +
+          'apps/aini/modelos/anomalia.ficha.json.',
+      },
+    },
+  });
+
   const motor = await prisma.modeloIa.upsert({
     where: { nombre_version: { nombre: 'motor-verificacion', version: 'reglas-v0' } },
     update: { estado: 'ACTIVO' },
@@ -227,8 +287,16 @@ async function sembrarOngPiloto() {
         'Cada invierno aumentan los rescates de animales en abandono. Esta campaña cubre ' +
         'alimentacion y atencion veterinaria de los rescatados entre junio y setiembre.',
       fondos: [
-        { nombre: 'Alimentos para rescate animal', categoriaGasto: CategoriaGasto.ALIMENTOS, meta: 8000 },
-        { nombre: 'Atencion veterinaria', categoriaGasto: CategoriaGasto.ATENCION_VETERINARIA, meta: 12000 },
+        {
+          nombre: 'Alimentos para rescate animal',
+          categoriaGasto: CategoriaGasto.ALIMENTOS,
+          meta: 8000,
+        },
+        {
+          nombre: 'Atencion veterinaria',
+          categoriaGasto: CategoriaGasto.ATENCION_VETERINARIA,
+          meta: 12000,
+        },
       ],
     },
     {
@@ -239,8 +307,16 @@ async function sembrarOngPiloto() {
         'Jornadas de esterilizacion gratuita en barrios de Amarilis, para reducir la ' +
         'poblacion de animales sin hogar de forma sostenible.',
       fondos: [
-        { nombre: 'Jornadas de esterilizacion', categoriaGasto: CategoriaGasto.ESTERILIZACION, meta: 15000 },
-        { nombre: 'Medicamentos post operatorios', categoriaGasto: CategoriaGasto.MEDICAMENTOS, meta: 4000 },
+        {
+          nombre: 'Jornadas de esterilizacion',
+          categoriaGasto: CategoriaGasto.ESTERILIZACION,
+          meta: 15000,
+        },
+        {
+          nombre: 'Medicamentos post operatorios',
+          categoriaGasto: CategoriaGasto.MEDICAMENTOS,
+          meta: 4000,
+        },
       ],
     },
   ];
@@ -273,7 +349,9 @@ async function sembrarOngPiloto() {
   }
 
   const fondos = await prisma.fondo.count();
-  console.info(`  ONG piloto: ${ong.nombreComercial} (RUC ${ruc}) · ${campanas.length} campañas · ${fondos} fondos`);
+  console.info(
+    `  ONG piloto: ${ong.nombreComercial} (RUC ${ruc}) · ${campanas.length} campañas · ${fondos} fondos`,
+  );
 }
 
 async function main() {
