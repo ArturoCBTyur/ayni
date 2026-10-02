@@ -588,8 +588,15 @@ describe('RF-SO-04 · Debido proceso reputacional', () => {
     const alerta = await prisma.alerta.findFirstOrThrow({ where: { gastoId: gasto.id } });
     expect(alerta.afectaReputacion).toBe(false);
 
-    // Todavia dentro de plazo: el job no la toca.
-    expect(await alertas.vencerPlazos()).toBe(0);
+    // Todavia dentro de plazo: el job no la toca. Se comprueba sobre ESTA
+    // alerta y no sobre el total que devuelve el job, porque vencerPlazos()
+    // recorre toda la base: una alerta vencida que haya dejado cualquier otra
+    // suite haria fallar un recuento global sin que esta tenga nada que ver.
+    // Afirmar una propiedad global para demostrar una local es lo que vuelve
+    // una prueba dependiente del orden en que se ejecuta.
+    await alertas.vencerPlazos();
+    const dentroDePlazo = await prisma.alerta.findUniqueOrThrow({ where: { id: alerta.id } });
+    expect(dentroDePlazo.afectaReputacion).toBe(false);
 
     // Se fuerza el vencimiento.
     await prisma.alerta.update({
