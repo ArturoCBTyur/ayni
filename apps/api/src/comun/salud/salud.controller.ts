@@ -27,7 +27,9 @@ export class SaludController {
     return {
       estado: 'ok',
       servicio: 'Ayni API',
-      version: '0.1.0-mvp-sin-ia',
+      // El sufijo decia "sin-ia" y dejo de ser cierto al entrar AIni. Que
+      // motor esta activo lo dice el campo de abajo, que es el dato util.
+      version: '0.2.0-mvp',
       motorVerificacion: process.env.VERIFICACION_DRIVER ?? 'reglas-v0',
       baseDatos: {
         conectada: true,
