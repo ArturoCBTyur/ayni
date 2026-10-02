@@ -4,6 +4,7 @@
     python probar.py concepto "compra de croquetas" ALIMENTOS
     python probar.py gasto --monto 480 --proveedor-nuevo --gastos-recientes 5
     python probar.py limites                      donde el modelo se equivoca
+    python probar.py demo                         recorrido guiado, para exponer
 
 No reemplaza a `pytest pruebas/`, que fija el comportamiento que no puede
 cambiar. Esto es para lo otro: entender como se comporta el modelo, encontrar
@@ -205,9 +206,11 @@ def probar_gasto(args: argparse.Namespace) -> None:
 CASOS_DIFICILES: list[tuple[str, str, bool, str]] = [
     # (concepto, categoria, deberia_corresponder, por_que_es_dificil)
     ("compra de croquetas y alimento seco", "ALIMENTOS", True, "sinonimo coloquial"),
-    ("gastos de movilidad del personal", "TRANSPORTE", True, "lenguaje administrativo"),
-    ("honorarios del veterinario de turno", "SERVICIOS", True, "cae entre dos categorias"),
-    ("honorarios del veterinario de turno", "ATENCION_VETERINARIA", True, "la otra lectura"),
+    ("gastos de movilidad del personal", "TRANSPORTE", True, "lenguaje administrativo, sin sustantivo concreto"),
+    # Este gasto pertenece a UNA de las dos categorias, no a ambas. Exigir que
+    # el modelo acepte las dos seria pedirle algo incoherente: se comprueba que
+    # acepte al menos una, en el bloque de abajo.
+    ("honorarios del veterinario de turno", "ATENCION_VETERINARIA", True, "cae entre dos categorias"),
     ("compra de jeringas y guantes", "INSUMOS", True, "objetos concretos, categoria abstracta"),
     ("pago de luz y agua del albergue", "ADMINISTRATIVO", True, "servicios basicos"),
     ("reparacion del techo del albergue", "INFRAESTRUCTURA", True, "directo"),
@@ -266,6 +269,122 @@ def probar_limites() -> None:
 # --------------------------------------------------------------------------
 
 
+# --------------------------------------------------------------------------
+# demo: recorrido guiado para una exposicion
+# --------------------------------------------------------------------------
+
+ANCHO = 74
+
+
+def _titulo(texto: str) -> None:
+    print(f"\n{'=' * ANCHO}")
+    print(f"  {texto}")
+    print(f"{'=' * ANCHO}\n")
+
+
+def _pausa(texto: str = "Enter para continuar") -> None:
+    try:
+        input(f"\n{GRIS}  [{texto}]{FIN}")
+    except (EOFError, KeyboardInterrupt):
+        raise SystemExit(0) from None
+
+
+def _comparar_categoria(concepto: str, categoria: str, esperado: str) -> None:
+    """Una linea de resultado, con el veredicto en grande."""
+    sim = documental.coherencia_concepto_categoria(concepto, categoria)
+    if sim is None:
+        print(f"  {ROJO}no se pudo medir{FIN}")
+        return
+
+    corresponde = sim >= documental.UMBRAL_COHERENCIA
+    marca = VERDE if corresponde else ROJO
+    etiqueta = "CORRESPONDE" if corresponde else "NO CORRESPONDE"
+
+    print(f'  concepto   "{concepto}"')
+    print(f"  fondo      {categoria}")
+    print(f"  similitud  {marca}{sim:.3f}{FIN}   {'#' * int(sim * 30)}")
+    print(f"  veredicto  {marca}{etiqueta}{FIN}   {GRIS}(esperado: {esperado}){FIN}")
+
+
+def demo() -> None:
+    """Recorrido guiado de la señal de lenguaje, pensado para publico.
+
+    Termina abierto: el ultimo acto invita a que alguien del publico proponga
+    un concepto. Es el momento mas convincente de toda la demostracion porque
+    es el unico que no se puede preparar de antemano.
+    """
+    documental.nlp()  # se carga antes de empezar, no con publico esperando
+
+    _titulo("AIni · que entiende el modelo de lenguaje")
+    print("  El sistema ya validaba el RUC, el IGV y las fechas con aritmetica.")
+    print("  Lo que no podia hacer era entender QUE dice el concepto del gasto.")
+    _pausa()
+
+    # --- Acto 1: el caso que una regla no ve ---
+    _titulo("1 · Un gasto que ninguna regla aritmetica detecta")
+    print("  Comprobante impecable: RUC valido, IGV exacto, fechas coherentes.")
+    print(f"  {GRIS}El motor de reglas lo aprobaria automaticamente.{FIN}\n")
+    _comparar_categoria(
+        "alquiler de oficina administrativa y mobiliario de escritorio",
+        "ATENCION_VETERINARIA",
+        "no corresponde",
+    )
+    print(f"\n  {AMBAR}Es dinero donado para curar animales, pagando una renta.{FIN}")
+    _pausa()
+
+    # --- Acto 2: el mismo gasto, en su fondo ---
+    _titulo("2 · El mismo gasto, cargado al fondo correcto")
+    print(f"  {GRIS}No es que el modelo desconfie del alquiler. Desconfia del fondo.{FIN}\n")
+    _comparar_categoria(
+        "alquiler de oficina administrativa y mobiliario de escritorio",
+        "ADMINISTRATIVO",
+        "corresponde",
+    )
+    _pausa()
+
+    # --- Acto 3: no es coincidencia de palabras ---
+    _titulo("3 · No esta buscando palabras, esta midiendo significado")
+    print("  Ninguna de estas palabras aparece en la descripcion de la categoria.\n")
+    for concepto in (
+        "croquetas y comida seca para los perros del albergue",
+        "esterilizacion de 20 gatos en la jornada del sabado",
+    ):
+        categoria = "ALIMENTOS" if "croqueta" in concepto else "ATENCION_VETERINARIA"
+        _comparar_categoria(concepto, categoria, "corresponde")
+        print()
+    _pausa()
+
+    # --- Acto 4: donde falla ---
+    _titulo("4 · Donde se equivoca")
+    print("  Un modelo que solo se enseña acertando no se puede evaluar.\n")
+    _comparar_categoria("compra de alimento", "ATENCION_VETERINARIA", "no corresponde")
+    print(f"\n  {AMBAR}Lo acepta, y no deberia.{FIN} Un concepto corto y generico")
+    print("  no tiene suficientes palabras con carga para separarlo.")
+    print(f"\n  {GRIS}Medido sobre 25 conceptos reales: en el umbral actual deja pasar")
+    print(f"  una de cada siete categorizaciones erroneas. Por eso esta señal")
+    print(f"  resta puntos y deriva a una persona, en vez de decidir sola.{FIN}")
+    _pausa()
+
+    # --- Acto 5: el publico ---
+    _titulo("5 · Proponga usted un concepto")
+    print("  Escriba cualquier gasto que una ONG animalista podria registrar")
+    print("  y vea a que categoria lo asigna el modelo.\n")
+    print(f"  {GRIS}Enter vacio para terminar.{FIN}\n")
+
+    while True:
+        try:
+            concepto = input("  concepto > ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        if not concepto:
+            break
+        probar_concepto(concepto)
+        print()
+
+    _titulo("Fin del recorrido")
+
+
 def interactivo() -> None:
     print("\nBanco de pruebas de AIni.")
     print(f"{GRIS}Escriba un concepto de gasto y vea contra que categoria lo clasifica.")
@@ -309,6 +428,7 @@ def main() -> int:
     p_gas.add_argument("--distancia", type=int, default=24, help="Hamming al historico; <=5 es reciclada")
 
     sub.add_parser("limites", help="bateria de casos dificiles y donde falla")
+    sub.add_parser("demo", help="recorrido guiado para una exposicion")
 
     args = parser.parse_args()
 
@@ -318,6 +438,8 @@ def main() -> int:
         probar_gasto(args)
     elif args.comando == "limites":
         probar_limites()
+    elif args.comando == "demo":
+        demo()
     else:
         interactivo()
 

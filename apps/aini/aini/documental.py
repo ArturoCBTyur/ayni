@@ -23,6 +23,7 @@ from datetime import date, datetime, timedelta
 import numpy as np
 import spacy
 from spacy.language import Language
+from spacy.tokens import Token
 
 from .contrato import Comprobante, Declarado, MotivoAnalisis
 
@@ -66,53 +67,81 @@ DESCRIPCION_CATEGORIA: dict[str, str] = {
     "ADMINISTRATIVO": "oficina alquiler luz agua electricidad papeleria tramite recibo",
 }
 
-#: Umbrales de la señal, derivados de medir 25 conceptos reales contra su propia
-#: categoria y contra las otras siete (175 pares ajenos):
+#: Umbrales de la señal, derivados de medir 25 conceptos reales contra su
+#: propia categoria y contra las otras siete (175 pares ajenos):
 #:
-#:   propios   mediana 0.691   p5 0.397
-#:   ajenos    mediana 0.405   p95 0.595
+#:   propios   mediana 0.70   p5 0.46
+#:   ajenos    mediana 0.40   p95 0.54
 #:
-#: **Las clases se solapan**, asi que ningun umbral las separa limpio. La curva
-#: medida en 0.52 rechaza el 8 % de los conceptos correctos y acepta el 15 % de
-#: los equivocados; subirlo a 0.58 baja los aceptados al 6 % pero manda a
-#: revision humana el 28 % de los gastos legitimos.
+#: **Las clases se solapan**, asi que ningun umbral las separa limpio. En 0.50
+#: la señal rechaza cerca del 15 % de los conceptos correctos y acepta cerca
+#: del 13 % de los equivocados; subirlo mejora poco lo segundo y empeora mucho
+#: lo primero.
 #:
-#: Se eligio 0.52 por la asimetria del costo: rechazar un gasto correcto cuesta
-#: una revision humana, que es barata y que el sistema ya contempla; aceptar uno
-#: mal categorizado deja salir dinero del fondo equivocado sin que nadie lo vea.
-#: Aun asi, una de cada siete categorizaciones erroneas pasa, y por eso esta
-#: señal resta 30 puntos en vez de bloquear: deriva a una persona, no decide.
-UMBRAL_COHERENCIA = 0.52
-UMBRAL_COHERENCIA_DUDOSA = 0.62
+#: Se acepta ese 13 % a sabiendas, y por eso esta señal **resta 30 puntos en
+#: vez de bloquear**: su trabajo es derivar a una persona, no decidir. Un
+#: bloqueo con una de cada ocho equivocaciones seria inaceptable; una derivacion
+#: a revision con esa tasa es util.
+UMBRAL_COHERENCIA = 0.50
+UMBRAL_COHERENCIA_DUDOSA = 0.60
 
 
-def _vector_de_contenido(texto: str) -> np.ndarray | None:
-    """Vector promedio de las palabras con carga semantica.
+def _palabras_con_carga(texto: str) -> list[Token]:
+    """Sustantivos, verbos, adjetivos y nombres propios con vector propio.
 
-    NO se usa `Doc.similarity` de spaCy, que promedia el documento entero.
-    Medido sobre los conceptos reales de este proyecto, esa medida se invierte:
-    "atencion veterinaria" contra "alquiler de oficina" puntuaba 0.791 y contra
-    su propia categoria 0.617, porque las preposiciones y los articulos pesan
-    tanto como los sustantivos y terminan dominando el promedio.
-
-    Filtrando a sustantivos, verbos, adjetivos y nombres propios con vector
-    propio, el orden se corrige y las tres situaciones quedan bien separadas.
+    Se filtra porque las palabras funcionales no aportan significado y si
+    arrastran el resultado. Medido sobre los conceptos de este proyecto, usar
+    `Doc.similarity` de spaCy --que promedia el documento entero-- invertia el
+    orden: "atencion veterinaria" contra "alquiler de oficina" puntuaba 0.791 y
+    contra su propia categoria 0.617.
     """
-    doc = nlp()(texto.lower())
-    vectores = [
-        token.vector
-        for token in doc
+    return [
+        token
+        for token in nlp()(texto.lower())
         if token.pos_ in ("NOUN", "VERB", "ADJ", "PROPN")
         and not token.is_stop
         and token.has_vector
         and token.vector_norm > 0
     ]
-    if not vectores:
-        return None
 
-    promedio = np.mean(vectores, axis=0)
-    norma = float(np.linalg.norm(promedio))
-    return promedio / norma if norma > 0 else None
+
+#: Cuantas coincidencias se promedian. Ver `_similitud`.
+MEJORES_COINCIDENCIAS = 3
+
+
+def _similitud(concepto: list[Token], categoria: list[Token]) -> float:
+    """Media de las mejores coincidencias palabra a palabra.
+
+    NO se promedian los vectores en un centroide por cada lado, que es lo
+    primero que uno intenta. El centroide se diluye con el relleno: medido,
+    "esterilizacion de 20 gatos" puntuaba 0.592 contra su categoria y la misma
+    frase con "en la jornada del sabado" caia a 0.439, por debajo del umbral.
+    Tres palabras sin carga tumbaban un gasto legitimo.
+
+    Emparejando cada palabra del concepto con la que mejor le calce en la
+    categoria, y promediando solo las mejores, el relleno deja de pesar: una
+    palabra que no se parece a nada simplemente no entra en el promedio. La
+    misma frase sube a 0.609.
+
+    Comparadas a igual tasa de falsas alarmas sobre 25 conceptos reales y 175
+    pares ajenos, esta medida acepta la mitad de categorizaciones erroneas que
+    el centroide (16.6 % contra 33.1 % cuando ambas rechazan el 8 % de los
+    conceptos correctos).
+    """
+    mejores = [
+        max(
+            float(
+                np.dot(
+                    token.vector / token.vector_norm,
+                    otro.vector / otro.vector_norm,
+                )
+            )
+            for otro in categoria
+        )
+        for token in concepto
+    ]
+    mejores.sort(reverse=True)
+    return float(np.mean(mejores[:MEJORES_COINCIDENCIAS]))
 
 
 def coherencia_concepto_categoria(concepto: str, categoria: str) -> float | None:
@@ -126,12 +155,12 @@ def coherencia_concepto_categoria(concepto: str, categoria: str) -> float | None
     if descripcion is None:
         return None
 
-    v_concepto = _vector_de_contenido(concepto)
-    v_categoria = _vector_de_contenido(descripcion)
-    if v_concepto is None or v_categoria is None:
+    palabras_concepto = _palabras_con_carga(concepto)
+    palabras_categoria = _palabras_con_carga(descripcion)
+    if not palabras_concepto or not palabras_categoria:
         return None
 
-    return float(np.dot(v_concepto, v_categoria))
+    return _similitud(palabras_concepto, palabras_categoria)
 
 
 # --------------------------------------------------------------------------
