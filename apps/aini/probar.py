@@ -3,6 +3,7 @@
     python probar.py                              modo interactivo
     python probar.py concepto "compra de croquetas" ALIMENTOS
     python probar.py gasto --monto 480 --proveedor-nuevo --gastos-recientes 5
+    python probar.py boleta --impreso 158 --monto 185   el lector, sobre papel
     python probar.py limites                      donde el modelo se equivoca
     python probar.py demo                         recorrido guiado, para exponer
 
@@ -45,6 +46,14 @@ AMBAR = "\033[33m"
 ROJO = "\033[31m"
 GRIS = "\033[90m"
 FIN = "\033[0m"
+
+
+#: Serie y numero del comprobante de prueba. Los comparte `construir` con la
+#: boleta que dibuja el subcomando `boleta`: si no fueran el mismo documento,
+#: el cotejo marcaria la serie en cada corrida y el caso que se quiere ensenar
+#: --el importe-- quedaria escondido entre dos discrepancias.
+SERIE = "B001"
+NUMERO = "000123"
 
 
 def color_nivel(nivel: str) -> str:
@@ -124,15 +133,18 @@ def construir(args: argparse.Namespace) -> EntradaAnalisis:
         comprobante=Comprobante(
             tipo="BOLETA",
             rucEmisor=args.ruc,
-            serie="B001",
-            numero="000123",
+            serie=SERIE,
+            numero=NUMERO,
             fechaEmision=args.fecha,
             subtotal=round(args.monto / 1.18, 2),
             igv=round(args.monto - args.monto / 1.18, 2),
             total=args.monto,
             moneda="PEN",
             hashSha256="a" * 64,
-            archivoUrl="/x",
+            # Sin --comprobante no hay nada que descargar y el lector lo dice
+            # asi: "no se pudo leer". Es el comportamiento correcto y es el que
+            # tenia el banco de pruebas antes de que existiera el OCR.
+            archivoUrl=args.comprobante or "/x",
         ),
         evidencias=[
             Evidencia(
@@ -182,6 +194,27 @@ def probar_gasto(args: argparse.Namespace) -> None:
     )
     print(f"  {r.explicacion.resumen}\n")
 
+    # Lo que el lector saco del papel, al lado de lo que se tecleo. Es la parte
+    # que hay que ver para creerla: sin esto, el cotejo es un motivo mas en una
+    # lista y no se distingue de una regla cualquiera sobre el dato declarado.
+    d = r.datos_extraidos
+    if d.fuente == "ocr":
+        print(f"  {GRIS}El lector encontro en la imagen:{FIN}")
+        campos = [
+            ("RUC", d.ruc_emisor, args.ruc),
+            ("Comprobante", f"{d.serie}-{d.numero}", f"{SERIE}-{NUMERO}"),
+            ("Fecha", d.fecha_emision, args.fecha),
+            ("Total", f"S/ {d.total:.2f}" if d.total is not None else None, f"S/ {args.monto:.2f}"),
+        ]
+        for nombre, leido, declarado in campos:
+            if leido is None:
+                print(f"    {nombre:12} {AMBAR}no se pudo leer{FIN}")
+            elif str(leido) == str(declarado):
+                print(f"    {nombre:12} {leido}  {VERDE}= lo declarado{FIN}")
+            else:
+                print(f"    {nombre:12} {leido}  {ROJO}!= se declaro {declarado}{FIN}")
+        print()
+
     for m in r.explicacion.motivos:
         simbolo = {"ok": f"{VERDE}ok  {FIN}", "advertencia": f"{AMBAR}!   {FIN}", "falla": f"{ROJO}X   {FIN}"}[
             m.resultado
@@ -194,6 +227,143 @@ def probar_gasto(args: argparse.Namespace) -> None:
         for a in r.alertas:
             print(f"  {ROJO}[{a.severidad}]{FIN} {a.titulo}")
     print()
+
+
+# --------------------------------------------------------------------------
+# boleta: el lector, sobre un comprobante de verdad
+# --------------------------------------------------------------------------
+
+#: Valores del caso que ensena el lector: una boleta de S/ 158 sobre la que se
+#: declaran S/ 185. Es la direccion que le cuesta dinero al donante --el fondo
+#: pagaria S/ 27 que el papel no respalda-- y es el error mas verosimil:
+#: transponer dos digitos al teclear.
+#:
+#: Viven en un solo sitio porque los usan dos caminos: los valores por defecto
+#: del subcomando `boleta` y el acto del recorrido guiado. Separados, cambiar
+#: el caso en uno lo dejaria viejo en el otro.
+POR_DEFECTO_BOLETA: dict[str, object] = {
+    "impreso": 158.0,
+    "monto": 185.0,
+    # Sin "del albergue": ese complemento de lugar baja la coherencia de 0.721
+    # a 0.573 y agrega una advertencia que no es lo que este caso quiere
+    # ensenar. El porque esta medido al pie de `documental._similitud`.
+    "concepto": "vacunacion antirrabica de doce gatos",
+    "categoria": "ATENCION_VETERINARIA",
+    "proveedor": "Clinica Veterinaria San Roque",
+    "ruc": "20601030579",
+    "fecha": "2026-09-14",
+    "saldo": 500.0,
+    "media": 130.0,
+    "desviacion": 40.0,
+    "proveedor_nuevo": False,
+    "gastos_recientes": 1,
+    "nitidez": 180.0,
+    "distancia": 24,
+    "comprobante": None,
+}
+
+
+def _dibujar_boleta(ruta: Path, ruc: str, serie: str, numero: str, fecha: str, total: float) -> None:
+    """Una boleta de venta con el formato habitual en el Peru."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    def fuente(tam: int, negrita: bool):
+        for nombre in (("arialbd.ttf" if negrita else "arial.ttf"), "DejaVuSans.ttf"):
+            try:
+                return ImageFont.truetype(nombre, tam)
+            except OSError:
+                continue
+        return ImageFont.load_default()
+
+    subtotal = round(total / 1.18, 2)
+    dia, mes, ano = fecha.split("-")[2], fecha.split("-")[1], fecha.split("-")[0]
+
+    lineas = [
+        ("CLINICA VETERINARIA SAN ROQUE S.A.C.", 25, True),
+        ("Av. Alameda 456 - Amarilis, Huanuco", 17, False),
+        (f"RUC: {ruc}", 25, True),
+        ("", 8, False),
+        ("BOLETA DE VENTA ELECTRONICA", 21, True),
+        (f"{serie}-{numero}", 26, True),
+        ("", 8, False),
+        (f"Fecha de emision: {dia}/{mes}/{ano}", 18, False),
+        ("Cliente: ASOCIACION HUELLAS DEL ANDE", 18, False),
+        ("", 12, False),
+        ("Descripcion                    Importe", 17, False),
+        (f"Atencion veterinaria           {subtotal:.2f}", 17, False),
+        ("", 12, False),
+        (f"OP. GRAVADA:        S/   {subtotal:.2f}", 19, False),
+        (f"IGV (18%):          S/    {total - subtotal:.2f}", 19, False),
+        (f"IMPORTE TOTAL:      S/   {total:.2f}", 24, True),
+    ]
+
+    img = Image.new("RGB", (620, 760), "white")
+    dibujo = ImageDraw.Draw(img)
+    y = 30
+    for texto, tam, negrita in lineas:
+        if texto:
+            dibujo.text((38, y), texto, fill=(17, 17, 17), font=fuente(tam, negrita))
+        y += tam + 13
+    img.save(ruta, quality=92)
+
+
+def probar_boleta(args: argparse.Namespace) -> None:
+    """Dibuja una boleta, la sirve, y la hace leer por el motor.
+
+    El lector solo acepta URLs http(s), a proposito: es un servicio que recibe
+    esa ruta en una peticion de red, y dejarle abrir archivos del disco por
+    nombre seria entregarle a quien llame la capacidad de leer cualquier cosa.
+    Asi que aqui se levanta un servidor minimo en un hilo, se analiza, y se
+    apaga. Lo que el motor hace es exactamente lo que hace en produccion.
+
+    En una exposicion esto es lo que hay que mostrar: el papel dice un importe,
+    se teclea otro, y el sistema lo nota. Ninguna regla sobre el dato declarado
+    puede hacerlo, porque el dato declarado esta perfecto.
+    """
+    import functools
+    import http.server
+    import tempfile
+    import threading
+
+    carpeta = Path(tempfile.mkdtemp(prefix="aini-boleta-"))
+    nombre = "boleta.jpg"
+    _dibujar_boleta(
+        carpeta / nombre,
+        ruc=args.ruc,
+        serie=SERIE,
+        numero=NUMERO,
+        fecha=args.fecha,
+        total=args.impreso,
+    )
+
+    class Silencioso(http.server.SimpleHTTPRequestHandler):
+        """Sin registro de accesos.
+
+        Se subclasifica en vez de sobrescribir `log_message` sobre el
+        `functools.partial`: el atributo se le quedaria al objeto partial y no
+        al manejador, y la linea del GET aparecia en mitad de la exposicion.
+        """
+
+        def log_message(self, *_args: object) -> None:
+            pass
+
+    manejador = functools.partial(Silencioso, directory=str(carpeta))
+    servidor = http.server.ThreadingHTTPServer(("127.0.0.1", 0), manejador)
+    puerto = servidor.server_address[1]
+    threading.Thread(target=servidor.serve_forever, daemon=True).start()
+
+    print(f"\n  {GRIS}Boleta dibujada: {carpeta / nombre}{FIN}")
+    print(f"  {GRIS}Servida en http://127.0.0.1:{puerto}/{nombre}{FIN}")
+    print(f"\n  El papel dice    {VERDE}S/ {args.impreso:.2f}{FIN}")
+    print(f"  Se declara       {ROJO if args.monto != args.impreso else VERDE}S/ {args.monto:.2f}{FIN}")
+    print(f"  {GRIS}Leyendo la imagen...{FIN}")
+
+    try:
+        args.comprobante = f"http://127.0.0.1:{puerto}/{nombre}"
+        probar_gasto(args)
+    finally:
+        servidor.shutdown()
+        servidor.server_close()
 
 
 # --------------------------------------------------------------------------
@@ -307,7 +477,12 @@ def _comparar_categoria(concepto: str, categoria: str, esperado: str) -> None:
 
 
 def demo() -> None:
-    """Recorrido guiado de la señal de lenguaje, pensado para publico.
+    """Recorrido guiado para publico: el lector y la señal de lenguaje.
+
+    Empieza por el lector de comprobantes porque es el acto que no exige
+    confiar en nada: un importe impreso contra otro tecleado se entiende sin
+    explicacion previa. La señal de lenguaje viene despues, cuando ya hay
+    credito ganado para hablar de similitud de significado.
 
     Termina abierto: el ultimo acto invita a que alguien del publico proponga
     un concepto. Es el momento mas convincente de toda la demostracion porque
@@ -315,13 +490,32 @@ def demo() -> None:
     """
     documental.nlp()  # se carga antes de empezar, no con publico esperando
 
-    _titulo("AIni · que entiende el modelo de lenguaje")
-    print("  El sistema ya validaba el RUC, el IGV y las fechas con aritmetica.")
-    print("  Lo que no podia hacer era entender QUE dice el concepto del gasto.")
+    _titulo("AIni · lo que la aritmetica no podia hacer")
+    print("  El sistema ya validaba el RUC, el IGV y las fechas. Todas esas reglas")
+    print("  razonan sobre el dato que el operador TECLEO, y por eso hay dos cosas")
+    print("  que ninguna de ellas puede ver:\n")
+    print(f"    1. {VERDE}Si lo tecleado es lo que dice el papel.{FIN}")
+    print(f"    2. {VERDE}Que significa el concepto del gasto.{FIN}")
     _pausa()
 
-    # --- Acto 1: el caso que una regla no ve ---
-    _titulo("1 · Un gasto que ninguna regla aritmetica detecta")
+    # --- Acto 1: el lector ---
+    # Va primero a proposito. Es el acto mas concreto de todos --un numero
+    # impreso contra otro tecleado-- y no necesita que nadie confie en una
+    # medida de similitud para entenderlo.
+    _titulo("1 · Lee el comprobante y lo compara con lo declarado")
+    print("  Se dibuja una boleta de verdad, se declara un importe distinto del")
+    print("  impreso, y se deja que el modelo lea la imagen.\n")
+    print(f"  {GRIS}Es el error mas verosimil que existe: transponer dos digitos.")
+    print(f"  El RUC es valido, el IGV cuadra, las fechas estan bien. Para el motor")
+    print(f"  de reglas el gasto es impecable.{FIN}")
+    _pausa()
+    probar_boleta(argparse.Namespace(**POR_DEFECTO_BOLETA))
+    print(f"  {AMBAR}El fondo iba a pagar S/ 27 que el papel no respalda.{FIN}")
+    print(f"  {GRIS}Nadie tecleo esa diferencia: el modelo la encontro leyendo.{FIN}")
+    _pausa()
+
+    # --- Acto 2: el caso que una regla no ve ---
+    _titulo("2 · Un gasto que ninguna regla aritmetica detecta")
     print("  Comprobante impecable: RUC valido, IGV exacto, fechas coherentes.")
     print(f"  {GRIS}El motor de reglas lo aprobaria automaticamente.{FIN}\n")
     _comparar_categoria(
@@ -332,8 +526,8 @@ def demo() -> None:
     print(f"\n  {AMBAR}Es dinero donado para curar animales, pagando una renta.{FIN}")
     _pausa()
 
-    # --- Acto 2: el mismo gasto, en su fondo ---
-    _titulo("2 · El mismo gasto, cargado al fondo correcto")
+    # --- Acto 3: el mismo gasto, en su fondo ---
+    _titulo("3 · El mismo gasto, cargado al fondo correcto")
     print(f"  {GRIS}No es que el modelo desconfie del alquiler. Desconfia del fondo.{FIN}\n")
     _comparar_categoria(
         "alquiler de oficina administrativa y mobiliario de escritorio",
@@ -342,8 +536,8 @@ def demo() -> None:
     )
     _pausa()
 
-    # --- Acto 3: no es coincidencia de palabras ---
-    _titulo("3 · No esta buscando palabras, esta midiendo significado")
+    # --- Acto 4: no es coincidencia de palabras ---
+    _titulo("4 · No esta buscando palabras, esta midiendo significado")
     print("  Ninguna de estas palabras aparece en la descripcion de la categoria.\n")
     for concepto in (
         "croquetas y comida seca para los perros del albergue",
@@ -354,8 +548,8 @@ def demo() -> None:
         print()
     _pausa()
 
-    # --- Acto 4: donde falla ---
-    _titulo("4 · Donde se equivoca")
+    # --- Acto 5: donde falla ---
+    _titulo("5 · Donde se equivoca")
     print("  Un modelo que solo se enseña acertando no se puede evaluar.\n")
     _comparar_categoria("compra de alimento", "ATENCION_VETERINARIA", "no corresponde")
     print(f"\n  {AMBAR}Lo acepta, y no deberia.{FIN} Un concepto corto y generico")
@@ -365,8 +559,8 @@ def demo() -> None:
     print(f"  resta puntos y deriva a una persona, en vez de decidir sola.{FIN}")
     _pausa()
 
-    # --- Acto 5: el publico ---
-    _titulo("5 · Proponga usted un concepto")
+    # --- Acto 6: el publico ---
+    _titulo("6 · Proponga usted un concepto")
     print("  Escriba cualquier gasto que una ONG animalista podria registrar")
     print("  y vea a que categoria lo asigna el modelo.\n")
     print(f"  {GRIS}Enter vacio para terminar.{FIN}\n")
@@ -426,6 +620,36 @@ def main() -> int:
     p_gas.add_argument("--gastos-recientes", type=int, default=1)
     p_gas.add_argument("--nitidez", type=float, default=180)
     p_gas.add_argument("--distancia", type=int, default=24, help="Hamming al historico; <=5 es reciclada")
+    p_gas.add_argument(
+        "--comprobante",
+        default=None,
+        metavar="URL",
+        help=(
+            "URL http(s) de la foto del comprobante, para que el lector la lea de verdad. "
+            "Declare un --monto distinto del impreso y vera el cotejo detectarlo."
+        ),
+    )
+
+    # El subcomando `boleta` reutiliza todos los argumentos de `gasto` y agrega
+    # el importe impreso. Se declaran a mano en vez de con `parents=` porque
+    # argparse exige entonces un padre con add_help=False, y duplicar la lista
+    # aqui es mas barato que partir `gasto` en dos para ahorrar seis lineas.
+    p_bol = sub.add_parser("boleta", help="dibuja una boleta de verdad y hace que el lector la lea")
+    p_bol.add_argument("--impreso", type=float, help="importe que dice el papel")
+    p_bol.add_argument("--monto", type=float, help="importe que se declara")
+    p_bol.add_argument("--concepto")
+    p_bol.add_argument("--categoria")
+    p_bol.add_argument("--proveedor")
+    p_bol.add_argument("--ruc")
+    p_bol.add_argument("--fecha")
+    p_bol.add_argument("--saldo", type=float)
+    p_bol.add_argument("--media", type=float)
+    p_bol.add_argument("--desviacion", type=float)
+    p_bol.add_argument("--proveedor-nuevo", action="store_true")
+    p_bol.add_argument("--gastos-recientes", type=int)
+    p_bol.add_argument("--nitidez", type=float)
+    p_bol.add_argument("--distancia", type=int)
+    p_bol.set_defaults(**POR_DEFECTO_BOLETA)
 
     sub.add_parser("limites", help="bateria de casos dificiles y donde falla")
     sub.add_parser("demo", help="recorrido guiado para una exposicion")
@@ -436,6 +660,8 @@ def main() -> int:
         probar_concepto(args.texto, args.categoria)
     elif args.comando == "gasto":
         probar_gasto(args)
+    elif args.comando == "boleta":
+        probar_boleta(args)
     elif args.comando == "limites":
         probar_limites()
     elif args.comando == "demo":

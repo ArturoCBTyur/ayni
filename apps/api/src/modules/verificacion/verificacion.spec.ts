@@ -17,6 +17,8 @@ import { RetornoService } from '../retorno/retorno.service';
 import { cargarConfiguracion } from '../../config/configuracion';
 import { AplicacionFifoService } from '../contable/aplicacion-fifo.service';
 import { LibroService } from '../contable/libro.service';
+import { AlmacenamientoDisco } from '../gastos/almacenamiento/disco.storage';
+import { ALMACENAMIENTO } from '../gastos/puertos/almacenamiento.port';
 import { ColaVerificacionService } from './cola.service';
 import { FakeSunatService } from './cpe/fake-sunat.service';
 import { MotorReglasV0 } from './motores/reglas-v0.motor';
@@ -178,8 +180,12 @@ beforeAll(async () => {
       ColaVerificacionService,
       MotorReglasV0,
       FakeSunatService,
+      AlmacenamientoDisco,
       { provide: SERVICIO_CPE, useExisting: FakeSunatService },
       { provide: MOTOR_VERIFICACION, useExisting: MotorReglasV0 },
+      // El analisis emite URLs firmadas para que el motor pueda descargar el
+      // comprobante; el adaptador de disco alcanza para las pruebas.
+      { provide: ALMACENAMIENTO, useExisting: AlmacenamientoDisco },
     ],
   }).compile();
 

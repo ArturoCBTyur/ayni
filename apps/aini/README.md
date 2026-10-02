@@ -46,6 +46,7 @@ El puntaje final es la media ponderada de tres señales. **Los pesos y los umbra
 | Dígito verificador del RUC | Módulo 11 (algoritmo de SUNAT) |
 | Aritmética del IGV y del total | Determinista |
 | Fechas de emisión y gasto | Determinista |
+| **Cotejo contra el documento** | **OCR, redes neuronales ONNX** |
 | **Coherencia concepto ↔ categoría** | **spaCy, vectores de palabras** |
 
 La última es la única con procesamiento de lenguaje, y es la que justifica tener un modelo en esta señal: **¿el concepto que la ONG escribió corresponde a la categoría del fondo del que está sacando el dinero?** Un «alquiler de oficina» cargado al fondo de «atención veterinaria» tiene el RUC válido, el IGV exacto y las fechas en orden. Ninguna regla aritmética lo ve. El modelo sí.
@@ -57,6 +58,34 @@ Un detalle medido y no supuesto: **`Doc.similarity` de spaCy no sirve para esto.
 | El concepto y su propia categoría | 0.76 – 0.81 |
 | Categoría distinta, dominio afín | 0.57 – 0.65 |
 | Incoherente | 0.31 – 0.44 |
+
+### Lectura del comprobante — ¿lo declarado es lo que dice el papel?
+
+Antes de evaluar nada, AIni **descarga la foto del comprobante y la lee** (`ocr.py`), y compara campo por campo lo leído contra lo que el operador tecleó (`cotejo.py`).
+
+Esto cambia de categoría lo que el sistema puede comprobar. Hasta aquí, todas las reglas razonaban **sobre el dato declarado**: que el RUC estuviera bien formado, que el IGV cuadrara, que las fechas fueran posibles. Un operador que teclea `185.00` sobre una boleta de `158.00` pasa todas esas reglas —el dato es impecable— y el fondo paga S/ 27 que el papel no respalda. Para verlo hay que leer el documento.
+
+| Campo | Qué pasa si discrepa | Resta |
+|---|---|---|
+| Importe total | Es lo que sale del fondo | 35 |
+| RUC del emisor | El comprobante es de otro | 30 |
+| Serie y número | Es otro documento | 30 |
+| Fecha de emisión | Advertencia, no falla | 15 |
+
+**Motor:** `rapidocr-onnxruntime` (detección y reconocimiento en ONNX). Se eligió sobre Tesseract porque no exige instalar un binario del sistema aparte, que en Windows era el punto de fricción del equipo. Cuesta ~2.6 s por imagen, que es la mayor parte del tiempo de análisis.
+
+Sobre una boleta degradada a propósito el lector recupera el importe y el RUC con la imagen limpia, borrosa, al 50 % de escala, inclinada 7°, oscurecida al 45 % y con el contraste al 35 %. **Eso no es un dato del README, es `TestRobustez`**: las degradaciones se aplican en la prueba, así que si una versión de la biblioteca empeora, falla en vez de dejar esta frase afirmando algo que dejó de ser cierto.
+
+Lo que **no** se probó es papel térmico real, arrugado, con pliegues y fotografiado de lado — y eso es justamente lo que llega del campo. Estas son boletas nítidas degradadas por filtros, que es más fácil. Así que **la cifra honesta de precisión en producción todavía no existe.**
+
+Dos principios gobiernan el cotejo, y los dos están puestos a propósito:
+
+- **Una discrepancia no es un fraude.** Lo más probable es que el operador se equivocara al teclear. Los mensajes lo tratan así, la penalización deriva a revisión humana en vez de bloquear, y hay una prueba que falla si el texto de la alerta acusa.
+- **No leer un campo no es una discrepancia.** Un comprobante borroso del que no se pudo sacar el total no dice que el total esté mal: dice que no se pudo verificar. Se declara como tal y **no se penaliza**, porque castigar una foto mala castigaría al operador por su cámara y no por su gasto.
+
+Cuando el lector consigue leer, `datos_extraidos.fuente` pasa a `"ocr"` y **se reportan los valores del papel, no los declarados**, aunque difieran. Si se devolvieran los declarados, el campo diría `"ocr"` sobre datos que nadie verificó contra el documento, que es peor que no leerlo. La discrepancia no se pierde: viaja como motivo, con los dos valores, y abre una alerta `DECLARACION_NO_COINCIDE`.
+
+Se puede apagar con `AINI_OCR=0`. El `/salud` reporta si está activo, porque apagado no falla: devuelve «no se pudo leer» como si todas las fotos fueran malas.
 
 ### Visual — ¿la evidencia sirve y es nueva?
 
@@ -119,13 +148,13 @@ Lo mismo si el servicio responde algo que no es el contrato: el backend valida l
 python -m pytest pruebas/ -q
 ```
 
-20 casos. Lo que fijan no son los números del modelo —un umbral puede moverse al reentrenar— sino el comportamiento que el proyecto promete: que un gasto del fondo equivocado se detecte, que una evidencia reutilizada no se rescate con un comprobante impecable, que nunca falte la explicación, y que un modelo ausente degrade la señal en vez de tumbar la verificación.
+46 casos. Lo que fijan no son los números del modelo —un umbral puede moverse al reentrenar— sino el comportamiento que el proyecto promete: que un gasto del fondo equivocado se detecte, que una evidencia reutilizada no se rescate con un comprobante impecable, que un monto que no coincide con el papel se detecte y que una foto ilegible no se confunda con uno, que nunca falte la explicación, y que un modelo ausente degrade la señal en vez de tumbar la verificación.
 
 ---
 
 ## Lo que esta versión no hace
 
-- **No lee el comprobante.** Los campos los captura el operador, y el análisis lo declara con `fuente: "declarado"` en vez de afirmar `"ocr"`. El día que haya lectura automática se sabrá qué análisis la tuvieron.
+- **No valida el comprobante contra SUNAT.** Se lee el papel y se coteja contra lo declarado, pero que el documento exista de verdad en los registros de SUNAT es otra pregunta, y necesita credenciales SOL.
 - **No reconoce la escena** de la evidencia.
 - **No difumina rostros.** Eso sigue siendo manual, y la restricción que protege al beneficiario vive en la base de datos, no aquí.
 

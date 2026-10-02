@@ -14,6 +14,14 @@ spacy==3.8.16
 joblib==1.5.2
 numpy==2.3.4
 
+# Lector de comprobantes (RF-IA-02). Trae onnxruntime, opencv y Pillow como
+# dependencias: ~90 MB de modelos ONNX que se descargan con el paquete, no en
+# tiempo de ejecucion. Se eligio sobre Tesseract porque no exige instalar un
+# binario del sistema aparte en Windows, que era el punto de friccion del
+# equipo. Se puede apagar con AINI_OCR=0 sin desinstalar nada.
+rapidocr-onnxruntime==1.4.4
+pillow==12.0.0
+
 # Opcional: solo para `entrenar --real`, que suma los gastos de la base al
 # conjunto de entrenamiento. Sin esto el entrenamiento sintetico funciona igual.
 # psycopg[binary]==3.2.3

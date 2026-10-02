@@ -61,7 +61,7 @@ El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 | ID | Requerimiento | Estado en v1 |
 |---|---|---|
 | RF-IA-01 | Difuminado automático de rostros | ⏸️ Se sustituye por difuminado **manual** con declaración obligatoria. La restricción de BD que protege al beneficiario sigue activa e igual de estricta |
-| RF-IA-02 | Extracción OCR de campos | ⏸️ Se sustituye por captura manual con validación de formato y aritmética |
+| RF-IA-02 | Extracción OCR de campos | ✅ `aini/ocr.py` (rapidocr-onnxruntime) + `aini/cotejo.py`; `datos_extraidos.fuente = "ocr"`. Probado solo sobre boletas sintéticas, no sobre papel térmico real |
 | RF-IA-03 | Comparar extraído contra declarado | 🟡 Se compara declarado contra categoría del fondo y saldo; sin fuente OCR que contrastar |
 | RF-IA-04 | Coherencia visual por visión computacional | ⏸️ Se sustituye por señales deterministas de calidad, EXIF y novedad |
 | RF-IA-05 | Detectar evidencias reutilizadas | ✅ **Implementado completo sin IA**: SHA-256 + dHash + Hamming. Detecta una foto reciclada aunque la hayan recortado y recomprimido |

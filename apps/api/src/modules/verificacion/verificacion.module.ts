@@ -2,6 +2,7 @@ import { Logger, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import type { Configuracion } from '../../config/configuracion';
+import { GastosModule } from '../gastos/gastos.module';
 import { ColaVerificacionService } from './cola.service';
 import { FakeSunatService } from './cpe/fake-sunat.service';
 import { MotorAIni } from './motores/aini.motor';
@@ -28,6 +29,9 @@ import { VerificacionService } from './verificacion.service';
  * verificacion seria peor que verificar con reglas.
  */
 @Module({
+  // GastosModule exporta ALMACENAMIENTO: el analisis necesita emitir URLs
+  // firmadas para que el motor pueda descargar el comprobante y la evidencia.
+  imports: [GastosModule],
   controllers: [VerificacionController],
   providers: [
     VerificacionService,

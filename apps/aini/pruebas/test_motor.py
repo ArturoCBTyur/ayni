@@ -224,6 +224,17 @@ class TestSeñalVisual:
         assert r.score_final == 0
         assert any(a.tipo == "EVIDENCIA_REUTILIZADA" for a in r.alertas)
 
+    def test_el_bloqueo_duro_encabeza_las_alertas(self, detector):
+        """El backend persiste solo la primera alerta: tiene que ser la causa.
+
+        Un gasto puede disparar varias a la vez. Si la primera fuera la del
+        cotejo, el caso quedaria archivado como "lo declarado no coincide"
+        cuando lo que realmente ocurrio es que la evidencia estaba reciclada,
+        que es mas grave y tiene otro procedimiento.
+        """
+        r = motor.analizar(entrada(evidencia={"distanciaMinimaHistorico": 1}), detector)
+        assert r.alertas[0].tipo == "EVIDENCIA_REUTILIZADA"
+
     def test_sin_evidencia_no_hay_gasto_verificable(self, detector):
         r = motor.analizar(entrada(con_evidencia=False), detector)
         assert r.nivel == "BAJO"

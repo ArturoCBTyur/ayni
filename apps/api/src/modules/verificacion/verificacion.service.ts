@@ -1,9 +1,15 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 import { BitacoraService } from '../../comun/bitacora/bitacora.service';
 import { PrismaService } from '../../comun/prisma/prisma.service';
+import type { Configuracion } from '../../config/configuracion';
 import { AplicacionFifoService } from '../contable/aplicacion-fifo.service';
 import { distanciaHamming } from '../gastos/imagen';
+import {
+  ALMACENAMIENTO,
+  type AlmacenamientoArchivos,
+} from '../gastos/puertos/almacenamiento.port';
 import { RetornoService } from '../retorno/retorno.service';
 import type { EntradaAnalisis, ResultadoAnalisis } from './contrato/analisis.contrato';
 import { MOTOR_VERIFICACION, type MotorVerificacion } from './puertos/motor-verificacion.port';
@@ -22,8 +28,24 @@ export class VerificacionService {
     private readonly bitacora: BitacoraService,
     private readonly fifo: AplicacionFifoService,
     private readonly retorno: RetornoService,
+    private readonly config: ConfigService<Configuracion, true>,
+    @Inject(ALMACENAMIENTO) private readonly almacen: AlmacenamientoArchivos,
     @Inject(MOTOR_VERIFICACION) private readonly motor: MotorVerificacion,
   ) {}
+
+  /**
+   * URL firmada y absoluta para que el motor descargue un archivo.
+   *
+   * Se emite una por analisis y caduca: el motor la usa en los segundos
+   * siguientes y despues deja de servir. Mandar la clave del objeto no
+   * alcanzaria --el motor corre en otro proceso y no ve el disco-- y mandar
+   * una URL sin firma abriria los comprobantes a cualquiera que adivine el
+   * nombre del archivo.
+   */
+  private urlDescargable(objeto: string): string {
+    const base = this.config.get('API_URL_PUBLICA', { infer: true }).replace(/\/$/, '');
+    return `${base}${this.almacen.emitirUrlDescarga(objeto).url}`;
+  }
 
   /**
    * Analiza un gasto y aplica la regla de decision (RF-IA-07).
@@ -129,7 +151,7 @@ export class VerificacionService {
         total: gasto.comprobante.total.toNumber(),
         moneda: gasto.comprobante.moneda,
         hashSha256: gasto.comprobante.hashSha256,
-        archivoUrl: gasto.comprobante.archivoUrl,
+        archivoUrl: this.urlDescargable(gasto.comprobante.archivoUrl),
       },
       evidencias: gasto.evidencias.map((e) => ({
         id: e.id,
@@ -145,7 +167,7 @@ export class VerificacionService {
           : undefined,
         contienePersonas: e.contienePersonas,
         anonimizada: e.anonimizada,
-        archivoUrl: e.archivoUrl,
+        archivoUrl: this.urlDescargable(e.archivoUrl),
       })),
       contexto: {
         saldoRetenido: gasto.fondo.saldoRetenido.toNumber(),

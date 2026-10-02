@@ -18,7 +18,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Header, HTTPException, status
 
-from . import anomalia, documental, motor
+from . import anomalia, documental, motor, ocr
 from .contrato import EntradaAnalisis, ResultadoAnalisis
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-7s %(message)s")
@@ -90,6 +90,14 @@ def salud() -> dict[str, object]:
         "detectorAnomalias": {
             "disponible": bool(detector and detector.disponible),
             "entrenadoCon": detector.entrenado_con if detector else 0,
+        },
+        # Se reporta porque el lector se puede apagar con AINI_OCR=0, y apagado
+        # no falla: devuelve "no se pudo leer" como si la foto fuera mala. Sin
+        # esto, la unica forma de notar que esta apagado seria ver que ningun
+        # gasto llega a cotejarse nunca.
+        "lectorComprobantes": {
+            "activo": ocr.ACTIVO,
+            "confianzaMinima": ocr.CONFIANZA_MINIMA,
         },
     }
 

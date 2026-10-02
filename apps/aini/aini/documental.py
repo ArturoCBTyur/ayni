@@ -144,6 +144,27 @@ def _similitud(concepto: list[Token], categoria: list[Token]) -> float:
     return float(np.mean(mejores[:MEJORES_COINCIDENCIAS]))
 
 
+# Lo que este esquema todavia no resuelve, medido y no supuesto:
+#
+# Cuando el concepto tiene MENOS de MEJORES_COINCIDENCIAS palabras utiles, se
+# promedian las que haya, y entonces una palabra debil si pesa. Medido:
+#
+#   "vacunacion antirrabica de doce gatos"              0.721  corresponde
+#   "vacunacion antirrabica de doce gatos del albergue" 0.573  parcial
+#
+# La primera aporta dos palabras con vector ("vacunacion" y "gatos";
+# "antirrabica" no esta en el vocabulario del modelo y queda fuera). La segunda
+# suma "albergue", que calza con la categoria a 0.28 y arrastra la media de dos
+# terminos a tres.
+#
+# Importa porque los operadores escriben el lugar casi siempre: "del albergue",
+# "de la clinica", "en Huanuco". El sesgo va en la direccion segura --cae a
+# "parcial", que advierte, no a "no corresponde", que penaliza-- y por eso no
+# se toco antes de la entrega. Pero esta aqui, y el arreglo no es subir el
+# umbral: es dejar de contar como palabra de contenido el complemento de lugar,
+# o exigir un minimo de coincidencias antes de promediar.
+
+
 def coherencia_concepto_categoria(concepto: str, categoria: str) -> float | None:
     """Similitud coseno entre el concepto y la descripcion de su categoria.
 

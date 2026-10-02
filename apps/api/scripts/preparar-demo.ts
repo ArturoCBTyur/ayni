@@ -43,7 +43,7 @@ const CUENTAS = [
 ];
 
 /**
- * Imagen con estructura de gran escala.
+ * Imagen con estructura de gran escala, para las **evidencias**.
  *
  * `variacion` altera los tonos sin cambiar la composición: produce un archivo
  * distinto (otro SHA-256) con una huella perceptual parecida, que es
@@ -79,6 +79,83 @@ async function imagen(semilla: number, variacion = 0, calidad = 85): Promise<Buf
   return sharp(datos, { raw: { width: ancho, height: alto, channels: canales } })
     .jpeg({ quality: calidad })
     .toBuffer();
+}
+
+/** Lo que dice el papel. Puede diferir de lo declarado: ese es el punto. */
+type Impreso = {
+  razonSocial: string;
+  ruc: string;
+  serie: string;
+  numero: string;
+  fecha: Date;
+  concepto: string;
+  subtotal: number;
+  igv: number;
+  total: number;
+};
+
+const escapar = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const dosDecimales = (n: number) => n.toFixed(2);
+
+/**
+ * Dibuja una boleta de venta con el formato habitual en el Perú.
+ *
+ * Antes de que AIni leyera comprobantes, al comprobante de demostración le
+ * bastaba con ser un archivo: nadie miraba dentro. Con el OCR conectado eso
+ * dejó de ser inocuo —una imagen de ruido produce `ocr.ilegible` en **todos**
+ * los gastos del escenario, y en la exposición eso no se lee como "la foto no
+ * servía" sino como "el lector no funciona".
+ *
+ * Así que el comprobante ahora es un comprobante. Medido sobre esta misma
+ * plantilla, el lector recupera los siete campos con confianza 0.99.
+ *
+ * El texto lo rasteriza libvips a través del SVG; se comprobó en esta máquina
+ * que lo hace (sin soporte de Pango saldría un rectángulo en blanco, y la
+ * demostración volvería a mostrar un comprobante ilegible sin avisar).
+ */
+async function boleta(d: Impreso): Promise<Buffer> {
+  const fecha = d.fecha.toLocaleDateString('es-PE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
+  const lineas: Array<[string, number, boolean]> = [
+    [d.razonSocial.toUpperCase(), 25, true],
+    ['Av. Alameda 456 - Amarilis, Huanuco', 17, false],
+    [`RUC: ${d.ruc}`, 25, true],
+    ['', 8, false],
+    [`BOLETA DE VENTA ELECTRONICA`, 21, true],
+    [`${d.serie}-${d.numero}`, 26, true],
+    ['', 8, false],
+    [`Fecha de emision: ${fecha}`, 18, false],
+    ['Cliente: ASOCIACION HUELLAS DEL ANDE', 18, false],
+    ['', 12, false],
+    ['Descripcion                    Importe', 17, false],
+    [`${d.concepto.slice(0, 30).padEnd(31)}${dosDecimales(d.subtotal)}`, 17, false],
+    ['', 12, false],
+    [`OP. GRAVADA:        S/   ${dosDecimales(d.subtotal)}`, 19, false],
+    [`IGV (18%):          S/    ${dosDecimales(d.igv)}`, 19, false],
+    [`IMPORTE TOTAL:      S/   ${dosDecimales(d.total)}`, 24, true],
+  ];
+
+  let y = 34;
+  let texto = '';
+  for (const [linea, tamano, negrita] of lineas) {
+    if (linea) {
+      texto +=
+        `<text x="38" y="${y}" font-family="Arial,DejaVu Sans" font-size="${tamano}" ` +
+        `font-weight="${negrita ? 700 : 400}" fill="#111">${escapar(linea)}</text>`;
+    }
+    y += tamano + 13;
+  }
+
+  const alto = y + 20;
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="620" height="${alto}">` +
+    `<rect width="620" height="${alto}" fill="#fff"/>${texto}</svg>`;
+
+  return sharp(Buffer.from(svg)).jpeg({ quality: 92 }).toBuffer();
 }
 
 async function guardar(objeto: string, contenido: Buffer): Promise<void> {
@@ -178,28 +255,62 @@ async function sembrarCasos(): Promise<void> {
   // como para que el motor la dé por nueva. Comprobado.
   if (observados > 0) {
     console.log(`  Ya hay ${observados} caso observado por evidencia reciclada.`);
-    return;
+  } else {
+    const reciclada = await prisma.evidencia.findFirst({
+      where: { gasto: { ongId: fondo.campana.ongId } },
+      orderBy: { creadoEn: 'asc' },
+      include: { gasto: true },
+    });
+
+    await crearGasto({
+      fondoId: fondo.id,
+      ongId: fondo.campana.ongId,
+      operadorId: operador.id,
+      monto: 72,
+      concepto: 'control post operatorio de los perros rescatados',
+      proveedor: 'Clinica Veterinaria San Roque',
+      ruc: '20601030579',
+      serie: 'B001',
+      numero: '005013',
+      semilla: reciclada ? SEMILLA_EVIDENCIA_BASE : 4242,
+      variacion: 0,
+      calidad: 60,
+    });
   }
 
-  const reciclada = await prisma.evidencia.findFirst({
-    where: { gasto: { ongId: fondo.campana.ongId } },
-    orderBy: { creadoEn: 'asc' },
-    include: { gasto: true },
+  // Caso del lector de comprobantes: todo está bien formado —el RUC pasa el
+  // módulo 11, la aritmética cuadra, el proveedor ya se conocía, el concepto
+  // corresponde al fondo— y sin embargo el monto declarado no es el del papel.
+  //
+  // Ninguna de las reglas deterministas podía ver esto: todas miran el dato
+  // declarado, y el dato declarado es impecable. Hace falta leer el documento.
+  // Se declara S/ 185 sobre una boleta de S/ 158, que es la dirección que le
+  // cuesta dinero al donante: el fondo pagaría S/ 27 que el papel no respalda.
+  //
+  // Se identifica por su serie y número, no por el estado, porque este gasto
+  // cae en el mismo estado que el primero y contar estados los confundiría.
+  const yaSembrado = await prisma.comprobante.count({
+    where: { serie: 'B001', numero: '005288' },
   });
+
+  if (yaSembrado > 0) {
+    console.log('  Ya hay 1 caso con el monto declarado distinto del impreso.');
+    return;
+  }
 
   await crearGasto({
     fondoId: fondo.id,
     ongId: fondo.campana.ongId,
     operadorId: operador.id,
-    monto: 72,
-    concepto: 'control post operatorio de los perros rescatados',
+    monto: 185,
+    concepto: 'vacunacion antirrabica de doce gatos del albergue',
     proveedor: 'Clinica Veterinaria San Roque',
     ruc: '20601030579',
     serie: 'B001',
-    numero: '005013',
-    semilla: reciclada ? SEMILLA_EVIDENCIA_BASE : 4242,
+    numero: '005288',
+    semilla: 311,
     variacion: 0,
-    calidad: 60,
+    impreso: { total: 158 },
   });
 
   console.log('  Encolados. El worker los analiza en unos segundos.');
@@ -219,18 +330,45 @@ async function crearGasto(datos: {
   variacion: number;
   /** Calidad JPEG. Bajarla cambia el archivo sin cambiar la escena. */
   calidad?: number;
+  /**
+   * Qué dice el papel cuando NO dice lo mismo que se declaró.
+   *
+   * Sin esto, el comprobante se dibuja con los datos declarados y el cotejo
+   * confirma. Con esto se siembra la equivocación al teclear, que es el caso
+   * que el lector existe para encontrar y que ninguna regla determinista podía
+   * ver: el dato estaba bien formado, solo no era el del documento.
+   */
+  impreso?: { ruc?: string; total?: number };
 }): Promise<void> {
-  const comprobante = await imagen(datos.semilla + 1);
   const evidencia = await imagen(datos.semilla, datos.variacion, datos.calidad ?? 85);
+
+  const subtotal = Number((datos.monto / 1.18).toFixed(2));
+  const igv = Number((datos.monto - subtotal).toFixed(2));
+  const hace = (dias: number) => new Date(Date.now() - dias * 86_400_000);
+
+  // El papel se dibuja con sus propios importes y su aritmética cuadrando: una
+  // boleta real nunca tiene el IGV descolgado del total. Si se dibujara el
+  // total impreso sobre el subtotal declarado, el lector encontraría una
+  // boleta internamente incoherente, que es otra señal y confundiría el caso.
+  const totalImpreso = datos.impreso?.total ?? datos.monto;
+  const subtotalImpreso = Number((totalImpreso / 1.18).toFixed(2));
+
+  const comprobante = await boleta({
+    razonSocial: datos.proveedor,
+    ruc: datos.impreso?.ruc ?? datos.ruc,
+    serie: datos.serie,
+    numero: datos.numero,
+    fecha: hace(1),
+    concepto: datos.concepto,
+    subtotal: subtotalImpreso,
+    igv: Number((totalImpreso - subtotalImpreso).toFixed(2)),
+    total: totalImpreso,
+  });
 
   const objetoComprobante = `comprobantes/demo-${randomUUID()}.jpg`;
   const objetoEvidencia = `evidencias/demo-${randomUUID()}.jpg`;
   await guardar(objetoComprobante, comprobante);
   await guardar(objetoEvidencia, evidencia);
-
-  const subtotal = Number((datos.monto / 1.18).toFixed(2));
-  const igv = Number((datos.monto - subtotal).toFixed(2));
-  const hace = (dias: number) => new Date(Date.now() - dias * 86_400_000);
 
   const gasto = await prisma.gasto.create({
     data: {

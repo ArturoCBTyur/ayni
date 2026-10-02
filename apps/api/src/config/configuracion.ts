@@ -51,6 +51,15 @@ const esquema = z.object({
    * que un gasto bloquee la fila.
    */
   AINI_TIMEOUT_MS: z.coerce.number().int().positive().default(20_000),
+  /**
+   * Desde donde AIni puede descargar los comprobantes.
+   *
+   * El analisis recibe URLs firmadas y absolutas, no claves de objeto: el
+   * servicio corre en otro proceso --y en el despliegue, en otra maquina-- y
+   * no tiene acceso al disco del backend. Es la misma razon por la que S3
+   * entrega URLs prefirmadas en vez de rutas.
+   */
+  API_URL_PUBLICA: z.string().url().default('http://127.0.0.1:3000'),
 
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),

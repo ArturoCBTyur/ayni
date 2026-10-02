@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 
-from . import anomalia, documental, visual
+from . import anomalia, cotejo, documental, ocr, visual
 from .contrato import (
     AlertaAnalisis,
     DatosExtraidos,
@@ -52,9 +52,53 @@ def _resumen(nivel: NivelConfianza, motivos: list[MotivoAnalisis]) -> str:
     return "El gasto requiere revision."
 
 
+#: Discrepancias del cotejo que merecen alerta, y como se nombra cada campo en
+#: la descripcion. El total va con severidad ALTA y los demas MEDIA: el importe
+#: es lo que sale del fondo, mientras que una serie equivocada apunta a otro
+#: documento sin mover dinero por si sola.
+_DISCREPANCIAS = {
+    "ocr.total_discrepa": ("el importe", "ALTA"),
+    "ocr.ruc_discrepa": ("el RUC del emisor", "MEDIA"),
+    "ocr.serie_discrepa": ("la serie y el numero", "MEDIA"),
+}
+
+
+def _alerta_de_cotejo(motivos: list[MotivoAnalisis]) -> AlertaAnalisis | None:
+    """Una sola alerta para todo lo que no coincide con el documento.
+
+    Se agrupa a proposito. Una boleta tecleada de prisa puede discrepar en tres
+    campos a la vez, y tres alertas en la bandeja se leerian como tres
+    problemas cuando son uno: lo que se escribio no es lo que dice el papel.
+
+    El titulo no acusa. La causa mas probable de una discrepancia es un error
+    al teclear, y la ONG lee estas alertas: llamarla fraude por un digito
+    cambiado seria injusto y, en un sistema que publica puntajes de confianza,
+    tambien caro. Se nombra el hecho y se pide revisar.
+    """
+    encontradas = [m for m in motivos if m.regla in _DISCREPANCIAS and m.resultado == "falla"]
+    if not encontradas:
+        return None
+
+    campos = [_DISCREPANCIAS[m.regla][0] for m in encontradas]
+    severidad = "ALTA" if any(_DISCREPANCIAS[m.regla][1] == "ALTA" for m in encontradas) else "MEDIA"
+
+    # Enumeracion con dos puntos y comas, no con "y" final: uno de los campos
+    # se llama "la serie y el numero", y encadenarlo salia "la serie y el
+    # numero y el importe", que se lee como tres campos en vez de dos.
+    return AlertaAnalisis(
+        tipo="DECLARACION_NO_COINCIDE",
+        severidad=severidad,  # type: ignore[arg-type]
+        titulo=f"Lo declarado no coincide con el documento en: {', '.join(campos)}",
+        descripcion=" ".join(m.mensaje for m in encontradas),
+    )
+
+
 def _alertas(motivos: list[MotivoAnalisis], bloqueo_visual: bool) -> list[AlertaAnalisis]:
     alertas: list[AlertaAnalisis] = []
 
+    # El orden importa mas de lo que parece: el backend persiste solo la
+    # primera alerta de la lista, asi que la primera tiene que ser la causa, no
+    # la primera que se calculo. El bloqueo duro va antes que todo lo demas.
     if bloqueo_visual:
         alertas.append(
             AlertaAnalisis(
@@ -67,6 +111,13 @@ def _alertas(motivos: list[MotivoAnalisis], bloqueo_visual: bool) -> list[Alerta
                 ),
             )
         )
+
+    # Despues del bloqueo y antes del resto: que lo declarado no coincida con
+    # el documento pesa mas que cualquier senal calculada sobre lo declarado,
+    # porque las otras razonan sobre el dato y esta lo contradice.
+    cotejo_fallido = _alerta_de_cotejo(motivos)
+    if cotejo_fallido is not None:
+        alertas.append(cotejo_fallido)
 
     for motivo in motivos:
         if motivo.regla == "doc.ruc_modulo11" and motivo.resultado == "falla":
@@ -109,10 +160,59 @@ def _alertas(motivos: list[MotivoAnalisis], bloqueo_visual: bool) -> list[Alerta
     return alertas
 
 
+def _datos_extraidos(entrada: EntradaAnalisis, leido: "ocr.CamposLeidos | None") -> DatosExtraidos:
+    """Los campos del comprobante, diciendo de donde salio cada uno.
+
+    Cuando el OCR leyo el documento, se reportan **sus** valores y no los
+    declarados, aunque difieran. Es el punto entero de haberlo leido: si se
+    devolvieran los declarados, el campo `fuente` diria "ocr" sobre datos que
+    nadie verifico contra el papel, que es peor que no leerlo.
+
+    La discrepancia no se pierde: viaja como motivo, con los dos valores.
+    """
+    c = entrada.comprobante
+
+    if leido is None or not leido.leyo_algo:
+        return DatosExtraidos(
+            fuente="declarado",
+            tipo=c.tipo,
+            ruc_emisor=c.ruc_emisor,
+            serie=c.serie,
+            numero=c.numero,
+            fecha_emision=c.fecha_emision,
+            subtotal=c.subtotal,
+            igv=c.igv,
+            total=c.total,
+        )
+
+    # Campo a campo: lo leido si se pudo leer, lo declarado si no. Mezclar es
+    # correcto porque cada valor viaja junto a su motivo de cotejo.
+    return DatosExtraidos(
+        fuente="ocr",
+        tipo=c.tipo,
+        ruc_emisor=leido.ruc_emisor or c.ruc_emisor,
+        serie=leido.serie or c.serie,
+        numero=leido.numero or c.numero,
+        fecha_emision=(
+            leido.fecha_emision.isoformat() if leido.fecha_emision else c.fecha_emision
+        ),
+        subtotal=leido.subtotal if leido.subtotal is not None else c.subtotal,
+        igv=leido.igv if leido.igv is not None else c.igv,
+        total=leido.total if leido.total is not None else c.total,
+    )
+
+
 def analizar(entrada: EntradaAnalisis, detector: anomalia.DetectorAnomalias) -> ResultadoAnalisis:
     inicio = time.perf_counter()
 
+    # Se lee el comprobante antes que nada: lo que diga el papel cambia como se
+    # evalua lo declarado, no al reves.
+    leido = ocr.leer_desde(entrada.comprobante.archivo_url)
+    motivos_cotejo, penalizacion_cotejo = cotejo.evaluar(entrada.comprobante, leido)
+
     score_doc, motivos_doc = documental.evaluar(entrada.declarado, entrada.comprobante)
+    score_doc = max(0.0, score_doc - penalizacion_cotejo)
+    motivos_doc = [*motivos_doc, *motivos_cotejo]
     score_vis, motivos_vis, bloqueo = visual.evaluar(entrada.declarado, entrada.evidencias)
     score_ano, motivos_ano = anomalia.evaluar(
         entrada.declarado, entrada.contexto, entrada.comprobante.fecha_emision, detector
@@ -163,20 +263,7 @@ def analizar(entrada: EntradaAnalisis, detector: anomalia.DetectorAnomalias) -> 
         score_anomalia=round(score_ano, 2),
         score_final=round(final, 2),
         nivel=nivel,
-        datos_extraidos=DatosExtraidos(
-            # "declarado" y no "ocr": esta version no lee el comprobante, lo
-            # captura el operador. Declararlo asi es lo que permite que el dia
-            # que haya OCR se sepa cuales analisis lo tuvieron y cuales no.
-            fuente="declarado",
-            tipo=entrada.comprobante.tipo,
-            ruc_emisor=entrada.comprobante.ruc_emisor,
-            serie=entrada.comprobante.serie,
-            numero=entrada.comprobante.numero,
-            fecha_emision=entrada.comprobante.fecha_emision,
-            subtotal=entrada.comprobante.subtotal,
-            igv=entrada.comprobante.igv,
-            total=entrada.comprobante.total,
-        ),
+        datos_extraidos=_datos_extraidos(entrada, leido),
         explicacion=Explicacion(motivos=motivos, resumen=_resumen(nivel, motivos)),
         alertas=_alertas(motivos, bloqueo),
         narrativa_borrador=None,
