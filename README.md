@@ -9,13 +9,36 @@ Cada donación se asigna a un **fondo** con un destino concreto y queda **reteni
 Proyecto de los cursos de **Proyectos Transdisciplinarios** e **Inteligencia Artificial**.
 Implementa el Entregable 2 del equipo: 21 casos de uso, 21 RNF, 47 RF y 26 tablas en 5 dominios.
 
-## Estado: MVP v1 — sin IA
+## Estado
 
-Esta versión es **deliberadamente sin inteligencia artificial**. El ciclo de confianza completo funciona de extremo a extremo, pero la etapa de verificación la resuelve un **Motor de Reglas v0** determinista que respeta el contrato de datos exacto de AIni.
+El ciclo de confianza funciona de extremo a extremo —donar, retener, registrar el gasto, verificarlo, aplicar FIFO, narrar al donante— y la etapa de verificación tiene **dos motores intercambiables** detrás de una sola interfaz:
 
-Cuando AIni se incorpore, se implementa `MotorAIni` contra la misma interfaz y se conmuta con una variable de entorno. No cambia la base de datos, ni el core contable, ni el frontend. Ver [ADR-0005](docs/adr/0005-motor-reglas-v0.md).
+| Motor | Qué es | Cuándo |
+|---|---|---|
+| `MotorReglasV0` | Reglas deterministas en el propio backend, sin IA | `VERIFICACION_DRIVER=reglas-v0` |
+| `MotorAIni` | Cliente del servicio de análisis en [`apps/aini`](apps/aini) | `VERIFICACION_DRIVER=aini` |
 
-Efecto secundario deliberado: como cada decisión de auditor se guarda en `revisiones_auditoria`, esta versión ya va generando el **dataset etiquetado** que AIni necesitará para entrenarse.
+Se conmutan con una variable de entorno: no cambia la base de datos, ni el core contable, ni el frontend ([ADR-0005](docs/adr/0005-motor-reglas-v0.md)). **Si AIni no responde, la plataforma no se queda sin verificar:** cae al motor de reglas y lo anota en la explicación del análisis, para que un auditor sepa con qué criterio se evaluó ese caso.
+
+Cada análisis queda atado al modelo y a la regla de umbrales **vigentes al momento** (RN-06), así que dos años después se puede saber con qué criterio se aprobó un gasto, no solo que se aprobó.
+
+Y cada decisión de auditor se guarda en `revisiones_auditoria`: es el **conjunto etiquetado** con el que AIni se reentrena.
+
+## AIni: qué hace de IA, y qué deliberadamente no
+
+[`apps/aini`](apps/aini) es un servicio Python propio —**no una API de terceros**—. Corre en la infraestructura del proyecto, sin clave que custodiar ni cuota que agotar, y los datos de los beneficiarios no salen de ella. Para un sistema que trata datos sensibles bajo la **Ley N.° 29733**, eso último no es un detalle de costo.
+
+| Señal | Técnica | Qué resuelve que una regla no puede |
+|---|---|---|
+| Lectura del comprobante | **OCR** (rapidocr-onnxruntime) | Lee el papel y lo coteja con lo que se tecleó |
+| Coherencia concepto ↔ categoría | **spaCy**, vectores de palabras | Un alquiler de oficina no es atención veterinaria |
+| Perfil del gasto | **Isolation Forest** (scikit-learn) | Ve *combinaciones* raras, no señales sueltas |
+
+El caso que justifica el lector: un operador que teclea `185.00` sobre una boleta de `158.00` pasa **todas** las reglas deterministas —el RUC es válido, el IGV cuadra, las fechas son posibles— porque todas razonan sobre el dato declarado, y el dato declarado es impecable. Para verlo hay que leer el documento.
+
+La señal **visual** no usa aprendizaje automático, y es deliberado: nitidez, EXIF y distancia de Hamming son magnitudes exactas, y someterlas a una predicción las volvería menos precisas y menos explicables.
+
+**Los límites están medidos y escritos, no omitidos:** el detector de anomalías se entrenó con 600 gastos sintéticos porque la base real tiene cuatro; la señal de lenguaje deja pasar cerca del 13 % de las categorizaciones erróneas; el lector solo se probó sobre boletas generadas, no sobre papel térmico real. **Por eso las tres señales restan puntos y derivan a una persona en vez de decidir solas.** El detalle, con las mediciones, está en [el README de AIni](apps/aini/README.md).
 
 ## Stack
 
@@ -24,7 +47,8 @@ Efecto secundario deliberado: como cada decisión de auditor se guarda en `revis
 | Presentación | Flutter 3.47.4 Web (PWA), un solo código base con Android e iOS habilitados |
 | Backend | Node.js 24 + NestJS 11 (TypeScript), API REST, OpenAPI |
 | Datos | PostgreSQL 18 + Prisma |
-| Verificación | Motor de Reglas v0 (sin IA) tras la interfaz `MotorVerificacion` |
+| Verificación | Dos motores tras la interfaz `MotorVerificacion`: reglas deterministas, o **AIni** |
+| IA (AIni) | Python 3.12 + FastAPI · scikit-learn · spaCy `es_core_news_md` · rapidocr-onnxruntime |
 | Cola | Tabla en PostgreSQL con `FOR UPDATE SKIP LOCKED` ([ADR-0002](docs/adr/0002-cola-en-postgresql.md)) |
 | Archivos | `StorageAdapter`: disco en desarrollo, S3 en despliegue ([ADR-0003](docs/adr/0003-almacenamiento-en-disco.md)) |
 | Pagos | Adaptador `PasarelaPago` con `FakeGateway`; Culqi implementa la misma interfaz |
@@ -36,16 +60,23 @@ Los diez módulos del backend corresponden 1:1 a la Tabla 15 del Entregable 2: `
 - Node.js 20 o superior (probado en 24.14.0)
 - PostgreSQL 18 **escuchando en el puerto 5433** (no el 5432 por defecto)
 - Flutter 3.47 canal stable, con soporte web habilitado
+- Python 3.12, solo si se quiere correr AIni (el backend arranca igual sin ella)
 
 ## Puesta en marcha
 
 ### 1. Base de datos
 
-Ejecutar una sola vez como superusuario. El script crea el rol `tr_app`, la base y la extensión `pgcrypto`:
+Copiar la plantilla y poner una contraseña propia. El script crea el rol `tr_app`, la base y la extensión `pgcrypto`:
+
+```bash
+cp apps/api/prisma/sql/00-crear-base.example.sql apps/api/prisma/sql/00-crear-base.sql
+```
 
 ```bash
 psql -U postgres -h localhost -p 5433 -f apps/api/prisma/sql/00-crear-base.sql
 ```
+
+El archivo con la contraseña real **no se versiona**, por eso se parte de la plantilla. Esa misma contraseña va en `DATABASE_URL` dentro de `.env`, en el paso siguiente.
 
 ### 2. API
 
@@ -69,6 +100,28 @@ cd apps/app && flutter run -d edge --dart-define=API_BASE_URL=http://localhost:3
 
 En esta máquina no hay Chrome instalado, de ahí `-d edge`. Con Chrome disponible, `-d chrome` funciona igual.
 
+### 4. AIni (opcional)
+
+El backend funciona sin ella, con el motor de reglas. Para verificar con los modelos:
+
+```bash
+cd apps/aini && pip install -r requirements.txt
+```
+
+```bash
+python -m spacy download es_core_news_md
+```
+
+```bash
+python -m entrenamiento.entrenar
+```
+
+```bash
+python -m uvicorn aini.main:app --host 127.0.0.1 --port 8000
+```
+
+Y en `apps/api/.env`: `VERIFICACION_DRIVER=aini`. Comprobar con `curl http://127.0.0.1:8000/salud`, que también dice si el lector de comprobantes está activo.
+
 ## Verificación
 
 ```bash
@@ -77,6 +130,16 @@ cd apps/api && npm test
 
 ```bash
 cd apps/app && flutter analyze && flutter test
+```
+
+```bash
+cd apps/aini && python -m pytest pruebas/ -q
+```
+
+Y un banco de pruebas para tirarle casos al modelo a mano, encontrar dónde falla y poder responder sin adivinar cuando alguien pregunte:
+
+```bash
+cd apps/aini && python probar.py limites
 ```
 
 Cobertura del núcleo contable y de gastos (RNF-19: umbral del 70 %, exigido en CI):
@@ -104,6 +167,14 @@ Cuatro reglas que la base de datos hace cumplir, y que ningún bug del backend p
 
 Todas están en [`apps/api/prisma/sql/reglas-integridad.sql`](apps/api/prisma/sql/reglas-integridad.sql), documentadas contra la sección 6.6 del entregable.
 
+Y se pueden ver fallar:
+
+```bash
+cd apps/api && npm run demo:romper
+```
+
+Siete intentos de estafar al donante, en SQL directo contra PostgreSQL, por fuera de la API y de toda validación. La base rechaza los siete y al final recalcula cada cadena de hashes, fondo por fondo. Cada intento vive en una transacción que siempre se deshace, así que es seguro correrlo sobre la base de demostración.
+
 ## Entorno completo con Docker
 
 Para revisar el proyecto sin instalar PostgreSQL, Node ni Flutter:
@@ -120,6 +191,7 @@ La web queda en `http://localhost:8080` y la API en `http://localhost:3000`. Las
 - [Matriz de trazabilidad RF/RNF](docs/trazabilidad-rf.md)
 - [Guía de despliegue](docs/despliegue.md) — qué crear, en qué orden y qué no incluye
 - [Guion de demostración](docs/guion-demo.md) — los 10 minutos, paso a paso
+- [AIni: el motor de verificación](apps/aini/README.md) — las tres señales, con las mediciones y los límites
 - [Revisión OWASP ASVS L2](docs/revision-asvs-l2.md) — capítulo por capítulo, con lo que no cubre
 
 ## Equipo
