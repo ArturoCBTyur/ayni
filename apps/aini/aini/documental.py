@@ -43,24 +43,45 @@ def nlp() -> Language:
 # Coherencia semantica concepto / categoria
 # --------------------------------------------------------------------------
 
-#: Descripcion en lenguaje natural de cada categoria de gasto. Se compara el
-#: concepto declarado contra estas frases, no contra el codigo de la categoria:
-#: "ATENCION_VETERINARIA" no tiene vector, "atencion veterinaria y salud
-#: animal" si.
+#: Descripcion de cada categoria. Se compara el concepto declarado contra estas
+#: frases y no contra el codigo de la categoria: "ATENCION_VETERINARIA" no tiene
+#: vector, "atencion veterinaria clinica consulta" si.
+#:
+#: **Pocas palabras y concretas.** Suena al reves, pero esta medido: alargar las
+#: descripciones empeora la separacion, porque el vector es el promedio de sus
+#: palabras y cada termino generico acerca el centroide al de las demas
+#: categorias. Con descripciones largas, el peor concepto propio puntuaba por
+#: DEBAJO del mejor concepto ajeno (separacion -0.032); con estas, por encima
+#: (+0.027).
 DESCRIPCION_CATEGORIA: dict[str, str] = {
-    "ALIMENTOS": "alimento balanceado comida racion nutricion para animales",
-    "ATENCION_VETERINARIA": "atencion veterinaria salud animal consulta medicamento cirugia vacuna",
-    "MEDICAMENTOS": "medicamento farmaco tratamiento dosis antibiotico",
-    "INSUMOS": "insumo material suministro herramienta equipo",
-    "TRANSPORTE": "transporte traslado movilidad combustible flete",
-    "INFRAESTRUCTURA": "infraestructura obra construccion reparacion albergue instalacion",
-    "SERVICIOS": "servicio profesional honorario asesoria mantenimiento",
-    "ADMINISTRATIVO": "gasto administrativo oficina papeleria tramite alquiler",
+    "ALIMENTOS": "alimento balanceado croqueta comida concentrado racion",
+    "ATENCION_VETERINARIA": (
+        "atencion veterinaria clinica consulta cirugia esterilizacion vacunacion animal"
+    ),
+    "MEDICAMENTOS": "medicamento farmaco antibiotico antiparasitario dosis medicina",
+    "INSUMOS": "insumo jeringa guante gasa collar correa jaula material descartable",
+    "TRANSPORTE": "transporte traslado combustible pasaje flete vehiculo",
+    "INFRAESTRUCTURA": "construccion reparacion obra techo pared albergue instalacion",
+    "SERVICIOS": "servicio honorario asesoria mantenimiento profesional",
+    "ADMINISTRATIVO": "oficina alquiler luz agua electricidad papeleria tramite recibo",
 }
 
-#: Por debajo de esto, el concepto no se parece a su categoria. Calibrado
-#: empiricamente: conceptos de su propia categoria puntuan 0.76-0.81, de una
-#: categoria afin 0.57-0.65, y ajenos 0.31-0.44.
+#: Umbrales de la señal, derivados de medir 25 conceptos reales contra su propia
+#: categoria y contra las otras siete (175 pares ajenos):
+#:
+#:   propios   mediana 0.691   p5 0.397
+#:   ajenos    mediana 0.405   p95 0.595
+#:
+#: **Las clases se solapan**, asi que ningun umbral las separa limpio. La curva
+#: medida en 0.52 rechaza el 8 % de los conceptos correctos y acepta el 15 % de
+#: los equivocados; subirlo a 0.58 baja los aceptados al 6 % pero manda a
+#: revision humana el 28 % de los gastos legitimos.
+#:
+#: Se eligio 0.52 por la asimetria del costo: rechazar un gasto correcto cuesta
+#: una revision humana, que es barata y que el sistema ya contempla; aceptar uno
+#: mal categorizado deja salir dinero del fondo equivocado sin que nadie lo vea.
+#: Aun asi, una de cada siete categorizaciones erroneas pasa, y por eso esta
+#: señal resta 30 puntos en vez de bloquear: deriva a una persona, no decide.
 UMBRAL_COHERENCIA = 0.52
 UMBRAL_COHERENCIA_DUDOSA = 0.62
 
