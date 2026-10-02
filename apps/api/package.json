@@ -24,7 +24,8 @@
     "db:reset": "prisma migrate reset --force",
     "medir:latencia": "tsx scripts/medir-latencia.ts",
     "demo:preparar": "tsx scripts/preparar-demo.ts",
-    "demo:codigos": "tsx scripts/preparar-demo.ts --codigos"
+    "demo:codigos": "tsx scripts/preparar-demo.ts --codigos",
+    "demo:comparar": "tsx scripts/comparar-motores.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

@@ -72,7 +72,7 @@ def evaluar(
     f_gasto = _a_fecha(declarado.fecha_gasto)
 
     for i, ev in enumerate(evidencias):
-        etiqueta = f"evidencia {i + 1}" if len(evidencias) > 1 else "la evidencia"
+        etiqueta = f"la evidencia {i + 1}" if len(evidencias) > 1 else "la evidencia"
 
         # --- Reutilizacion: el bloqueo duro ---
         distancia = ev.distancia_minima_historico
@@ -81,8 +81,8 @@ def evaluar(
             anotar(
                 "vis.evidencia_reciclada",
                 "falla",
-                f"La {etiqueta} coincide con una imagen ya presentada en otro gasto, aunque "
-                "se haya recortado o vuelto a guardar.",
+                f"{etiqueta.capitalize()} coincide con una imagen ya presentada en otro gasto, "
+                "aunque se haya recortado o vuelto a guardar.",
                 distancia,
                 60,
             )
@@ -90,7 +90,7 @@ def evaluar(
             anotar(
                 "vis.evidencia_nueva",
                 "ok",
-                f"La {etiqueta} no se parece a ninguna presentada antes.",
+                f"{etiqueta.capitalize()} no se parece a ninguna presentada antes.",
                 distancia,
             )
 
@@ -99,18 +99,18 @@ def evaluar(
             anotar(
                 "vis.nitidez_desconocida",
                 "advertencia",
-                f"No se pudo medir la nitidez de la {etiqueta}.",
+                f"No se pudo medir la nitidez de {etiqueta}.",
             )
         elif ev.nitidez < NITIDEZ_MINIMA:
             anotar(
                 "vis.borrosa",
                 "advertencia",
-                f"La {etiqueta} esta borrosa; cuesta leer lo que muestra.",
+                f"{etiqueta.capitalize()} esta borrosa; cuesta leer lo que muestra.",
                 round(ev.nitidez, 1),
                 15,
             )
         else:
-            anotar("vis.nitidez", "ok", f"La {etiqueta} tiene nitidez suficiente.", round(ev.nitidez, 1))
+            anotar("vis.nitidez", "ok", f"{etiqueta.capitalize()} tiene nitidez suficiente.", round(ev.nitidez, 1))
 
         # --- Resolucion ---
         if ev.ancho and ev.alto:
@@ -119,7 +119,7 @@ def evaluar(
                 anotar(
                     "vis.resolucion_baja",
                     "advertencia",
-                    f"La {etiqueta} tiene resolucion baja ({ev.ancho}x{ev.alto}).",
+                    f"{etiqueta.capitalize()} tiene resolucion baja ({ev.ancho}x{ev.alto}).",
                     f"{ev.ancho}x{ev.alto}",
                     10,
                 )
@@ -132,7 +132,7 @@ def evaluar(
                 anotar(
                     "vis.exif_desfasada",
                     "advertencia",
-                    f"La {etiqueta} se tomo {dias} dias antes o despues de la fecha del gasto.",
+                    f"{etiqueta.capitalize()} se tomo {dias} dias antes o despues de la fecha del gasto.",
                     dias,
                     12,
                 )
@@ -140,7 +140,7 @@ def evaluar(
                 anotar(
                     "vis.exif",
                     "ok",
-                    f"La fecha de captura de la {etiqueta} es coherente con la del gasto.",
+                    f"La fecha de captura de {etiqueta} es coherente con la del gasto.",
                 )
 
         # --- Privacidad: RNF-06 ---
@@ -148,7 +148,7 @@ def evaluar(
             anotar(
                 "vis.personas_sin_anonimizar",
                 "falla",
-                f"En la {etiqueta} aparecen personas y todavia no fue anonimizada. No puede "
+                f"En {etiqueta} aparecen personas y todavia no fue anonimizada. No puede "
                 "mostrarse al donante en ese estado.",
                 None,
                 20,
