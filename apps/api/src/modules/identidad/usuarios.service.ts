@@ -64,15 +64,18 @@ export class UsuariosService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listar(filtro: FiltroUsuarios) {
+    // `contains` arma un ILIKE '%...%' sin escapar los comodines del propio
+    // texto: buscar "_" o "%" devolvia todas las cuentas. Se buscan literal.
+    const q = filtro.q?.replace(/[\\%_]/g, '\\$&');
     const where: Prisma.UsuarioWhereInput = {
       ...(filtro.estado ? { estado: filtro.estado } : {}),
       ...(filtro.rol ? { roles: { some: { rol: { codigo: filtro.rol } } } } : {}),
-      ...(filtro.q
+      ...(q
         ? {
             OR: [
-              { correo: { contains: filtro.q, mode: 'insensitive' } },
-              { nombres: { contains: filtro.q, mode: 'insensitive' } },
-              { apellidos: { contains: filtro.q, mode: 'insensitive' } },
+              { correo: { contains: q, mode: 'insensitive' } },
+              { nombres: { contains: q, mode: 'insensitive' } },
+              { apellidos: { contains: q, mode: 'insensitive' } },
             ],
           }
         : {}),

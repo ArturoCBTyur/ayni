@@ -207,6 +207,24 @@ describe('Busqueda', () => {
     expect(lista(r).usuarios.map((u) => u.id)).toEqual([auditor.id]);
   });
 
+  it('busca % y _ como texto, no como comodines', async () => {
+    const conGuion = await crearCuenta(['DONANTE'], 'sub_rayado');
+    const buscar = async (q: string) =>
+      lista(
+        await api()
+          .get('/identidad/usuarios')
+          .query({ q, porPagina: 100 })
+          .set('Authorization', `Bearer ${admin.token}`),
+      ).usuarios.map((u) => u.id);
+
+    // Sin escapar, "_" es "cualquier caracter" y "%" es "cualquier cosa": las
+    // dos devolvian todas las cuentas de la base.
+    expect(await buscar(`_rayado-${marca}`)).toEqual([conGuion.id]);
+    expect(await buscar(`b_rayado-${marca}`)).toEqual([conGuion.id]);
+    expect(await buscar(`${marca}%`)).toEqual([]);
+    expect(await buscar(`d_n-${marca}`)).toEqual([]);
+  });
+
   it('dice que cuentas tienen el segundo factor pendiente', async () => {
     const r = await api()
       .get('/identidad/usuarios')
