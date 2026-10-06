@@ -163,6 +163,31 @@ def _similitud(concepto: list[Token], categoria: list[Token]) -> float:
 # se toco antes de la entrega. Pero esta aqui, y el arreglo no es subir el
 # umbral: es dejar de contar como palabra de contenido el complemento de lugar,
 # o exigir un minimo de coincidencias antes de promediar.
+#
+# Y la causa de fondo, que es peor y mas facil de olvidar: **el vocabulario de
+# `es_core_news_md` no cubre la terminologia del dominio.** Es un modelo de
+# proposito general entrenado sobre texto periodistico, y los terminos que una
+# ONG veterinaria usa a diario no estan en el. Medido:
+#
+#   "desparasitacion"  sin vector
+#   "antirrabica"      sin vector
+#
+# Cuando la palabra que define el gasto es la que falta, quedan solo las
+# genericas y el resultado puede invertirse por completo:
+#
+#   "desparasitacion de ocho perros rescatados"       0.418  NO CORRESPONDE
+#   "cirugia veterinaria de un perro atropellado"     0.899  corresponde
+#
+# El primero es un gasto veterinario legitimo y el modelo lo rechaza, porque de
+# sus cuatro palabras solo "perros" y "rescatados" tienen vector y ninguna de
+# las dos dice que sea atencion veterinaria.
+#
+# Esto no se arregla con umbrales. Se arregla con vectores del dominio: o se
+# entrena un modelo sobre texto veterinario, o se amplia la descripcion de cada
+# categoria con los sinonimos que el equipo usa de verdad --que es mas barato,
+# pero cuidado, porque esta medido que las descripciones mas largas empeoran la
+# separacion-- o se mantiene un diccionario de terminos del dominio. Es la
+# limitacion mas relevante que le queda a esta señal.
 
 
 def coherencia_concepto_categoria(concepto: str, categoria: str) -> float | None:

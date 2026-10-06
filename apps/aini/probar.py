@@ -4,6 +4,7 @@
     python probar.py concepto "compra de croquetas" ALIMENTOS
     python probar.py gasto --monto 480 --proveedor-nuevo --gastos-recientes 5
     python probar.py boleta --impreso 158 --monto 185   el lector, sobre papel
+    python probar.py archivos                     boletas para subir en la exposicion
     python probar.py limites                      donde el modelo se equivoca
     python probar.py demo                         recorrido guiado, para exponer
 
@@ -21,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import date
 from pathlib import Path
 
 # La consola de Windows usa cp1252 y un caracter fuera de esa tabla aborta el
@@ -367,6 +369,90 @@ def probar_boleta(args: argparse.Namespace) -> None:
 
 
 # --------------------------------------------------------------------------
+# archivos: las imagenes para subir desde la aplicacion, en vivo
+# --------------------------------------------------------------------------
+
+#: Las boletas del guion, cada una para un momento distinto de la exposicion.
+#: El numero de cada una es distinto porque la base rechaza dos comprobantes
+#: con la misma serie y numero del mismo emisor: subir dos veces la misma
+#: boleta se bloquea, y en medio de una exposicion eso parece una falla.
+BOLETAS_DEMO: list[tuple[str, str, float, str]] = [
+    # (archivo, numero, total impreso, para que sirve)
+    ("1-boleta-de-78.jpg", "006101", 78.00, "declare S/ 78.00 y el lector confirma los cuatro campos"),
+    ("2-boleta-de-78-pero-declare-140.jpg", "006102", 78.00, "declare S/ 140.00 y el lector lo detecta"),
+    ("3-boleta-ilegible.jpg", "006103", 78.00, "sin texto legible: el lector lo declara y NO penaliza"),
+]
+
+
+def _dibujar_evidencia(ruta: Path, semilla: int) -> None:
+    """Una imagen con estructura, para el campo de evidencia.
+
+    No pretende parecer una foto: pretende pasar las comprobaciones que el
+    motor hace sobre una evidencia --resolucion, nitidez y no parecerse a
+    ninguna presentada antes-- para que el gasto no quede observado por la
+    evidencia cuando lo que se quiere ensenar es el comprobante.
+    """
+    from PIL import Image, ImageDraw
+
+    estado = semilla * 2654435761
+
+    def siguiente() -> float:
+        nonlocal estado
+        estado = (estado * 1103515245 + 12345) & 0x7FFFFFFF
+        return estado / 0x7FFFFFFF
+
+    img = Image.new("RGB", (1200, 900), "white")
+    dibujo = ImageDraw.Draw(img)
+    for by in range(0, 900, 100):
+        for bx in range(0, 1200, 100):
+            tono = int(siguiente() * 200) + 30
+            dibujo.rectangle([bx, by, bx + 99, by + 99], fill=(tono, (tono + 40) % 256, (tono + 90) % 256))
+    img.save(ruta, quality=88)
+
+
+def generar_archivos(args: argparse.Namespace) -> None:
+    """Escribe las imagenes que se suben desde la aplicacion en la exposicion.
+
+    No se versionan: son imagenes generadas, y el proyecto no guarda binarios
+    que un script puede volver a producir. Se regeneran cuando hagan falta.
+    """
+    from PIL import Image, ImageFilter
+
+    salida = Path(args.salida).expanduser().resolve()
+    salida.mkdir(parents=True, exist_ok=True)
+
+    print(f"\n  {GRIS}Escribiendo en{FIN}  {salida}\n")
+
+    for archivo, numero, total, para_que in BOLETAS_DEMO:
+        ruta = salida / archivo
+        _dibujar_boleta(
+            ruta,
+            ruc=args.ruc,
+            serie=SERIE,
+            numero=numero,
+            fecha=args.fecha,
+            total=total,
+        )
+
+        if "ilegible" in archivo:
+            # Desenfoque fuerte: se quiere que el lector NO pueda, para ensenar
+            # que una foto mala no se confunde con un gasto sospechoso.
+            Image.open(ruta).filter(ImageFilter.GaussianBlur(7)).save(ruta, quality=70)
+
+        print(f"  {VERDE}{archivo}{FIN}")
+        print(f"      {GRIS}{SERIE}-{numero} · S/ {total:.2f} impreso · {para_que}{FIN}")
+
+    for n in (1, 2, 3):
+        ruta = salida / f"evidencia-{n}.jpg"
+        _dibujar_evidencia(ruta, semilla=7000 + n * 137)
+        print(f"  {VERDE}evidencia-{n}.jpg{FIN}")
+    print(f"      {GRIS}Una por gasto: dos evidencias iguales se bloquean por reutilizadas.{FIN}")
+
+    print(f"\n  {GRIS}El RUC impreso es {args.ruc}: tecléelo igual o el cotejo lo marcara.{FIN}")
+    print(f"  {GRIS}Serie {SERIE}, y el numero de cada boleta esta arriba.{FIN}\n")
+
+
+# --------------------------------------------------------------------------
 # limites: donde el modelo se equivoca
 # --------------------------------------------------------------------------
 
@@ -651,6 +737,20 @@ def main() -> int:
     p_bol.add_argument("--distancia", type=int)
     p_bol.set_defaults(**POR_DEFECTO_BOLETA)
 
+    p_arch = sub.add_parser(
+        "archivos", help="genera las boletas y evidencias para subir desde la aplicacion"
+    )
+    p_arch.add_argument(
+        "--salida",
+        default=str(Path.home() / "Desktop" / "boletas-ayni"),
+        metavar="CARPETA",
+        help="donde escribirlas (por defecto, una carpeta en el Escritorio)",
+    )
+    p_arch.add_argument("--ruc", default="20601030579")
+    # Hoy, no una fecha fija: una boleta fechada el año pasado le saldria al
+    # operador como discrepancia de fecha, y el guion no es sobre eso.
+    p_arch.add_argument("--fecha", default=date.today().isoformat())
+
     sub.add_parser("limites", help="bateria de casos dificiles y donde falla")
     sub.add_parser("demo", help="recorrido guiado para una exposicion")
 
@@ -662,6 +762,8 @@ def main() -> int:
         probar_gasto(args)
     elif args.comando == "boleta":
         probar_boleta(args)
+    elif args.comando == "archivos":
+        generar_archivos(args)
     elif args.comando == "limites":
         probar_limites()
     elif args.comando == "demo":

@@ -107,6 +107,68 @@ Fondo «Atención veterinaria»: recaudado S/ 383.24 · **retenido S/ 201.24** �
 
 ---
 
+## El acto en vivo: subir una boleta y verla recorrer los roles
+
+**Es lo que no se puede preparar.** Los seis gastos sembrados ya están analizados; este se analiza delante de la sala.
+
+### Antes de empezar (una vez, sin público)
+
+```bash
+cd C:\Users\User\Desktop\repositories\trazabilidad-radical\apps\aini
+```
+
+```bash
+python probar.py archivos
+```
+
+Escribe en el Escritorio, en `boletas-ayni`, tres boletas y tres evidencias. **Abre la carpeta y déjala lista**, porque vas a elegir archivos desde el diálogo del navegador.
+
+| Archivo | Impreso | Qué teclear | Qué demuestra |
+|---|---|---|---|
+| `1-boleta-de-78.jpg` | S/ 78.00 | **78** | El lector confirma los cuatro campos |
+| `2-boleta-de-78-pero-declare-140.jpg` | S/ 78.00 | **140** | **El que importa.** El lector detecta el monto |
+| `3-boleta-ilegible.jpg` | — | 78 | No pudo leer: lo declara y **no** penaliza |
+
+Usa una evidencia distinta por gasto: dos iguales se bloquean por reutilizadas, que es correcto pero no es lo que quieres mostrar ahí.
+
+### En vivo · Operador (`ong.operador@demo.pe` + código)
+
+Gastos → **Registrar gasto**.
+
+1. **Paso 1.** En «Comprobante de pago» pulsa **Elegir archivo** → `2-boleta-de-78-pero-declare-140.jpg`. En «Evidencia del gasto» → `evidencia-2.jpg`.
+2. **Paso 2.** Fondo **Atención veterinaria** · Monto **140** · Concepto **cirugía veterinaria de un perro atropellado** · Proveedor **Clinica Veterinaria San Roque**.
+3. **Paso 3.** Boleta · RUC **20601030579** · Serie **B001** · Número **006102** · Fecha de emisión: hoy (ya viene puesta).
+4. **Registrar gasto.**
+
+> «Fíjense en que no estoy escribiendo nada raro. El RUC es válido, el IGV lo calcula el sistema, las fechas están en orden. Para cualquier regla aritmética este gasto es impecable.»
+
+El worker lo toma en unos 5 s y el análisis tarda ~1-3 s más. En la lista de gastos aparece **MEDIO**, alrededor de 70.
+
+### En vivo · Auditor (`auditor@demo.pe` + código)
+
+Auditoría → el gasto de **S/ 140** → baja a **«Lo que el modelo leyó en el papel»**:
+
+```
+  RUC emisor        20601030579   ✓
+  Documento         B001-006102   ✓
+  Fecha de emisión  <hoy>         ✓
+  Importe total     S/ 78.00      ✗  se declaró S/ 140.00
+```
+
+> «El modelo descargó la foto, la leyó, y encontró que el papel dice S/ 78. Se declararon S/ 140. El fondo iba a pagar S/ 62 que el comprobante no respalda — y eso ninguna regla sobre el dato declarado podía verlo, porque el dato declarado está perfecto.»
+
+Y el resumen del análisis lo dice en una línea: *«El comprobante dice S/ 78.00 y se declaro S/ 140.00.»*
+
+→ **Observa** el gasto con comentario. Vuelve al operador: el gasto está observado, con el motivo en español.
+
+### Si quieres cerrar el círculo
+
+Repite con `1-boleta-de-78.jpg` declarando **78** y número **006101**. Sale **ALTO**, se aprueba solo, se aplica FIFO y **el donante recibe la narrativa**. Es el contraste que remata: el mismo sistema, el mismo lector, y la diferencia la hace el papel.
+
+> Hay S/ 201.24 retenidos en el fondo. Alcanza para los tres gastos de la tabla; si subes más, revisa el saldo o el bloqueo por saldo insuficiente aparecerá y será correcto, pero no es lo que querías enseñar.
+
+---
+
 ## El recorrido, en orden
 
 **1 · Donante** (`donante@demo.pe`, sin código)
@@ -174,7 +236,7 @@ El CSV del libro incluye `hash_previo` y `hash_actual` de cada movimiento: **un 
 
 ---
 
-## Las tres preguntas que te van a hacer
+## Las preguntas que te van a hacer, con su respuesta
 
 **«¿Esto usa IA?»** — la que importa en este curso.
 Sí, tres modelos distintos, y **ninguno es una API de terceros**: corren en `apps/aini`, en esta máquina.
@@ -190,6 +252,18 @@ Y una señal que **deliberadamente no** usa aprendizaje automático: la visual. 
 El puntaje nunca lo decide el modelo solo: **los pesos y los umbrales llegan en cada petición** y quedan registrados con el análisis (RN-06), así que el administrador los cambia sin redesplegar nada.
 
 **Si te preguntan por la precisión, no infles la cifra.** Está medida y es modesta: el detector de anomalías se entrenó con 600 gastos sintéticos porque la base real tiene cuatro; la señal de lenguaje deja pasar ~13 % de las categorizaciones erróneas; el lector solo se probó sobre boletas que generamos nosotros, no sobre papel térmico real. **Por eso las tres señales restan puntos y derivan a una persona en vez de decidir solas.** Eso es un argumento de diseño, no una disculpa.
+
+**«¿Y si el concepto usa una palabra técnica?»** — la pregunta que más duele, y conviene adelantarla.
+Ahí falla. `es_core_news_md` se entrenó sobre texto periodístico y **no conoce la terminología del dominio**: «desparasitación» y «antirrábica» no tienen vector. Medido:
+
+| Concepto | Similitud | Veredicto |
+|---|---|---|
+| «cirugía veterinaria de un perro atropellado» | 0.899 | corresponde |
+| «desparasitación de ocho perros rescatados» | 0.418 | **no corresponde** ← falso positivo |
+
+El segundo es un gasto veterinario legítimo y el modelo lo rechaza, porque de sus cuatro palabras solo «perros» y «rescatados» tienen vector, y ninguna dice que sea atención veterinaria.
+
+No se arregla con umbrales: se arregla con vectores del dominio —entrenar sobre texto veterinario, o mantener un diccionario de términos—. **Está escrito en el código, junto a la función que lo mide.** Y es la razón por la que esta señal resta puntos y deriva a una persona en vez de decidir sola.
 
 **«¿Los pagos son reales?»**
 No. La pasarela está simulada, con webhook firmado e idempotente. Culqi implementa la misma interfaz cuando haya cuenta de comercio.
@@ -209,5 +283,9 @@ No, y el sistema **lo dice** en vez de simularlo. Se valida el RUC por módulo 1
 | Un gasto sigue «en análisis» | El worker corre cada 5 s. Espera y recarga |
 | Todo sale «no se pudo leer el comprobante» | AIni está caída o el OCR apagado: `curl http://127.0.0.1:8000/salud` |
 | Los análisis dicen `reglas-v0` y esperabas AIni | Falta `VERIFICACION_DRIVER=aini` en `.env`; reinicia la API |
+| «Ya existe un comprobante con esa serie y número» | Ese número ya se usó. Sube la siguiente boleta de la tabla, o cambia el número |
+| «La evidencia ya se había presentado» | Repetiste una evidencia. Usa `evidencia-1/2/3`, una por gasto |
+| «El gasto declara más de lo retenido» | Quedan S/ 201.24 en el fondo. Es correcto que bloquee, pero no es el caso que querías mostrar |
+| El diálogo de archivos no abre | Usa **Elegir archivo**, no «Tomar foto»: en una laptop no hay cámara trasera |
 
 **No cierres la terminal de la API durante la exposición.**

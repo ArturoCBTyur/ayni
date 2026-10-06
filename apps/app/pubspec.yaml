@@ -41,6 +41,8 @@ dependencies:
   fl_chart: ^1.2.0
   image_picker: ^1.2.3
   shared_preferences: ^2.5.5
+  flutter_localizations:
+    sdk: flutter
 
 dev_dependencies:
   flutter_test:

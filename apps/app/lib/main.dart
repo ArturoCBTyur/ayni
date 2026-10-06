@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -28,6 +29,18 @@ class AppTrazabilidadRadical extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: TemaApp.claro(),
       darkTheme: TemaApp.oscuro(),
+      // RNF-20 · Los textos propios siempre estuvieron en español, pero los de
+      // Material --los botones de un dialogo, los meses de un calendario, las
+      // etiquetas que lee un lector de pantalla-- salian en ingles, porque sin
+      // estos delegados MaterialApp solo ofrece `DefaultMaterialLocalizations`,
+      // que es monolingue. Se noto al abrir el primer selector de fecha.
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('es'), Locale('es', 'PE')],
+      locale: const Locale('es', 'PE'),
       routes: {'/registro': (_) => const PantallaRegistro()},
       home: const _Raiz(),
     );

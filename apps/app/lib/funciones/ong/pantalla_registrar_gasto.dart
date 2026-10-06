@@ -56,6 +56,21 @@ class _PantallaRegistrarGastoState extends ConsumerState<PantallaRegistrarGasto>
   bool _contienePersonas = false;
   bool _consentimientoImagen = false;
 
+  /// Fecha impresa en el comprobante, no la de hoy.
+  ///
+  /// Antes se enviaba `DateTime.now()` sin preguntarla, y eso tenia dos
+  /// problemas. Uno se veia: como `fechaGasto` tambien era `DateTime.now()`
+  /// pero de otra llamada, bastaba que la segunda cayera un milisegundo
+  /// despues para que el backend rechazara el registro diciendo que el
+  /// comprobante se emitio despues del gasto --un error sobre un dato que el
+  /// operador nunca habia escrito, y que aparecia solo algunas veces--.
+  ///
+  /// El otro no se veia hasta que el lector empezo a leer el documento: una
+  /// boleta de la semana pasada se registraba como emitida hoy, y nadie lo
+  /// comprobaba. Ahora el cotejo lee la fecha del papel, y la inventada
+  /// discrepaba. La fecha esta impresa en el comprobante; se pregunta.
+  DateTime _fechaEmision = DateTime.now();
+
   @override
   void dispose() {
     _monto.dispose();
@@ -67,10 +82,13 @@ class _PantallaRegistrarGastoState extends ConsumerState<PantallaRegistrarGasto>
     super.dispose();
   }
 
-  Future<void> _capturar({required bool esComprobante}) async {
+  Future<void> _capturar({
+    required bool esComprobante,
+    required ImageSource origen,
+  }) async {
     final archivo = await _selector.pickImage(
+      source: origen,
       // La camara trasera es la que usa quien fotografia una boleta.
-      source: ImageSource.camera,
       preferredCameraDevice: CameraDevice.rear,
       imageQuality: 88,
       maxWidth: 2400,
@@ -114,6 +132,22 @@ class _PantallaRegistrarGastoState extends ConsumerState<PantallaRegistrarGasto>
     }
   }
 
+  Future<void> _elegirFechaEmision() async {
+    final hoy = DateTime.now();
+    final elegida = await showDatePicker(
+      context: context,
+      initialDate: _fechaEmision,
+      // Hacia atras un año, y nunca hacia adelante: un comprobante emitido
+      // mañana no existe, y dejar elegirlo solo produce un gasto rechazado
+      // despues de haber llenado todo el formulario.
+      firstDate: DateTime(hoy.year - 1),
+      lastDate: hoy,
+      helpText: 'Fecha impresa en el comprobante',
+      locale: const Locale('es'),
+    );
+    if (elegida != null) setState(() => _fechaEmision = elegida);
+  }
+
   Future<void> _registrar() async {
     setState(() {
       _enviando = true;
@@ -123,20 +157,23 @@ class _PantallaRegistrarGastoState extends ConsumerState<PantallaRegistrarGasto>
     try {
       final monto = double.parse(_monto.text.replaceAll(',', '.'));
       final subtotal = double.parse((monto / 1.18).toStringAsFixed(2));
+      // Un solo instante para el gasto, y la fecha del comprobante nunca
+      // despues de el: el backend lo exige comparando los dos valores.
+      final ahora = DateTime.now();
 
       await ref.read(clienteApiProvider).enviar('/gastos', cuerpo: {
         'fondoId': _fondoId,
         'montoDeclarado': monto,
         'concepto': _concepto.text.trim(),
         'proveedorNombre': _proveedor.text.trim(),
-        'fechaGasto': DateTime.now().toIso8601String(),
+        'fechaGasto': ahora.toIso8601String(),
         if (_capturadoEn != null) 'capturadoEn': _capturadoEn!.toIso8601String(),
         'comprobante': {
           'tipo': _tipoComprobante,
           'rucEmisor': _ruc.text.trim(),
           'serie': _serie.text.trim().toUpperCase(),
           'numero': _numero.text.trim(),
-          'fechaEmision': DateTime.now().toIso8601String(),
+          'fechaEmision': (_fechaEmision.isAfter(ahora) ? ahora : _fechaEmision).toIso8601String(),
           'subtotal': subtotal,
           'igv': double.parse((monto - subtotal).toStringAsFixed(2)),
           'total': monto,
@@ -210,9 +247,11 @@ class _PantallaRegistrarGastoState extends ConsumerState<PantallaRegistrarGasto>
                     ruc: _ruc,
                     serie: _serie,
                     numero: _numero,
+                    fechaEmision: _fechaEmision,
                     contienePersonas: _contienePersonas,
                     consentimiento: _consentimientoImagen,
                     onTipo: (v) => setState(() => _tipoComprobante = v),
+                    onFechaEmision: _elegirFechaEmision,
                     onPersonas: (v) => setState(() => _contienePersonas = v),
                     onConsentimiento: (v) => setState(() => _consentimientoImagen = v),
                     onCambio: () => setState(() {}),
@@ -284,7 +323,10 @@ class _PasoCaptura extends StatelessWidget {
 
   final _Adjunto? comprobante;
   final _Adjunto? evidencia;
-  final Future<void> Function({required bool esComprobante}) onCapturar;
+  final Future<void> Function({
+    required bool esComprobante,
+    required ImageSource origen,
+  }) onCapturar;
 
   @override
   Widget build(BuildContext context) {
@@ -305,7 +347,7 @@ class _PasoCaptura extends StatelessWidget {
           descripcion: 'La boleta o factura, completa y legible.',
           icono: Icons.receipt_long,
           adjunto: comprobante,
-          onCapturar: () => onCapturar(esComprobante: true),
+          onCapturar: (origen) => onCapturar(esComprobante: true, origen: origen),
         ),
         const SizedBox(height: 12),
         _Captura(
@@ -313,7 +355,7 @@ class _PasoCaptura extends StatelessWidget {
           descripcion: 'Una foto de lo comprado o de la acción realizada.',
           icono: Icons.photo_camera,
           adjunto: evidencia,
-          onCapturar: () => onCapturar(esComprobante: false),
+          onCapturar: (origen) => onCapturar(esComprobante: false, origen: origen),
         ),
       ],
     );
@@ -333,7 +375,7 @@ class _Captura extends StatelessWidget {
   final String descripcion;
   final IconData icono;
   final _Adjunto? adjunto;
-  final VoidCallback onCapturar;
+  final void Function(ImageSource origen) onCapturar;
 
   @override
   Widget build(BuildContext context) {
@@ -341,35 +383,65 @@ class _Captura extends StatelessWidget {
     final listo = adjunto != null;
 
     return Card(
-      child: InkWell(
-        onTap: onCapturar,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(
-                listo ? Icons.check_circle : icono,
-                size: 32,
-                color: listo ? TemaApp.nivelAlto : tema.colorScheme.outline,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(titulo, style: tema.textTheme.titleSmall),
-                    Text(
-                      listo ? 'Capturado. Toque para repetir.' : descripcion,
-                      style: tema.textTheme.bodySmall?.copyWith(
-                        color: tema.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  listo ? Icons.check_circle : icono,
+                  size: 32,
+                  color: listo ? TemaApp.nivelAlto : tema.colorScheme.outline,
                 ),
-              ),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(titulo, style: tema.textTheme.titleSmall),
+                      Text(
+                        listo ? 'Listo. Puede reemplazarlo.' : descripcion,
+                        style: tema.textTheme.bodySmall?.copyWith(
+                          color: tema.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Dos origenes, no uno.
+            //
+            // Estaba fijado a `ImageSource.camera`, que es lo correcto para un
+            // operador con el telefono en la mano delante del mostrador, y lo
+            // unico que no sirve en un navegador de escritorio: ahi no hay
+            // camara trasera, y segun el navegador el selector se abre vacio o
+            // no se abre. Un operador que trabaje desde una laptop, o
+            // cualquiera que fotografie la boleta con el telefono y la pase a
+            // la computadora, se quedaba sin forma de adjuntarla.
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => onCapturar(ImageSource.camera),
+                    icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                    label: const Text('Tomar foto'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => onCapturar(ImageSource.gallery),
+                    icon: const Icon(Icons.folder_open_outlined, size: 18),
+                    label: const Text('Elegir archivo'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -463,6 +535,8 @@ class _PasoDatos extends ConsumerWidget {
 class _PasoComprobante extends StatelessWidget {
   const _PasoComprobante({
     required this.tipo,
+    required this.fechaEmision,
+    required this.onFechaEmision,
     required this.ruc,
     required this.serie,
     required this.numero,
@@ -478,9 +552,11 @@ class _PasoComprobante extends StatelessWidget {
   final TextEditingController ruc;
   final TextEditingController serie;
   final TextEditingController numero;
+  final DateTime fechaEmision;
   final bool contienePersonas;
   final bool consentimiento;
   final ValueChanged<String> onTipo;
+  final VoidCallback onFechaEmision;
   final ValueChanged<bool> onPersonas;
   final ValueChanged<bool> onConsentimiento;
   final VoidCallback onCambio;
@@ -542,6 +618,31 @@ class _PasoComprobante extends StatelessWidget {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 16),
+
+        InputDecorator(
+          decoration: const InputDecoration(
+            labelText: 'Fecha de emisión',
+            helperText: 'La que está impresa en el comprobante.',
+          ),
+          child: Semantics(
+            button: true,
+            label: 'Cambiar la fecha de emisión del comprobante',
+            child: InkWell(
+              onTap: onFechaEmision,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(Formato.fecha(fechaEmision), style: tema.textTheme.bodyLarge),
+                    const Icon(Icons.calendar_today_outlined, size: 18),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
 
         const SizedBox(height: 24),
