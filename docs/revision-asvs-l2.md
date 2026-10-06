@@ -43,6 +43,18 @@ Referencia: ASVS V14.5.3.
 
 Referencia: ASVS V14.2.1. Verificación: las 281 pruebas siguen pasando con `sharp` nuevo, incluidas las de huella perceptual y nitidez, que son las que romperían ante un cambio de comportamiento.
 
+### 5. El secreto TOTP se guardaba en claro, aunque el esquema decía «cifrado»
+
+`schema.prisma` documentaba `totp_secreto` como «Secreto TOTP cifrado» y el servicio lo escribía tal cual lo generaba `otplib`. Quien leyera la tabla `usuarios` —un respaldo extraviado alcanza— podía generar los códigos de segundo factor de todos los administradores, auditores y operadores. Es exactamente el factor que el RNF-02 pone entre una contraseña filtrada y el dinero.
+
+Ahora se guarda en un sobre AES-256-GCM **atado a la cuenta** (el id del usuario va como dato autenticado): copiar el secreto de una fila a otra no abre. Referencia: ASVS V6.1.1. Prueba: `cifrado.spec.ts` · «Secreto TOTP cifrado», cuatro casos, entre ellos «copiado a otra cuenta no abre».
+
+### 6. Las cabeceras de seguridad del sitio web no llegaban a los archivos que importan
+
+`nginx.conf` declaraba `X-Content-Type-Options`, `X-Frame-Options` y `Referrer-Policy` a nivel de `server`, y además un `add_header Cache-Control` en las `location` de `.js` y de `index.html`. En nginx una `location` con su propio `add_header` **reemplaza** los heredados. Comprobado levantando nginx con la configuración original: `index.html`, `main.dart.js` y **cualquier ruta de la aplicación** —que nginx resuelve a `index.html`— respondían sin ninguna de las tres. Con la configuración corregida las tres llegan en todas las respuestas, y un `If-None-Match` devuelve 304. Referencia: ASVS V14.4.
+
+El mismo bloque cacheaba los `.js` y `.json` como inmutables por un año, pero Flutter Web no pone hash en esos nombres: tras un despliegue, quien ya había entrado seguía con el código viejo. Ahora todo se revalida con ETag.
+
 ---
 
 ## Revisión por capítulo
@@ -75,6 +87,7 @@ Referencia: ASVS V14.2.1. Verificación: las 281 pruebas siguen pasando con `sha
 | V3.3.1 · Cierre de sesión revoca el token | ✅ | `TokensService.revocar` marca la sesión; `identidad.spec.ts` |
 | V3.5.3 · Rotación del refresh | ✅ | Cada canje emite un par nuevo y revoca el usado; un token expirado, revocado o inexistente devuelve el mismo error, para no confirmarle a un atacante que acertó |
 | Token de alcance reducido | ✅ | El token de MFA pendiente solo abre las rutas de enrolamiento. `identidad.http.spec.ts` · `/perfil` → 403, `/mfa/iniciar` → 201 |
+| V3.3.3 · Cambiar permisos o bloquear termina las sesiones | 🟡 | Bloquear, cambiar roles o restablecer el segundo factor revoca todos los refresh de la cuenta en la misma transacción (`usuarios.http.spec.ts`: el refresh previo deja de canjearse). **Límite declarado:** el token de acceso ya emitido lleva los roles adentro y vale hasta que vence, como máximo `JWT_ACCESS_TTL` (15 minutos). Cerrarlo del todo exige consultar el estado de la cuenta en cada petición, que es lo que el JWT existe para evitar |
 
 ### V4 · Control de acceso
 
@@ -83,7 +96,8 @@ Referencia: ASVS V14.2.1. Verificación: las 281 pruebas siguen pasando con `sha
 | V4.1.1 · Denegar por defecto | ✅ | `AccesoGuard` rechaza toda ruta sin `@Publico()`. Olvidar un decorador deja la ruta cerrada, no abierta |
 | V4.1.3 · Mínimo privilegio | ✅ | `@Roles()` donde el rol basta; membresía comprobada en el servicio donde no |
 | V4.2.1 · Referencias directas a objetos (IDOR) | ✅ | **El caso central.** Las rutas de gastos no llevan `@Roles` a propósito: el rol no alcanza, porque un operador puede registrar gastos pero solo los de su organización. `gastos.http.spec.ts` prueba con dos organizaciones que la misma ruta y el mismo rol dan 403 al cambiar el identificador |
-| V4.3.1 · Interfaces administrativas protegidas | ✅ | `almacenamiento-estado` y los umbrales del motor exigen `ADMIN`; probado en `gastos.http.spec.ts` |
+| V4.3.1 · Interfaces administrativas protegidas | ✅ | `almacenamiento-estado` y los umbrales del motor exigen `ADMIN`; probado en `gastos.http.spec.ts`. La gestión de usuarios (`/identidad/usuarios`) también: donante y auditor reciben 403 (`usuarios.http.spec.ts`) |
+| V4.3.2 · Separación de funciones en la administración | ✅ | Un administrador no puede quitarse su propio rol, bloquearse ni restablecer su propio segundo factor: lo pide a otra persona. Siempre queda un administrador activo, con un advisory lock para que dos que se quitan el rol a la vez no lo eludan. Toda acción exige motivo y queda en la bitácora con el antes y el después |
 
 ### V5 · Validación, saneamiento y codificación
 
@@ -110,7 +124,18 @@ Referencia: ASVS V14.2.1. Verificación: las 281 pruebas siguen pasando con `sha
 | V8.1.1 · Sin datos sensibles en caché del cliente | ✅ | Las descargas responden `Cache-Control: private` |
 | V8.3.1 · Datos sensibles fuera de la URL | ✅ | Ningún dato personal viaja en query string; las URL firmadas llevan token y caducidad, no identidad |
 | V8.2.2 · Minimización | ✅ | No se almacena ningún dato de tarjeta: solo token de la pasarela y últimos cuatro dígitos (RNF-04) |
-| Cifrado en reposo | ⬜ | Diferido a la Fase 11: depende del proveedor de base de datos y de almacenamiento |
+| Cifrado en reposo | ✅ | Ver V6: evidencias y secretos TOTP cifrados por la aplicación; el resto de la base, por el proveedor |
+
+### V6 · Criptografía almacenada
+
+| Requisito | Estado | Evidencia |
+|---|---|---|
+| V6.1.1 · Datos personales cifrados en reposo | ✅ | Comprobantes, fotos de beneficiarios y versiones difuminadas se guardan en un sobre AES-256-GCM atado a su clave de objeto: lo que queda en disco no contiene el original, y una evidencia cambiada por la de otro gasto no abre (`cifrado.spec.ts` · «Almacenamiento en disco cifrado»). La suite entera corre con el cifrado activo en CI. El secreto TOTP, igual, atado a la cuenta. El resto de la base lo cifra el proveedor (Neon cifra su almacenamiento) |
+| V6.2.1 · Fallo seguro | ✅ | Un sobre alterado o atado a otro contexto **falla**, no devuelve basura ni se lee en claro. Lo único que se lee en claro es lo que nunca fue un sobre (datos anteriores a activar el cifrado), y `npm run cifrado:migrar` lo sella |
+| V6.2.2 · Algoritmos aprobados | ✅ | AES-256-GCM de `node:crypto`. Nada propio: el sobre solo ordena cabecera, IV, etiqueta y texto cifrado |
+| V6.2.6 · Sin IV repetidos | ✅ | IV aleatorio de 96 bits por sobre; `cifrado.spec.ts` · «dos sellos del mismo contenido no se parecen» |
+| V6.4.1 · Gestión de claves | 🟡 | Clave de 32 bytes en `CIFRADO_CLAVE`, obligatoria en producción (la API no arranca sin ella) y rechazada si no mide 32 bytes. Rotación con `CIFRADO_CLAVES_ANTERIORES` + `npm run cifrado:migrar`, probada. No hay KMS ni HSM: la clave vive en el gestor de secretos del proveedor |
+| V6.4.2 · Clave aislada en un módulo de seguridad | ⬜ | No se cumple: la aplicación tiene la clave en memoria. Lo que sí se cuida es que no esté en el código ni viaje con los respaldos (`respaldar.sh` no la incluye, a propósito) |
 
 ### V9 · Comunicaciones
 
@@ -170,7 +195,7 @@ Referencia: ASVS V14.2.1. Verificación: las 281 pruebas siguen pasando con `sha
 ## Lo que esta revisión no cubre
 
 - Prueba de penetración y auditoría independiente: ninguna se ha hecho.
-- V6 · Criptografía almacenada: no hay cifrado en reposo todavía (Fase 11).
+- V6 · Custodia de la clave con KMS o HSM: la clave de cifrado vive en una variable de entorno del proveedor.
 - V9 · TLS: depende del despliegue.
 - V10 · Código malicioso: no hay revisión de procedencia de dependencias más allá de `npm audit`.
 - Configuración del proveedor en la nube: pertenece a la Fase 11.
