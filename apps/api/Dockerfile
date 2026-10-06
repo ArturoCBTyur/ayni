@@ -19,6 +19,18 @@ RUN npm ci
 
 FROM node:22-bookworm-slim AS build
 WORKDIR /app
+
+# Prisma elige el motor de consultas segun la version de OpenSSL que detecta al
+# generar el cliente. Sin openssl en esta etapa no detecta ninguna, genera para
+# openssl-1.1.x, y la etapa de produccion -que trae OpenSSL 3- no lo puede
+# cargar: la API se caia al arrancar ("Prisma Client was generated for
+# debian-openssl-1.1.x, but the actual deployment required
+# debian-openssl-3.0.x"). Las migraciones corren sobre esta etapa y lo
+# necesitan igual.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/*
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # El cliente de Prisma se genera desde el esquema; sin esto, el build de
