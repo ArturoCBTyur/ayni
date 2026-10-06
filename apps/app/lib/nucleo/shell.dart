@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../funciones/admin/pantalla_tablero.dart';
+import '../funciones/admin/pantalla_usuarios.dart';
 import '../funciones/auditor/pantalla_bandeja.dart';
 import '../funciones/cumplimiento/pantalla_arco_bandeja.dart';
 import '../funciones/cumplimiento/pantalla_privacidad.dart';
@@ -86,6 +87,13 @@ const _destinos = <_Destino>[
     icono: Icons.privacy_tip_outlined,
     iconoActivo: Icons.privacy_tip,
     pantalla: PantallaArcoBandeja(),
+    roles: ['ADMIN'],
+  ),
+  _Destino(
+    etiqueta: 'Usuarios',
+    icono: Icons.manage_accounts_outlined,
+    iconoActivo: Icons.manage_accounts,
+    pantalla: PantallaUsuarios(),
     roles: ['ADMIN'],
   ),
 ];
