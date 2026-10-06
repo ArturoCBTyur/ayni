@@ -14,9 +14,10 @@
  *
  * Es idempotente: se puede correr las veces que haga falta.
  *
- * Solo para el entorno local. Los secretos TOTP quedan guardados en claro en
- * esta máquina para poder imprimir los códigos, cosa que en un despliegue real
- * no debe ocurrir nunca.
+ * Solo para el entorno local: imprime los códigos TOTP de cuentas reales de
+ * la base, cosa que en un despliegue real no debe ocurrir nunca. Con
+ * CIFRADO_CLAVE definida los secretos se guardan cifrados como en la API, y
+ * este script los abre con la misma clave para calcular los códigos.
  */
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -26,12 +27,21 @@ import { PrismaClient } from '@prisma/client';
 import { authenticator } from 'otplib';
 import sharp from 'sharp';
 
+import {
+  abrirTexto,
+  contextoArchivo,
+  contextoTotp,
+  crearLlavero,
+  sellar,
+  sellarTexto,
+} from '../src/comun/cifrado/sobre';
 import { calcularDHash, calcularNitidez } from '../src/modules/gastos/imagen';
 
 const prisma = new PrismaClient();
 // Misma resolucion que la API y que seed-demo.ts: si no, con STORAGE_DIR
 // definido las evidencias de la demo quedan donde la API no las busca.
 const RAIZ_ARCHIVOS = resolve(process.cwd(), process.env.STORAGE_DIR ?? '../../storage');
+const LLAVERO = crearLlavero(process.env.CIFRADO_CLAVE, process.env.CIFRADO_CLAVES_ANTERIORES);
 
 /** La semilla con la que seed-demo genera la evidencia del primer gasto. */
 const SEMILLA_EVIDENCIA_BASE = 97;
@@ -163,7 +173,19 @@ async function boleta(d: Impreso): Promise<Buffer> {
 async function guardar(objeto: string, contenido: Buffer): Promise<void> {
   const ruta = join(RAIZ_ARCHIVOS, objeto);
   await mkdir(dirname(ruta), { recursive: true });
-  await writeFile(ruta, contenido);
+  await writeFile(
+    ruta,
+    LLAVERO.actual ? sellar(LLAVERO, contenido, contextoArchivo(objeto)) : contenido,
+  );
+}
+
+/** El código del momento, abriendo el secreto si está cifrado. */
+function codigoActual(usuarioId: string, guardado: string): string {
+  try {
+    return authenticator.generate(abrirTexto(LLAVERO, guardado, contextoTotp(usuarioId)));
+  } catch {
+    return '(falta la CIFRADO_CLAVE con que se cifró)';
+  }
 }
 
 const sha = (b: Buffer) => createHash('sha256').update(b).digest('hex');
@@ -187,9 +209,15 @@ async function enrolarSegundoFactor(): Promise<void> {
       continue;
     }
 
+    const secreto = authenticator.generateSecret();
     await prisma.usuario.update({
       where: { id: usuario.id },
-      data: { totpSecreto: authenticator.generateSecret(), totpHabilitado: true },
+      data: {
+        totpSecreto: LLAVERO.actual
+          ? sellarTexto(LLAVERO, secreto, contextoTotp(usuario.id))
+          : secreto,
+        totpHabilitado: true,
+      },
     });
     console.log(`  ${cuenta.correo}: enrolado`);
   }
@@ -437,7 +465,7 @@ export async function imprimirCuentas(): Promise<void> {
 
     const codigo =
       usuario.totpHabilitado && usuario.totpSecreto
-        ? authenticator.generate(usuario.totpSecreto)
+        ? codigoActual(usuario.id, usuario.totpSecreto)
         : '—';
 
     console.log(`${cuenta.correo.padEnd(24)} ${cuenta.rol.padEnd(30)} ${codigo}`);

@@ -27,7 +27,8 @@
     "demo:codigos": "tsx scripts/preparar-demo.ts --codigos",
     "demo:comparar": "tsx scripts/comparar-motores.ts",
     "demo:romper": "tsx scripts/romper.ts",
-    "demo:listo": "tsx scripts/listo.ts"
+    "demo:listo": "tsx scripts/listo.ts",
+    "cifrado:migrar": "tsx scripts/cifrar-existentes.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

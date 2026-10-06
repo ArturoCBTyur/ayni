@@ -15,10 +15,14 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import sharp from 'sharp';
 
+import { contextoArchivo, crearLlavero, sellar } from '../src/comun/cifrado/sobre';
 import { calcularDHash, calcularNitidez } from '../src/modules/gastos/imagen';
 
 const prisma = new PrismaClient();
 const RAIZ_ARCHIVOS = resolve(process.cwd(), process.env.STORAGE_DIR ?? '../../storage');
+// Las evidencias de la demo se guardan igual que las que suben las ONG:
+// cifradas si la instalacion tiene clave (RNF-01).
+const LLAVERO = crearLlavero(process.env.CIFRADO_CLAVE, process.env.CIFRADO_CLAVES_ANTERIORES);
 
 /** Imagen sintetica con estructura, para que el dHash tenga que describir. */
 async function imagenDemo(semilla: number, ancho = 800, alto = 600): Promise<Buffer> {
@@ -53,7 +57,10 @@ async function imagenDemo(semilla: number, ancho = 800, alto = 600): Promise<Buf
 async function guardarArchivo(objeto: string, contenido: Buffer): Promise<void> {
   const ruta = join(RAIZ_ARCHIVOS, objeto);
   await mkdir(dirname(ruta), { recursive: true });
-  await writeFile(ruta, contenido);
+  await writeFile(
+    ruta,
+    LLAVERO.actual ? sellar(LLAVERO, contenido, contextoArchivo(objeto)) : contenido,
+  );
 }
 
 async function main() {
