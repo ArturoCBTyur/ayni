@@ -19,7 +19,7 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 
 | ID | Requerimiento | Estado | Dónde | Prueba |
 |---|---|---|---|---|
-| RNF-01 | Cifrado en tránsito y reposo | 🟡 | **Reposo:** AES-256-GCM en `comun/cifrado` para evidencias (`AlmacenamientoDisco`) y secretos TOTP, cada sobre atado a su objeto o a su cuenta; clave obligatoria en producción, rotación con `npm run cifrado:migrar`. **Tránsito:** TLS del proveedor, pendiente del despliegue | `cifrado.spec.ts` · 24 casos; la suite completa corre con el cifrado activo en CI |
+| RNF-01 | Cifrado en tránsito y reposo | 🟡 | **Reposo:** AES-256-GCM en `comun/cifrado` para evidencias (`AlmacenamientoDisco`) y secretos TOTP, cada sobre atado a su objeto o a su cuenta; clave obligatoria en producción, rotación con `npm run cifrado:migrar`. **Tránsito:** TLS del proveedor, pendiente del despliegue | `cifrado.spec.ts` · 27 casos; la suite completa corre con el cifrado activo en CI |
 | RNF-02 | Autenticación robusta y RBAC | ✅ | `modules/identidad`: Argon2id, JWT corto + refresh rotativo en cookie httpOnly, TOTP obligatorio, guard global que niega por defecto | `identidad.spec.ts` · 15 casos |
 | RNF-03 | OWASP ASVS nivel 2 | 🟡 | Revisión por capítulo en [revision-asvs-l2.md](revision-asvs-l2.md), con cuatro hallazgos corregidos: límite de 5/min en las rutas que prueban credenciales (antes 7 200 intentos/hora), Swagger fuera de producción, comodín de CORS rechazado al arrancar y `sharp` actualizado | `gastos.http.spec.ts` (19 casos) e `identidad.http.spec.ts` (5). Falta prueba de penetración independiente |
 | RNF-04 | No almacenar datos de tarjeta | ✅ | Solo token y últimos 4; la tokenización ocurre en la pasarela | `donaciones.spec.ts` |
@@ -100,7 +100,7 @@ Tres están implementados con modelos en `apps/aini` —el lector de comprobante
 | Frontend Flutter | ✅ Sesión con segundo factor, causas, donación, historial, narrativas, panel de ONG, bandeja de auditoría, tablero de indicadores y derechos ARCO |
 | 10 y 11 | ⬜ Planificadas |
 
-**Pruebas hoy:** 340 en el API y 30 en Flutter. El detalle por suite está en la salida de `npm test`. Las del API se corrieron sobre PostgreSQL 18.6 y con el cifrado en reposo activo, igual que en CI.
+**Pruebas hoy:** 348 en el API y 32 en Flutter. El detalle por suite está en la salida de `npm test`. Las del API se corrieron sobre PostgreSQL 18.6 y con el cifrado en reposo activo, igual que en CI.
 
 **CI estaba en rojo** en `main` sin que la tabla lo dijera: el job del API aplicaba las migraciones pero no la semilla, y 12 de las 17 suites fallaban al buscar los roles del catálogo. Ahora corre `npm run seed` antes de las pruebas.
 
@@ -189,4 +189,4 @@ Tres indicadores de la Tabla 3 quedan sin valor y así se muestran: SOC-1 y PSI-
 | RF-02 | Gestión de roles y perfiles | ✅ Los 5 roles con guard global que niega por defecto |
 | RF-DE-01 | Consentimiento por finalidad con versión de política | ✅ Otorgar y revocar; revocar conserva el registro anterior en lugar de borrarlo. La pantalla lista las tres finalidades aunque no estén otorgadas —ocultar un permiso no dado es ocultar que existe— y explica qué deja de pasar al revocar cada una |
 | RF-DE-02 | Atención de derechos ARCO con registro, plazo y respuesta | ✅ Plazos en días hábiles (20 para acceso, 10 para el resto), bandeja por urgencia y marca de vencimiento. El titular presenta su solicitud y ve el plazo en días, no solo la fecha; el administrador la responde con motivo obligatorio (`privacidad_test.dart`, 6 casos) |
-| RF-16 | Gestión de usuarios | ✅ Búsqueda, cambio de roles, bloqueo y restablecimiento del segundo factor, desde la API (`/identidad/usuarios`) y desde la pantalla *Usuarios* del administrador. Motivo obligatorio y en la bitácora; cada cambio cierra las sesiones de la cuenta; nadie se quita su propio acceso y siempre queda un administrador activo (`usuarios.http.spec.ts` · 24 casos, `usuarios_test.dart` · 4) |
+| RF-16 | Gestión de usuarios | ✅ Búsqueda, cambio de roles, bloqueo y restablecimiento del segundo factor, desde la API (`/identidad/usuarios`) y desde la pantalla *Usuarios* del administrador. Motivo obligatorio y en la bitácora; cada cambio cierra las sesiones de la cuenta; nadie se quita su propio acceso y siempre queda un administrador activo (`usuarios.http.spec.ts` · 26 casos, `usuarios_test.dart` · 4) |
