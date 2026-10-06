@@ -183,7 +183,29 @@ Para revisar el proyecto sin instalar PostgreSQL, Node ni Flutter:
 docker compose up --build
 ```
 
-La web queda en `http://localhost:8080` y la API en `http://localhost:3000`. Las migraciones y las semillas las aplica un servicio aparte antes de que la API arranque. **Estas imágenes están escritas y revisadas pero no construidas**: la máquina de desarrollo no tiene Docker (ver la advertencia en la guía de despliegue).
+La web queda en `http://localhost:8080` y la API en `http://localhost:3000`. Las migraciones y las semillas las aplica un servicio aparte antes de que la API arranque. Si esos puertos ya están ocupados, se cambian sin tocar el archivo:
+
+```bash
+API_PUERTO=3100 WEB_PUERTO=8180 BASE_PUERTO=5434 docker compose up --build
+```
+
+CI construye las imágenes en cada cambio y corre un simulacro de respaldo y restauración sobre ellas.
+
+La misma imagen de Flutter sirve para analizar y probar la aplicación con la versión exacta del proyecto, sin instalarla:
+
+```bash
+docker build --target sdk -t ayni-flutter-sdk apps/app
+```
+
+```bash
+docker run --rm -v "$PWD/apps/app":/app -v ayni-pub-cache:/root/.pub-cache -w /app ayni-flutter-sdk sh -c "flutter pub get && flutter analyze && flutter test"
+```
+
+## Cifrado y respaldo
+
+Las evidencias y los secretos del segundo factor se guardan cifrados con AES-256-GCM (RNF-01), con la clave de `CIFRADO_CLAVE`: obligatoria en producción, opcional en desarrollo. Para activarla sobre datos existentes o rotarla, `npm run cifrado:migrar`.
+
+El respaldo (RNF-13) no termina en el volcado: termina en una restauración que demuestra que lo restaurado es el mismo libro contable, cadena por cadena. El procedimiento, y por qué la clave no viaja con el respaldo, están en [docs/respaldo.md](docs/respaldo.md).
 
 ## Documentación
 
@@ -193,6 +215,7 @@ La web queda en `http://localhost:8080` y la API en `http://localhost:3000`. Las
 - [Guion de demostración](docs/guion-demo.md) — los 10 minutos, paso a paso
 - [AIni: el motor de verificación](apps/aini/README.md) — las tres señales, con las mediciones y los límites
 - [Revisión OWASP ASVS L2](docs/revision-asvs-l2.md) — capítulo por capítulo, con lo que no cubre
+- [Respaldo y recuperación](docs/respaldo.md) — respaldar, restaurar, verificar y rotar la clave de cifrado
 
 ## Equipo
 

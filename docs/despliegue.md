@@ -31,6 +31,14 @@ for n in JWT_ACCESS_SECRET JWT_REFRESH_SECRET COOKIE_SECRET STORAGE_URL_SECRET P
 
 Guárdalos en el gestor de secretos del proveedor, nunca en el repositorio. La API valida al arrancar que cada uno tenga al menos 24 caracteres y **no levanta** si falta alguno: es preferible fallar al inicio que a mitad de una transacción contable.
 
+Y uno más, distinto de los otros cinco: la clave de **cifrado en reposo** (RNF-01), que protege las evidencias y los secretos del segundo factor. Tiene que medir exactamente 32 bytes:
+
+```bash
+echo "CIFRADO_CLAVE=$(openssl rand -base64 32)"
+```
+
+Con `NODE_ENV=production` la API no arranca sin ella. **Guárdala además fuera del proveedor**, en el gestor de contraseñas del equipo: si se pierde, cada evidencia guardada queda ilegible para siempre, y los respaldos también, porque no la llevan (a propósito: un respaldo con la clave al lado no está cifrado). Para rotarla, ver [respaldo.md](respaldo.md#rotar-la-clave-de-cifrado).
+
 ---
 
 ## Paso 2 · La base de datos
@@ -80,6 +88,7 @@ JWT_REFRESH_TTL=604800
 COOKIE_SECRET=<generado>
 STORAGE_URL_SECRET=<generado>
 PASARELA_WEBHOOK_SECRET=<generado>
+CIFRADO_CLAVE=<generada aparte, 32 bytes>
 CORS_ORIGENES=https://<tu-dominio-web>
 PASARELA_WEBHOOK_URL=https://<tu-api>.onrender.com/api/v1/webhooks/pasarela
 STORAGE_DRIVER=disco
@@ -167,11 +176,29 @@ La web queda en `http://localhost:8080` y la API en `http://localhost:3000`. El 
 
 ---
 
-## Advertencia sobre las imágenes de Docker
+## Las imágenes de Docker, construidas y probadas
 
-**Los dos `Dockerfile` y el `docker-compose.yml` no se han construido.** La máquina donde se desarrolló el proyecto no tiene Docker instalado, así que están escritos y revisados pero no ejecutados. Se cuidaron los errores conocidos —`.dockerignore` para que los `node_modules` de Windows no entren en una imagen Debian, imagen con glibc porque `sharp` y `argon2` traen binarios precompilados que no existen para musl, versión de Flutter fijada, redirección a `index.html` para el enrutamiento del cliente—, pero conviene correr `docker compose up --build` una vez antes de depender de ellos para una entrega.
+Hasta la Fase 11 los dos `Dockerfile` y el `docker-compose.yml` estaban escritos pero nunca construidos: la máquina de desarrollo no tenía Docker. La primera vez que se levantaron, **ninguna de las tres piezas funcionaba**:
 
-Nada del despliegue en Render depende de que el compose funcione: Render construye directamente desde `apps/api/Dockerfile`.
+| Pieza | Qué pasaba | Corrección |
+|---|---|---|
+| Web | No construía: el `Dockerfile` copia `pubspec.lock` y el archivo estaba en `.gitignore` | Se versiona, como corresponde a una aplicación; CI resuelve con `--enforce-lockfile` |
+| API | Construía y **se caía al arrancar**: el cliente de Prisma se generaba sin OpenSSL en la etapa de construcción, para el motor de OpenSSL 1.1, y la imagen final trae OpenSSL 3 | OpenSSL también en la etapa de construcción, antes de `prisma generate` |
+| Base | PostgreSQL 18 **no arrancaba**: desde la 18 la imagen se niega a usar un volumen montado en `/var/lib/postgresql/data` | El volumen va en `/var/lib/postgresql` |
+
+Y dos que no impedían arrancar pero estaban mal, en `nginx.conf`: las cabeceras de seguridad no llegaban a ningún HTML ni JS (un `add_header` por `location` reemplaza los del `server`), y los `.js` se cacheaban como inmutables por un año aunque Flutter no les pone hash en el nombre. Detalle en la [revisión ASVS](revision-asvs-l2.md#6-las-cabeceras-de-seguridad-del-sitio-web-no-llegaban-a-los-archivos-que-importan).
+
+Con eso corregido se recorrió el stack completo sobre PostgreSQL 18.6: migraciones y semillas, inicio de sesión con CORS desde el origen de la web, enrolamiento del segundo factor del administrador, administración de usuarios, la semilla de la demo con sus evidencias cifradas en el volumen y descargadas descifradas por la API, y el simulacro de respaldo y restauración de [respaldo.md](respaldo.md). El job `docker` de CI repite la construcción y el simulacro en cada cambio, para que esto no vuelva a quedar sin probar.
+
+Si los puertos del anfitrión están ocupados:
+
+```bash
+API_PUERTO=3100 WEB_PUERTO=8180 BASE_PUERTO=55439 docker compose up --build
+```
+
+La URL de la API queda compilada en la web con el puerto que se indique, y CORS se ajusta solo.
+
+Nada del despliegue en Render depende del compose: Render construye directamente desde `apps/api/Dockerfile`, que es la misma imagen que se probó.
 
 ---
 
@@ -194,6 +221,7 @@ Dicho aquí para que no se descubra durante la demostración:
 - **Pagos reales.** `FakeGateway` simula la pasarela. Culqi implementa la misma interfaz cuando haya cuenta de comercio.
 - **Consulta real a SUNAT.** `FakeSunat` valida el RUC por módulo 11 y el formato, y **declara que no puede confirmar** si el comprobante existe (`existeEnSunat: null`). La consulta real necesita credenciales SOL.
 - **Correo saliente.** Las notificaciones son in-app. Con `SMTP_*` configurado se activa el envío (ADR-0004).
+- **Respaldos programados.** `respaldar.sh` y `restaurar.sh` existen y están probados ([respaldo.md](respaldo.md)); programarlos hacia un almacenamiento fuera del proveedor es parte de montar el despliegue.
 - **AIni.** La verificación la produce el Motor de Reglas v0. El seam está listo: cambiar `VERIFICACION_DRIVER` conmuta la implementación sin tocar la base, el núcleo contable ni el frontend.
 
 
