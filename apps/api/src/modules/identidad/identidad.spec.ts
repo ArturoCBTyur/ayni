@@ -15,6 +15,7 @@ import { randomUUID } from 'node:crypto';
 
 import { authenticator } from 'otplib';
 
+import { CifradoService } from '../../comun/cifrado/cifrado.service';
 import { PrismaService } from '../../comun/prisma/prisma.service';
 import { cargarConfiguracion } from '../../config/configuracion';
 import { IdentidadService } from './identidad.service';
@@ -60,7 +61,14 @@ beforeAll(async () => {
       ConfigModule.forRoot({ isGlobal: true, load: [() => cargarConfiguracion()] }),
       JwtModule.register({}),
     ],
-    providers: [PrismaService, IdentidadService, HashService, TokensService, TotpService],
+    providers: [
+      PrismaService,
+      CifradoService,
+      IdentidadService,
+      HashService,
+      TokensService,
+      TotpService,
+    ],
   }).compile();
 
   prisma = modulo.get(PrismaService);

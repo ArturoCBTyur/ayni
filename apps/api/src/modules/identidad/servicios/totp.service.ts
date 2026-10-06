@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { authenticator } from 'otplib';
 import { toDataURL } from 'qrcode';
 
+import { CifradoService } from '../../../comun/cifrado/cifrado.service';
+import { contextoTotp, ErrorCifrado } from '../../../comun/cifrado/sobre';
 import type { Configuracion } from '../../../config/configuracion';
 
 /**
@@ -15,7 +17,12 @@ import type { Configuracion } from '../../../config/configuracion';
  */
 @Injectable()
 export class TotpService {
-  constructor(private readonly config: ConfigService<Configuracion, true>) {
+  private readonly logger = new Logger(TotpService.name);
+
+  constructor(
+    private readonly config: ConfigService<Configuracion, true>,
+    private readonly cifrado: CifradoService,
+  ) {
     // Se acepta un paso de desfase (30 s antes y despues) para tolerar
     // relojes ligeramente desajustados sin ampliar la ventana de ataque.
     authenticator.options = { window: 1 };
@@ -52,5 +59,35 @@ export class TotpService {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * El secreto como se guarda en `usuarios.totp_secreto` (RNF-01).
+   *
+   * Cifrado y atado a la cuenta. Quien lea la tabla no puede generar codigos,
+   * y quien pueda escribirla no puede copiar el secreto de su propia cuenta
+   * sobre la de un administrador: el sobre solo abre en la fila de origen.
+   */
+  sellarSecreto(usuarioId: string, secreto: string): string {
+    return this.cifrado.sellarTexto(secreto, contextoTotp(usuarioId));
+  }
+
+  /**
+   * Verifica un codigo contra el secreto tal como esta guardado.
+   *
+   * Devuelve `null`, distinto de `false`, si el secreto guardado no abre: no
+   * es que el codigo este mal, es que la cuenta no tiene un segundo factor
+   * utilizable, y quien la atiende necesita saber cual de las dos cosas paso.
+   */
+  verificarGuardado(codigo: string, guardado: string, usuarioId: string): boolean | null {
+    let secreto: string;
+    try {
+      secreto = this.cifrado.abrirTexto(guardado, contextoTotp(usuarioId));
+    } catch (error) {
+      if (!(error instanceof ErrorCifrado)) throw error;
+      this.logger.error(`El secreto TOTP de ${usuarioId} no abre (${error.motivo}).`);
+      return null;
+    }
+    return this.verificar(codigo, secreto);
   }
 }

@@ -31,6 +31,9 @@ jobs:
       COOKIE_SECRET: ci-secreto-de-cookie-para-pruebas-solamente
       STORAGE_URL_SECRET: ci-secreto-de-urls-para-pruebas-solamente
       PASARELA_WEBHOOK_SECRET: ci-secreto-de-webhook-para-pruebas-solo
+      # RNF-01: la suite corre con el cifrado en reposo activo, para que cada
+      # subida, descarga y difuminado de las pruebas pase por el sobre.
+      CIFRADO_CLAVE: Y2ktY2xhdmUtZGUtY2lmcmFkby1zb2xvLXBydWViYXM=
       NODE_ENV: test
 
     defaults:

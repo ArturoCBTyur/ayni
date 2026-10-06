@@ -11,6 +11,7 @@ import { Prisma } from '@prisma/client';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import { BitacoraService } from '../../comun/bitacora/bitacora.service';
+import { CifradoService } from '../../comun/cifrado/cifrado.service';
 import { PrismaService } from '../../comun/prisma/prisma.service';
 import { NarrativaService } from '../retorno/narrativa.service';
 import { RetornoService } from '../retorno/retorno.service';
@@ -180,6 +181,7 @@ beforeAll(async () => {
       ColaVerificacionService,
       MotorReglasV0,
       FakeSunatService,
+      CifradoService,
       AlmacenamientoDisco,
       { provide: SERVICIO_CPE, useExisting: FakeSunatService },
       { provide: MOTOR_VERIFICACION, useExisting: MotorReglasV0 },

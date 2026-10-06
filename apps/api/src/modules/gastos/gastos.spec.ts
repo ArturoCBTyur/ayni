@@ -13,6 +13,7 @@ import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 
 import { BitacoraService } from '../../comun/bitacora/bitacora.service';
+import { CifradoService } from '../../comun/cifrado/cifrado.service';
 import { PrismaService } from '../../comun/prisma/prisma.service';
 import { cargarConfiguracion } from '../../config/configuracion';
 import { AlmacenamientoDisco } from './almacenamiento/disco.storage';
@@ -160,6 +161,7 @@ beforeAll(async () => {
       PrismaService,
       BitacoraService,
       GastosService,
+      CifradoService,
       AlmacenamientoDisco,
       { provide: ALMACENAMIENTO, useExisting: AlmacenamientoDisco },
     ],

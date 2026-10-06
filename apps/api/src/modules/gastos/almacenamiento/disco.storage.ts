@@ -1,9 +1,16 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, normalize, resolve, sep } from 'node:path';
 
+import { CifradoService } from '../../../comun/cifrado/cifrado.service';
+import { contextoArchivo, ErrorCifrado } from '../../../comun/cifrado/sobre';
 import type { Configuracion } from '../../../config/configuracion';
 import type {
   AccionArchivo,
@@ -19,6 +26,12 @@ import type {
  * objeto, una accion y un plazo. Asi el codigo de dominio y el frontend se
  * escriben una sola vez, y migrar a S3 en el despliegue es cambiar una
  * variable de entorno.
+ *
+ * El contenido se guarda cifrado (RNF-01) y atado a su clave de objeto: quien
+ * copie la carpeta no ve las fotos de los beneficiarios, y quien cambie un
+ * archivo por otro deja una evidencia que no abre. La huella SHA-256 se
+ * calcula sobre el contenido original, no sobre el sobre, porque es la
+ * identidad de la evidencia y no debe depender de la clave con que se guardo.
  */
 @Injectable()
 export class AlmacenamientoDisco implements AlmacenamientoArchivos {
@@ -29,7 +42,10 @@ export class AlmacenamientoDisco implements AlmacenamientoArchivos {
   private readonly secreto: string;
   private readonly ttl: number;
 
-  constructor(private readonly config: ConfigService<Configuracion, true>) {
+  constructor(
+    private readonly config: ConfigService<Configuracion, true>,
+    private readonly cifrado: CifradoService,
+  ) {
     this.raiz = resolve(process.cwd(), this.config.get('STORAGE_DIR', { infer: true }));
     this.secreto = this.config.get('STORAGE_URL_SECRET', { infer: true });
     this.ttl = this.config.get('STORAGE_URL_TTL', { infer: true });
@@ -47,7 +63,7 @@ export class AlmacenamientoDisco implements AlmacenamientoArchivos {
   async guardar(objeto: string, contenido: Buffer, mime: string): Promise<ArchivoGuardado> {
     const ruta = this.rutaDe(objeto);
     await mkdir(dirname(ruta), { recursive: true });
-    await writeFile(ruta, contenido);
+    await writeFile(ruta, this.cifrado.sellarBytes(contenido, contextoArchivo(objeto)));
 
     return {
       objeto,
@@ -58,10 +74,23 @@ export class AlmacenamientoDisco implements AlmacenamientoArchivos {
   }
 
   async leer(objeto: string): Promise<Buffer> {
+    let guardado: Buffer;
     try {
-      return await readFile(this.rutaDe(objeto));
+      guardado = await readFile(this.rutaDe(objeto));
     } catch {
       throw new NotFoundException('El archivo ya no esta disponible.');
+    }
+
+    try {
+      return this.cifrado.abrirBytes(guardado, contextoArchivo(objeto));
+    } catch (error) {
+      if (!(error instanceof ErrorCifrado)) throw error;
+      // No es un 404: el archivo esta, y lo que no cuadra es su contenido.
+      // Una evidencia alterada es un incidente, no un enlace roto.
+      this.logger.error(`Evidencia ${objeto} no abre (${error.motivo}): ${error.message}`);
+      throw new InternalServerErrorException(
+        'El archivo no supera la verificacion de integridad. Se registro el incidente.',
+      );
     }
   }
 

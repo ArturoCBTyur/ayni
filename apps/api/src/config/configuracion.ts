@@ -1,5 +1,22 @@
 import { z } from 'zod';
 
+import { leerClave } from '../comun/cifrado/sobre';
+
+/** Una clave de 32 bytes en base64, o una lista de ellas separadas por coma. */
+function sonClavesValidas(valor: string): boolean {
+  try {
+    valor
+      .split(',')
+      .filter((v) => v.trim())
+      .forEach((v) => leerClave(v));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const MENSAJE_CLAVE = 'debe ser de 32 bytes en base64. Generela con: openssl rand -base64 32';
+
 /**
  * Configuracion validada al arrancar. Si falta o es invalida una variable,
  * la API no levanta: es preferible fallar al inicio que a mitad de una
@@ -26,6 +43,23 @@ const esquema = z.object({
   STORAGE_DIR: z.string().default('../../storage'),
   STORAGE_URL_SECRET: z.string().min(24),
   STORAGE_URL_TTL: z.coerce.number().int().positive().default(900),
+
+  /**
+   * RNF-01 · Clave de cifrado en reposo de evidencias y secretos TOTP.
+   *
+   * Va separada de los demas secretos a proposito: un respaldo de la base y de
+   * los archivos no sirve de nada sin ella, y por eso mismo no debe viajar con
+   * el respaldo. Obligatoria en produccion.
+   */
+  CIFRADO_CLAVE: z
+    .string()
+    .optional()
+    .refine((v) => !v || sonClavesValidas(v), { message: MENSAJE_CLAVE }),
+  /** Claves retiradas, separadas por coma: solo descifran (rotacion). */
+  CIFRADO_CLAVES_ANTERIORES: z
+    .string()
+    .optional()
+    .refine((v) => !v || sonClavesValidas(v), { message: MENSAJE_CLAVE }),
 
   PASARELA_DRIVER: z.enum(['fake', 'culqi']).default('fake'),
   PASARELA_COMISION_PORCENTAJE: z.coerce.number().min(0).default(3.44),
@@ -68,12 +102,28 @@ const esquema = z.object({
   CORREO_REMITENTE: z.string().default('Ayni <no-responder@localhost>'),
 });
 
+/**
+ * Reglas que cruzan variables. Van aparte porque `superRefine` convierte el
+ * objeto en un efecto y el tipo se deriva del objeto, no del efecto.
+ */
+const esquemaValidado = esquema.superRefine((c, ctx) => {
+  if (c.NODE_ENV === 'production' && !c.CIFRADO_CLAVE) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['CIFRADO_CLAVE'],
+      message:
+        'es obligatoria en produccion: sin ella las evidencias de los beneficiarios y ' +
+        'los secretos del segundo factor quedan en claro (RNF-01).',
+    });
+  }
+});
+
 export type Configuracion = z.infer<typeof esquema> & {
   corsOrigenes: string[];
 };
 
 export function cargarConfiguracion(): Configuracion {
-  const resultado = esquema.safeParse(process.env);
+  const resultado = esquemaValidado.safeParse(process.env);
 
   if (!resultado.success) {
     const detalles = resultado.error.issues

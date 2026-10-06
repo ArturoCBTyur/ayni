@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { CifradoModule } from '../../comun/cifrado/cifrado.module';
 import type { Configuracion } from '../../config/configuracion';
 import { AlmacenamientoDisco } from './almacenamiento/disco.storage';
 import { GastosController } from './gastos.controller';
@@ -15,6 +16,7 @@ import { ALMACENAMIENTO } from './puertos/almacenamiento.port';
  * variable de entorno, sin que el dominio note la diferencia (ADR-0003).
  */
 @Module({
+  imports: [CifradoModule],
   controllers: [GastosController],
   providers: [
     GastosService,

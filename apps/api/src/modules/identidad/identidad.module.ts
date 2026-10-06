@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 
+import { CifradoModule } from '../../comun/cifrado/cifrado.module';
 import { AccesoGuard } from './guards/acceso.guard';
 import { IdentidadController } from './identidad.controller';
 import { IdentidadService } from './identidad.service';
@@ -18,7 +19,7 @@ import { TotpService } from './servicios/totp.service';
  */
 @Global()
 @Module({
-  imports: [JwtModule.register({})],
+  imports: [JwtModule.register({}), CifradoModule],
   controllers: [IdentidadController],
   providers: [
     IdentidadService,

@@ -149,7 +149,14 @@ export class IdentidadService {
       if (!datos.codigoTotp) {
         throw new UnauthorizedException('Ingrese el codigo de su app de verificacion.');
       }
-      if (!this.totp.verificar(datos.codigoTotp, usuario.totpSecreto)) {
+      const valido = this.totp.verificarGuardado(datos.codigoTotp, usuario.totpSecreto, usuario.id);
+      if (valido === null) {
+        throw new UnauthorizedException(
+          'No pudimos validar su verificacion en dos pasos. Contacte a soporte para ' +
+            'restablecerla.',
+        );
+      }
+      if (!valido) {
         throw new UnauthorizedException(
           'El codigo de verificacion no es valido o ya expiro. Intente con el codigo actual.',
         );
@@ -198,7 +205,7 @@ export class IdentidadService {
     const secreto = this.totp.generarSecreto();
     await this.prisma.usuario.update({
       where: { id: usuarioId },
-      data: { totpSecreto: secreto },
+      data: { totpSecreto: this.totp.sellarSecreto(usuarioId, secreto) },
     });
 
     return {
@@ -226,7 +233,13 @@ export class IdentidadService {
         'Primero debe iniciar la configuracion de verificacion en dos pasos.',
       );
     }
-    if (!this.totp.verificar(datos.codigoTotp, usuario.totpSecreto)) {
+    const valido = this.totp.verificarGuardado(datos.codigoTotp, usuario.totpSecreto, usuarioId);
+    if (valido === null) {
+      throw new BadRequestException(
+        'No pudimos leer la configuracion en curso. Vuelva a iniciar la configuracion.',
+      );
+    }
+    if (!valido) {
       throw new BadRequestException(
         'El codigo no coincide. Verifique la hora de su dispositivo e intente con el codigo actual.',
       );
