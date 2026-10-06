@@ -104,3 +104,21 @@ jobs:
 
       - name: Compilar para web
         run: flutter build web --release
+
+  docker:
+    name: Imagenes Docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Las imagenes estuvieron escritas y nunca construidas hasta la Fase 11.
+      # La primera vez que se levantaron no funciono ninguna de las tres: la
+      # web no construia (faltaba pubspec.lock), la API se caia al arrancar
+      # (Prisma generado sin OpenSSL) y PostgreSQL 18 no arrancaba con el
+      # volumen en la ruta antigua. Construir en cada cambio evita repetirlo.
+      - name: Validar docker-compose.yml
+        run: docker compose --profile respaldo config --quiet
+
+      - name: Construir API y web
+        run: docker compose build

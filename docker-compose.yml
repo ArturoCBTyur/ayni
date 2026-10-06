@@ -12,9 +12,28 @@
 #
 #   docker compose run --rm migraciones npx tsx prisma/seed-demo.ts
 #
+# Los puertos del anfitrión se cambian sin tocar este archivo, para cuando ya
+# hay algo escuchando en ellos:
+#
+#   API_PUERTO=3100 WEB_PUERTO=8180 docker compose up --build
+#
 # El desarrollo del día a día NO usa esto: es más rápido con el PostgreSQL
 # nativo del puerto 5433 y `npm run dev` (ver README).
 # ---------------------------------------------------------------------------
+
+# Lo que comparten la API y los servicios de operación que corren sobre la
+# misma base y los mismos archivos.
+x-base-de-datos: &base-de-datos
+  DATABASE_URL: postgresql://tr_app:${POSTGRES_PASSWORD:-tr_app_local}@base:5432/trazabilidad_radical?schema=public
+
+x-archivos: &archivos-cifrados
+  STORAGE_DIR: /app/storage
+  # RNF-01. Clave de ejemplo, solo para levantar el entorno local. En el
+  # despliegue se genera con `openssl rand -base64 32`, se carga como secreto
+  # del proveedor y se custodia APARTE de los respaldos: sin ella, un respaldo
+  # devuelve las evidencias ilegibles.
+  CIFRADO_CLAVE: ${CIFRADO_CLAVE:-bG9jYWwtc29sby1wYXJhLWNvbXBvc2UtY2lmcmFkbzA=}
+  CIFRADO_CLAVES_ANTERIORES: ${CIFRADO_CLAVES_ANTERIORES:-}
 
 services:
   base:
@@ -26,9 +45,13 @@ services:
     ports:
       # 5433 en el anfitrión para no chocar con un PostgreSQL ya instalado,
       # que es exactamente la situación de la máquina donde se desarrolló.
-      - '5433:5432'
+      # Solo en 127.0.0.1: la base no tiene por qué ser alcanzable desde la red.
+      - '127.0.0.1:${BASE_PUERTO:-5433}:5432'
     volumes:
-      - datos_postgres:/var/lib/postgresql/data
+      # Desde la 18, la imagen guarda los datos en /var/lib/postgresql/18/docker
+      # y se niega a arrancar si encuentra un volumen montado en el antiguo
+      # /var/lib/postgresql/data. El volumen va un nivel arriba.
+      - datos_postgres:/var/lib/postgresql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U tr_app -d trazabilidad_radical']
       interval: 10s
@@ -39,6 +62,10 @@ services:
   # la misma imagen porque el CLI de Prisma es una dependencia de desarrollo y
   # la imagen de produccion la omite a proposito: un contenedor que sirve
   # peticiones no tiene por que poder alterar el esquema.
+  #
+  # Monta los archivos porque tambien es el contenedor de operacion: la semilla
+  # de la demo escribe evidencias, y `npm run cifrado:migrar` las vuelve a
+  # sellar al rotar la clave.
   migraciones:
     build:
       context: ./apps/api
@@ -47,8 +74,10 @@ services:
       base:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://tr_app:${POSTGRES_PASSWORD:-tr_app_local}@base:5432/trazabilidad_radical?schema=public
+      <<: [*base-de-datos, *archivos-cifrados]
     command: sh -c "npx prisma migrate deploy && npx tsx prisma/seed.ts"
+    volumes:
+      - archivos:/app/storage
     restart: 'no'
 
   api:
@@ -60,10 +89,10 @@ services:
       migraciones:
         condition: service_completed_successfully
     environment:
+      <<: [*base-de-datos, *archivos-cifrados]
       NODE_ENV: production
       PORT: 3000
       API_PREFIX: api/v1
-      DATABASE_URL: postgresql://tr_app:${POSTGRES_PASSWORD:-tr_app_local}@base:5432/trazabilidad_radical?schema=public
 
       # Secretos de ejemplo: sirven para levantar el entorno local y no valen
       # para nada más. En el despliegue se generan con `openssl rand -base64 48`
@@ -74,25 +103,28 @@ services:
       STORAGE_URL_SECRET: ${STORAGE_URL_SECRET:-local-solo-para-compose-storage-00000}
       PASARELA_WEBHOOK_SECRET: ${PASARELA_WEBHOOK_SECRET:-local-solo-para-compose-webhook-00000}
 
-      CORS_ORIGENES: http://localhost:8080
+      CORS_ORIGENES: http://localhost:${WEB_PUERTO:-8080}
       STORAGE_DRIVER: disco
-      STORAGE_DIR: /app/storage
       PASARELA_DRIVER: fake
       PASARELA_WEBHOOK_URL: http://api:3000/api/v1/webhooks/pasarela
       CPE_DRIVER: fake
       VERIFICACION_DRIVER: reglas-v0
     ports:
-      - '3000:3000'
+      - '${API_PUERTO:-3000}:3000'
     volumes:
       - archivos:/app/storage
 
   web:
     build:
       context: ./apps/app
+      args:
+        # La URL de la API queda compilada dentro del sitio estático: si cambia
+        # el puerto del anfitrión, cambia aquí también.
+        API_BASE_URL: http://localhost:${API_PUERTO:-3000}/api/v1
     depends_on:
       - api
     ports:
-      - '8080:80'
+      - '${WEB_PUERTO:-8080}:80'
 
 volumes:
   datos_postgres:
