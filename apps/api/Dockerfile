@@ -37,6 +37,13 @@ COPY . .
 # TypeScript no encuentra los tipos.
 RUN npx prisma generate && npm run build
 
+# El servicio de migraciones corre sobre esta etapa, como `node`, y monta el
+# mismo volumen de archivos que la API. Un volumen nuevo toma el dueño de la
+# carpeta de la imagen donde se monta por primera vez: si aqui no existiera,
+# nacia de root y la API -que corre como node- no podia guardar ni una
+# subida ("Permission denied" en cada comprobante y cada evidencia).
+RUN mkdir -p /app/storage && chown node:node /app/storage
+
 
 FROM node:22-bookworm-slim AS produccion
 ENV NODE_ENV=production

@@ -69,11 +69,14 @@ services:
   #
   # Monta los archivos porque tambien es el contenedor de operacion: la semilla
   # de la demo escribe evidencias, y `npm run cifrado:migrar` las vuelve a
-  # sellar al rotar la clave.
+  # sellar al rotar la clave. Corre como `node`, el mismo usuario que la API:
+  # como root, lo que escribiera quedaria de root y la API no podria
+  # reescribirlo ni guardar nada nuevo en esas carpetas.
   migraciones:
     build:
       context: ./apps/api
       target: build
+    user: node
     depends_on:
       base:
         condition: service_healthy
