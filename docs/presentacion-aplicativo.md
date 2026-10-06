@@ -1,14 +1,14 @@
-# Ayni · cómo presentar el aplicativo en uso
+# Ayni · guía de la demostración en vivo
 
-Recorrido de 12 minutos por la interfaz, con los cinco roles. Es el complemento de [presentacion-mvp.md](presentacion-mvp.md): aquella enseña la IA desde la terminal, esta la enseña dentro de la aplicación.
+Recorrido de 15 minutos por la aplicación con los cinco roles, con el momento de IA hecho **delante del público**: se sube una boleta de verdad y el modelo la lee.
+
+**Esta es la guía de la demostración.** Las otras tres sirven para otra cosa: [presentacion-mvp.md](presentacion-mvp.md) enseña la IA desde la terminal sin interfaz, [guia-interactiva-ia.md](guia-interactiva-ia.md) es el recorrido con el público participando, y [chuleta-exposicion.md](chuleta-exposicion.md) es la tarjeta de referencia para tener abierta al lado.
 
 **La idea que organiza todo:** cada pantalla responde una pregunta que una persona real se hace. No recorras menús; recorre preguntas.
 
 ---
 
-## Antes de empezar
-
-### Cuatro ventanas de PowerShell
+## 1. Arrancar · cuatro ventanas
 
 > PowerShell 5.1 **no acepta `&&`**. Cada comando va por separado; el `cd` solo hace falta una vez por ventana.
 
@@ -42,31 +42,55 @@ cd C:\Users\User\Desktop\repositories\trazabilidad-radical\apps\app\build\web
 python -m http.server 5000
 ```
 
-**4 · Códigos del segundo factor** — tenla a la vista todo el tiempo.
+**4 · La ventana de apoyo** — tenla a la vista todo el tiempo.
 
 ```bash
 cd C:\Users\User\Desktop\repositories\trazabilidad-radical\apps\api
 ```
 
-```bash
-npm run demo:codigos
-```
-
 La aplicación queda en **http://localhost:5000**
-
-### Comprobar cinco minutos antes
-
-```bash
-curl http://localhost:3000/api/v1/salud
-```
-
-Debe decir `"motorVerificacion":"aini"`. Si dice `reglas-v0`, en `apps/api/.env` falta `VERIFICACION_DRIVER=aini` o el backend arrancó antes del cambio.
-
-**Y entra una vez con cada rol antes de presentar.** No para ensayar: para que los códigos del segundo factor ya estén probados y no descubras un problema con público delante.
 
 ---
 
-## Las cinco cuentas · clave común `Demo.2026!tr`
+## 2. Comprobar, cinco minutos antes
+
+En la ventana 4:
+
+```bash
+npm run demo:listo
+```
+
+Comprueba los tres servicios, **qué motor está conectado de verdad**, el estado de los seis gastos del guion, el saldo que queda para subir uno nuevo, los archivos que vas a adjuntar, y te imprime los códigos del segundo factor con lo que les queda de vida.
+
+Termina diciendo `LISTO` o exactamente qué falta, con el comando para arreglarlo. **Córrelo hasta que diga LISTO.**
+
+> Vigila una línea en particular: si dice *«dice "aini" pero AIni no responde»*, el backend cree que verifica con la IA, AIni no está, y cada gasto nuevo se analizaría con el motor de reglas **sin que nada en la pantalla lo diga**. Es el respaldo funcionando como debe, y a la vez la única forma de exponer «miren la IA» sin IA.
+
+**Y entra una vez con cada rol antes de presentar.** No para ensayar: para que los códigos ya estén probados y no descubras un problema con público delante.
+
+### Lo que necesitas en el Escritorio
+
+```bash
+cd C:\Users\User\Desktop\repositories\trazabilidad-radical\apps\aini
+```
+
+```bash
+python probar.py archivos
+```
+
+Deja en `Escritorio\boletas-ayni` tres boletas y tres evidencias. **Abre la carpeta y déjala abierta**: vas a elegir archivos desde el diálogo del navegador.
+
+| Archivo | Impreso | Qué teclear | Qué demuestra |
+|---|---|---|---|
+| `1-boleta-de-78.jpg` | S/ 78.00 | **78** | El lector confirma los cuatro campos |
+| `2-boleta-de-78-pero-declare-140.jpg` | S/ 78.00 | **140** | **El acto principal.** El lector lo detecta |
+| `3-boleta-ilegible.jpg` | — | 78 | No pudo leer: lo declara y **no** penaliza |
+
+Una evidencia distinta por gasto: dos iguales se bloquean por reutilizadas, que es correcto pero no es lo que quieres mostrar ahí.
+
+---
+
+## 3. Las cinco cuentas · clave común `Demo.2026!tr`
 
 | Rol | Correo | Segundo factor |
 |---|---|---|
@@ -80,19 +104,22 @@ Debe decir `"motorVerificacion":"aini"`. Si dice `reglas-v0`, en `apps/api/.env`
 
 ---
 
-## Lo que hay preparado
+## 4. Lo que ya está preparado
 
-Cinco gastos, cada uno para enseñar algo distinto:
+Seis gastos, cada uno para enseñar algo distinto. **Los dos últimos los decidió AIni.**
 
 | Monto | Estado | Nivel | Motor | Para qué sirve |
 |---|---|---|---|---|
 | S/ 118 | Aprobado | ALTO 97 | reglas | El camino feliz: resolvió solo y el donante ya tiene su narrativa |
 | S/ 64 | Aprobado | ALTO 100 | reglas | Segundo caso automático |
-| S/ 189 | **En revisión** | MEDIO 79 | reglas | **El auditor decide.** El RUC no pasa el dígito verificador |
+| S/ 189 | **En revisión** | MEDIO 79 | reglas | El RUC no pasa el dígito verificador |
 | S/ 72 | **Observado** | BAJO 0 | reglas | **Evidencia reciclada**, detectada a distancia 1 de 64 bits |
-| **S/ 145** | **En revisión** | **MEDIO 76** | **AIni** | **El caso que solo la IA ve** |
+| S/ 145 | **En revisión** | MEDIO 76 | **AIni** | **Un alquiler de oficina en el fondo veterinario** |
+| S/ 185 | **En revisión** | MEDIO 68 | **AIni** | **Declara S/ 185 sobre una boleta de S/ 158** |
 
-Fondo «Atención veterinaria»: recaudado S/ 335.96 · **retenido S/ 153.96** · ejecutado S/ 182.
+Fondo «Atención veterinaria»: recaudado S/ 383.24 · **retenido S/ 201.24** · ejecutado S/ 182.
+
+> Esas cifras son del día en que se escribió esto. `npm run demo:listo` te imprime las de hoy, que es lo que debes mirar.
 
 ---
 
@@ -124,57 +151,72 @@ Dona **S/ 50** al fondo «Atención veterinaria». Tres pasos, con opción de ap
 
 ---
 
-## Minuto 4–7 · La ONG registra, y el motor explica
+## Minuto 4–8 · El acto en vivo: subir una boleta y que la IA la lea
 
-**Sal y entra con `ong.operador@demo.pe`** (pide código).
+**Es lo único que no se puede preparar.** Los seis gastos de la tabla ya están analizados; este se analiza delante de la sala.
 
-**Fondos** → se ve el saldo retenido disponible. Luego **Gastos**.
+**Sal y entra con `ong.operador@demo.pe`** (pide código). **Gastos** → **Registrar gasto**.
 
-Aquí está el corazón de la demostración. Cada tarjeta muestra el estado, el nivel, el puntaje **y los motivos en español**.
+**Paso 1 · Capturar.** En «Comprobante de pago» pulsa **Elegir archivo** → `2-boleta-de-78-pero-declare-140.jpg`. En «Evidencia del gasto» → `evidencia-2.jpg`.
 
-### Primero el de S/ 72 — evidencia reciclada
+> «En el campo, el operador fotografía la boleta con el teléfono. Acá estoy eligiendo el archivo porque esta laptop no tiene cámara trasera.»
 
-> «La evidencia coincide con una imagen ya presentada en otro gasto, aunque se haya recortado o vuelto a guardar.»
+**Paso 2 · Datos.** Fondo **Atención veterinaria** · Monto **140** · Concepto **cirugía veterinaria de un perro atropellado** · Proveedor **Clinica Veterinaria San Roque**.
 
-> «El archivo es distinto: otro nombre, otro tamaño, otro SHA-256. Lo que coincide es la imagen. Se detecta con una huella perceptual de 64 bits, y acá la distancia es 1.»
+**Paso 3 · Comprobante.** Boleta · RUC **20601030579** · Serie **B001** · Número **006102** · Fecha de emisión: hoy, ya viene puesta.
 
-### Después el de S/ 145 — **el que justifica la IA**
+> «Fíjense en que no estoy escribiendo nada raro. El RUC es válido, el IGV lo calcula el sistema, las fechas están en orden. **Para cualquier regla aritmética este gasto es impecable.**»
 
-> «El concepto "alquiler de oficina administrativa y mobiliario de escritorio" no parece corresponder a un gasto de la categoría del fondo. Verifique que el gasto se esté cargando al fondo correcto.»
+**Registrar gasto.** El trabajador lo toma en unos 5 segundos y el análisis tarda 1 a 3 más. Recarga la lista: aparece **MEDIO**, alrededor de 70.
 
-**Deténte aquí.**
+> «Lo que acaba de pasar: el backend le pasó a AIni una URL firmada del archivo, AIni la descargó, le pasó el reconocimiento de texto, y comparó campo por campo lo leído contra lo que tecleé.»
 
-> «Este comprobante es impecable: el RUC pasa el dígito verificador, el IGV es exacto, las fechas son coherentes. **El motor de reglas lo habría aprobado automáticamente.**
->
-> Lo único que está mal es que es un alquiler de oficina cargado al fondo de atención veterinaria. Es dinero que alguien donó para curar animales, yéndose a pagar una renta.
->
-> Ninguna regla aritmética puede ver eso. El modelo de lenguaje sí: mide la similitud semántica entre el concepto y la categoría del fondo, da 0.40 donde lo normal es 0.76, y en vez de aprobarlo lo manda a que lo mire una persona.»
+### Si el momento se enfría, llena el silencio con esto
 
-> «Y noten quién está leyendo esto: **la ONG**, que es quien tiene que corregirlo. La explicación no es para el auditor, es para que alguien pueda actuar.»
+El análisis tarda unos segundos de silencio incómodo. Es buen momento para decir qué está haciendo: descargando la foto, detectando dónde hay texto, reconociéndolo, y cotejando los cuatro campos.
 
 ---
 
-## Minuto 7–9 · El auditor decide
+## Minuto 8–10 · El auditor ve lo que el modelo leyó
 
-**Entra con `auditor@demo.pe`** (pide código).
+**Entra con `auditor@demo.pe`** (pide código). **Auditoría** → la bandeja, ordenable por antigüedad o monto, con el plazo de 48 horas hábiles a la vista.
 
-**Auditoría** → la bandeja, ordenable por antigüedad o por monto, con el plazo de 48 horas hábiles a la vista.
+Abre el gasto de **S/ 140** que acabas de crear. Baja hasta la tarjeta **«Lo que el modelo leyó en el papel»**:
 
-Abre el caso de **S/ 145** —el de AIni—. La pantalla muestra, lado a lado: lo declarado, el comprobante, la evidencia, y **todos los motivos del motor con su señal y su valor**.
+```
+  RUC emisor        20601030579   ✓
+  Documento         B001-006102   ✓
+  Fecha de emisión  <hoy>         ✓
+  Importe total     S/ 78.00      ✗  se declaró S/ 140.00
+```
 
-Aprueba u observa con **comentario obligatorio**.
+**Deténte aquí. Es el punto más alto de la demostración.**
 
-> «El motor no decide esto. Decide una persona, y su comentario queda guardado en `revisiones_auditoria` junto al nivel que el motor había propuesto.
+> «El modelo descargó la foto, la leyó, y encontró que el papel dice S/ 78. Yo declaré S/ 140.
 >
-> Eso significa que **cada decisión que toma un auditor es una etiqueta supervisada**. El sistema está generando, con el uso, el conjunto de datos con el que se podrá evaluar si el modelo acierta.»
+> El fondo iba a pagar S/ 62 que el comprobante no respalda. Y eso **ninguna regla sobre el dato declarado podía verlo**, porque el dato declarado está perfecto: el RUC es válido, el IGV cuadra, las fechas son coherentes. Para verlo hay que leer el documento.»
 
-Si apruebas: la aplicación FIFO consume las donaciones más antiguas del fondo, escribe el asiento de ejecución con su hash y actualiza los saldos, todo en una transacción serializable.
+Señala el resumen del análisis, que lo dice en una línea: *«El comprobante dice S/ 78.00 y se declaro S/ 140.00.»*
+
+> «Y noten el tono: no dice "fraude". Lo más probable es que el operador transpusiera dos dígitos, que es exactamente lo que un sistema así debería ayudar a corregir. Resta puntos y deriva a una persona; no bloquea ni acusa. Hay una prueba automatizada que falla si el texto de la alerta acusa a alguien.»
+
+**Observa el gasto con comentario.**
+
+> «El modelo no decide esto. Encontró el problema y lo explicó en español; decide una persona, y su comentario queda guardado en `revisiones_auditoria` junto al nivel que el motor había propuesto.
+>
+> Eso significa que **cada decisión de un auditor es una etiqueta supervisada**. El sistema está generando, con el uso, el conjunto de datos con el que se reentrenará el modelo.»
+
+### El otro caso de AIni, si hay tiempo
+
+Abre el de **S/ 145**: un alquiler de oficina cargado al fondo veterinario.
+
+> «Este comprobante no tiene nada mal. El RUC existe, el IGV cuadra, el monto es razonable. Lo único que está mal es que es dinero donado para curar animales, pagando una renta — y eso tampoco lo ve ninguna regla: hay que entender qué **dice** el concepto.»
 
 ---
 
-## Minuto 9–11 · El donante ve qué hizo posible su dinero
+## Minuto 10–12 · El donante ve qué hizo posible su dinero
 
-**Vuelve a `donante@demo.pe`** → **Impacto**.
+**Vuelve a `donante@demo.pe`** → **Impacto**. Usa el gasto de **S/ 118**, que ya está aprobado y narrado.
 
 La narrativa nombra **su monto exacto aplicado**, no el total del gasto: el concepto, el proveedor, la fecha, el comprobante y la foto anonimizada.
 
@@ -186,7 +228,7 @@ Señala el botón de **reportar una inconsistencia**.
 
 ---
 
-## Minuto 11–12 · El administrador comprueba que todo cuadra
+## Minuto 12–14 · El administrador comprueba que todo cuadra
 
 **Entra con `admin@demo.pe`** (pide código) → **Tablero**.
 
@@ -204,6 +246,35 @@ Señala el botón de **reportar una inconsistencia**.
 
 ---
 
+## Minuto 14–15 · Intentar romperlo
+
+En la ventana 4:
+
+```bash
+npm run demo:romper
+```
+
+Siete intentos de estafar al donante, en SQL directo contra PostgreSQL, por fuera de la API y de toda validación: alterar el libro, borrar un movimiento, repetir un comprobante, reutilizar el archivo, cobrar más de lo que entró, notificar una foto sin difuminar, falsificar la cadena de hashes. **La base rechaza los siete**, y al final recalcula cada SHA-256 fondo por fondo.
+
+> «Ninguna de estas defensas está en el código de la aplicación. Viven en la base de datos, así que un error en el backend —o alguien con acceso a la base y malas intenciones— no las puede sortear.»
+
+Es seguro correrlo en cualquier momento: cada intento vive en una transacción que **siempre** se deshace.
+
+---
+
+## Si solo tienes 6 minutos
+
+Sáltate la donación y el tablero. El esqueleto mínimo que sigue demostrando IA:
+
+1. **`npm run demo:listo`** → verde. *(ya hecho, sin público)*
+2. **Operador** sube `2-boleta-de-78-pero-declare-140.jpg` declarando **140**. *(3 min)*
+3. **Auditor** abre el gasto y muestra la tarjeta del lector. *(2 min)*
+4. **`npm run demo:romper`**. *(1 min)*
+
+Si ni eso cabe, deja solo el paso 3 sobre el gasto de **S/ 185**, que ya está sembrado y analizado: la tarjeta se ve igual y no dependes de que nada funcione en vivo.
+
+---
+
 ## Si te sobra tiempo
 
 **Mis datos y privacidad** — en el menú de la cuenta, con cualquier rol.
@@ -214,24 +285,49 @@ Con `admin@demo.pe`, **Solicitudes**: la bandeja ARCO ordenada por plazo, no por
 
 > «Lo que decide a cuál entrar primero es cuánto queda para incumplir. Una rectificación de ayer vence antes que un acceso de hace dos semanas, porque la Ley N.° 29733 les da plazos distintos: 10 días hábiles y 20.»
 
+**Cerrar el círculo completo en vivo** — sube `1-boleta-de-78.jpg` declarando **78** y número **006101**. Debería salir ALTO, aprobarse solo, aplicarse FIFO y llegarle la narrativa al donante.
+
+> **Ensaya este caso antes.** Es el único del guion que escribe en el libro contable, y el libro es de solo inserción: no se puede deshacer. Consume S/ 78 del saldo retenido y cambia las cifras del tablero.
+
 ---
 
 ## Las preguntas que van a salir
+
+**«¿Esto usa IA?»** — la que importa.
+Sí, tres modelos, y **ninguno es una API de terceros**: corren en `apps/aini`, en esta máquina.
+
+| Señal | Técnica | Qué resuelve que una regla no puede |
+|---|---|---|
+| Lectura del comprobante | **OCR**, redes ONNX | Lee el papel y lo coteja con lo tecleado |
+| Coherencia concepto ↔ categoría | **spaCy**, vectores de palabras | Un alquiler no es atención veterinaria |
+| Perfil del gasto | **Isolation Forest** (scikit-learn) | Ve *combinaciones* raras, no señales sueltas |
+
+Y la señal **visual** deliberadamente no usa aprendizaje automático: nitidez, EXIF y distancia de Hamming son magnitudes exactas, y someterlas a una predicción las haría menos precisas y menos explicables. Saber dónde *no* poner un modelo es parte del diseño.
+
+**«¿Qué tan bien lee las boletas?»**
+Cinco pruebas automatizadas degradan una boleta —borrosa, a media escala, inclinada 7°, oscurecida, con contraste bajo— y exigen que siga leyendo el importe y el RUC. **Pero todas esas boletas las generamos nosotros.** Papel térmico real, arrugado y fotografiado de lado no se ha probado, y eso es justo lo que llega del campo: la cifra de precisión en producción todavía no existe.
+
+**«¿Y si el concepto usa una palabra técnica?»** — adelántala, duele menos.
+Ahí falla. `es_core_news_md` se entrenó sobre texto periodístico y no conoce la terminología del dominio: «desparasitación» y «antirrábica» no tienen vector.
+
+| Concepto | Similitud | Veredicto |
+|---|---|---|
+| «cirugía veterinaria de un perro atropellado» | 0.899 | corresponde |
+| «desparasitación de ocho perros rescatados» | 0.418 | **no corresponde** ← falso positivo |
+
+El segundo es un gasto veterinario legítimo y el modelo lo rechaza, porque de sus cuatro palabras solo «perros» y «rescatados» tienen vector. No se arregla con umbrales: se arregla con vectores del dominio. **Está escrito en el código, junto a la función que lo mide** — y es la razón por la que esta señal resta puntos y deriva a una persona en vez de decidir sola.
 
 **«¿Los pagos son reales?»**
 No. La pasarela está simulada, con webhook firmado e idempotente. Culqi implementa la misma interfaz cuando haya cuenta de comercio.
 
 **«¿Consultan a SUNAT?»**
-No, y el sistema **lo dice** en vez de simularlo: el resultado declara que no pudo confirmar la existencia del comprobante. Se valida el RUC por módulo 11, la serie y la aritmética del IGV. La consulta real necesita credenciales SOL.
-
-**«¿La IA lee el comprobante?»**
-No. Los campos los captura el operador, y el análisis guarda `fuente: "declarado"` en vez de afirmar `"ocr"`. El día que haya lectura automática se sabrá qué análisis la tuvieron.
+No, y el sistema **lo dice** en vez de simularlo: el resultado declara que no pudo confirmar la existencia del comprobante. Se valida el RUC por módulo 11, la serie y la aritmética del IGV. Leer el papel y cotejarlo es otra cosa que sí se hace; que el documento exista en los registros de SUNAT necesita credenciales SOL.
 
 **«¿Por qué el difuminado de rostros es manual?»**
-Porque el reconocimiento automático necesita visión por computadora y no está en esta versión. Pero la restricción que protege al beneficiario —no se puede notificar una evidencia sin anonimizar— **vive en la base de datos** y sigue activa igual. Cambia quién marca los rostros, no la garantía.
+Porque el reconocimiento automático necesita visión por computadora y no está en esta versión. Pero la restricción que protege al beneficiario —no se puede notificar una evidencia sin anonimizar— **vive en la base de datos** y sigue activa igual. Cambia quién marca los rostros, no la garantía. Se demuestra en el minuto 14.
 
 **«¿Qué pasa si se cae el servicio de IA?»**
-El gasto no queda sin verificar: lo resuelve el motor determinista y queda anotado en la explicación. Se puede demostrar en vivo con `npm run demo:comparar -- --url=http://127.0.0.1:9999`.
+El gasto no queda sin verificar: lo resuelve el motor determinista y queda anotado en la explicación, para que un auditor sepa con qué criterio se evaluó ese caso. Se puede demostrar en vivo con `npm run demo:comparar -- --url=http://127.0.0.1:9999`.
 
 ---
 
@@ -240,12 +336,17 @@ El gasto no queda sin verificar: lo resuelve el motor determinista y queda anota
 | Síntoma | Qué hacer |
 |---|---|
 | «No se pudo contactar al servidor» | Se cayó el backend. Relanza `npm run start:prod` en la ventana 2 |
-| El código del segundo factor no entra | Caducó. `npm run demo:codigos` otra vez; si quedan menos de 10 segundos, espera al siguiente |
+| El código del segundo factor no entra | Caducó. `npm run demo:listo` otra vez; si quedan menos de 10 segundos, espera al siguiente |
 | Pantalla en blanco | Ctrl+F5 |
 | Un gasto sigue «en análisis» | El trabajador corre cada 5 segundos. Espera y recarga |
-| Un gasto nuevo sale analizado por reglas | AIni no está corriendo o `.env` dice `reglas-v0` |
+| El gasto nuevo dice `reglas-v0` | AIni no está corriendo. `npm run demo:listo` lo detecta y lo dice |
+| Todo sale «no se pudo leer el comprobante» | El lector está apagado: `curl http://127.0.0.1:8000/salud` debe decir `"activo":true` |
+| «Ya existe un comprobante con esa serie y número» | Ese número ya se usó. Sube la siguiente boleta, o cambia el número |
+| «La evidencia ya se había presentado» | Repetiste una evidencia. Usa `evidencia-1/2/3`, una por gasto |
+| «El gasto declara más de lo retenido» | Mira el saldo en `demo:listo`. Es correcto que bloquee, pero no es lo que querías mostrar |
+| El diálogo de archivos no abre | Usa **Elegir archivo**, no «Tomar foto»: en una laptop no hay cámara trasera |
 
-**No cierres las ventanas 1 y 2 durante la presentación.**
+**No cierres las ventanas 1, 2 y 3 durante la presentación.**
 
 ---
 

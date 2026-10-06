@@ -1,5 +1,8 @@
 # Ayni · guía interactiva para probar la IA en vivo
 
+> Esta guía es el recorrido **con el público participando**. Para la demostración
+> completa del aplicativo, usa [presentacion-aplicativo.md](presentacion-aplicativo.md).
+
 Cómo demostrar los modelos delante de público, con el público participando.
 
 El recorrido empieza por lo más concreto —**el lector de comprobantes**, que lee una boleta y detecta que el importe declarado no es el impreso— y termina en lo más convincente: **pedirle a alguien de la sala que proponga un gasto** y ver cómo lo clasifica el modelo de lenguaje. Todo lo demás se puede preparar; eso no.

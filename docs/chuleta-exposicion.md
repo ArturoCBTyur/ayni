@@ -1,6 +1,8 @@
 # Ayni · chuleta de exposición — versión local
 
-Ten esto abierto en otra ventana. Una página, nada más.
+Ten esto abierto en otra ventana: es la tarjeta de referencia, no el guion.
+
+**El guion de la demostración es [presentacion-aplicativo.md](presentacion-aplicativo.md).**
 
 ---
 

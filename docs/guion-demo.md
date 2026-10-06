@@ -1,5 +1,8 @@
 # Ayni · guion de demostración — 10 minutos
 
+> Este es el guion de 10 minutos del Entregable 2. Para demostrar en vivo con el
+> lector de comprobantes, usa [presentacion-aplicativo.md](presentacion-aplicativo.md).
+
 Recorrido completo del ciclo de confianza, con las cinco cuentas de la Tabla 20. Sigue la sección 8.1 del Entregable 2.
 
 > **Para una exposición en local**, use [chuleta-exposicion.md](chuleta-exposicion.md): trae los comandos de PowerShell, el segundo factor ya enrolado y cuatro gastos sembrados —uno aprobado, uno esperando al auditor y uno observado por evidencia reciclada—. Este documento describe el recorrido sobre el despliegue.
@@ -61,7 +64,9 @@ Entra con `donante@demo.pe`.
 9. **Gastos**: el gasto sembrado de **S/ 118.00**, «atención veterinaria de urgencia de tres perros rescatados», boleta B001-004521 de Clínica Veterinaria San Roque, ya analizado por el motor.
 10. Abre el detalle: **puntaje, nivel y los motivos en español**. Cada motivo dice qué regla se evaluó, cómo salió y con qué valor.
 
-> **Si alguien pregunta por la IA:** esta versión no la usa. El puntaje sale de reglas deterministas —dígito verificador del RUC, aritmética del IGV, huella perceptual de la foto contra todo el histórico, desviación del monto frente a la media de la categoría—. El contrato de datos es exactamente el que consumirá AIni; cambiar una variable de entorno conmuta el motor sin tocar nada más. Y cada decisión que toma el auditor queda guardada: **esta versión sin IA ya está generando el conjunto etiquetado que AIni necesitará para entrenarse.**
+> **Si alguien pregunta por la IA:** hay dos motores detrás de la misma interfaz y se conmutan con una variable de entorno. Este gasto lo resolvió el determinista —dígito verificador del RUC, aritmética del IGV, huella perceptual contra todo el histórico, desviación del monto—. Los gastos de **S/ 145** y **S/ 185** los resolvió **AIni**, que corre en `apps/aini`: lee el comprobante con OCR, mide la coherencia del concepto con spaCy y perfila el gasto con Isolation Forest. Cada análisis guarda cuál de los dos decidió y con qué regla de umbrales, así que dos años después se sabe con qué criterio se aprobó.
+>
+> La demostración del lector en vivo está en [presentacion-aplicativo.md](presentacion-aplicativo.md). Y cada decisión del auditor queda guardada: **es la etiqueta con la que se reentrena el modelo.**
 
 ## Minuto 6–8 · El auditor decide
 

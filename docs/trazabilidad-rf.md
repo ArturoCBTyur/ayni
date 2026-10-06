@@ -54,9 +54,9 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 | RN-07 | Resolución de auditoría en 48 h hábiles | ✅ | `auditoria.spec.ts` · el SLA cuenta horas hábiles saltando fines de semana |
 | RN-08 | Muestreo de casos ALTO | ✅ | 10 % de los aprobados automáticamente; alimenta el indicador de falsos aprobados |
 
-## Requerimientos funcionales de AIni — sustituciones sin IA
+## Requerimientos funcionales de AIni
 
-El detalle del criterio está en [ADR-0005](adr/0005-motor-reglas-v0.md).
+Tres están implementados con modelos en `apps/aini` —el lector de comprobantes, la coherencia semántica y el detector de anomalías—; el resto se resuelve de forma determinista, en algunos casos a propósito. El criterio de la sustitución está en [ADR-0005](adr/0005-motor-reglas-v0.md).
 
 | ID | Requerimiento | Estado en v1 |
 |---|---|---|

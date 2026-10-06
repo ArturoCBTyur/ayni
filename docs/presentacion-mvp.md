@@ -1,5 +1,8 @@
 # Ayni · cómo presentar el MVP con IA
 
+> Esta guía enseña la IA **desde la terminal**, sin interfaz. Para demostrarla dentro
+> de la aplicación, usa [presentacion-aplicativo.md](presentacion-aplicativo.md).
+
 Guion de 12 minutos. Lo que hay que enseñar, en qué orden, y qué decir en cada punto.
 
 **La idea que organiza todo:** no presentes «un sistema que usa IA». Presenta un sistema que ya funcionaba, y muestra **exactamente qué empezó a ver cuando se le puso el modelo**. Eso es demostrable en vivo y no se puede fingir.
@@ -180,10 +183,14 @@ Es un buen cierre: demuestra que pensaste en el fallo, no solo en el camino feli
 Porque el sistema trata datos de beneficiarios de programas sociales, categoría sensible bajo la Ley N.° 29733. Con un servicio propio las evidencias no salen de la infraestructura del proyecto. Además no hay clave que custodiar ni cuota que se agote a mitad de una demostración. El seam acepta las dos: conectar un proveedor comercial sería una segunda implementación de la misma interfaz.
 
 **«¿Qué tan bueno es el modelo?»**
-No lo sabemos todavía, y eso es parte de la respuesta honesta. No hay conjunto de validación etiquetado por humanos: hay 600 muestras sintéticas de entrenamiento y cuatro gastos reales. Lo que sí está medido y documentado es el comportamiento en los casos de prueba, y el mecanismo para evaluarlo cuando haya datos.
+Depende de la señal, y ninguna cifra es buena. **Anomalías:** 600 muestras sintéticas de entrenamiento y cuatro gastos reales, sin conjunto de validación etiquetado por humanos. **Lenguaje:** medido sobre 25 conceptos reales, rechaza ~15 % de los correctos y acepta ~13 % de los equivocados; las clases se solapan y ningún umbral las separa limpio. **Lector:** cinco pruebas lo exigen sobre boletas degradadas a propósito, pero todas generadas por nosotros — papel térmico real no se ha probado.
+
+Por eso las tres señales restan puntos y derivan a una persona en vez de decidir solas. Eso es un argumento de diseño, no una disculpa.
 
 **«¿Lee el comprobante?»**
-No. Los campos los captura el operador, y el análisis lo **declara**: guarda `fuente: "declarado"` en vez de afirmar `"ocr"`. El día que haya lectura automática se sabrá exactamente qué análisis la tuvieron y cuáles no.
+Sí, desde que entró el lector: descarga la imagen, la lee con OCR y coteja los cuatro campos contra lo declarado. El análisis distingue los dos casos, así que nunca afirma más de lo que hizo: guarda `fuente: "ocr"` cuando pudo leer —y entonces reporta **los valores del papel**, no los declarados— y `fuente: "declarado"` cuando no. Se demuestra con `python probar.py boleta`, y dentro de la aplicación en [presentacion-aplicativo.md](presentacion-aplicativo.md).
+
+Lo que **no** hace es confirmar que el documento exista en los registros de SUNAT: eso necesita credenciales SOL.
 
 **«¿Y si la ONG sube una foto de otro gasto?»**
 Se detecta, y no por IA: hash SHA-256 más huella perceptual de 64 bits. Una foto reciclada se reconoce aunque la hayan recortado y recomprimido. Lo detectamos a distancia 1 de 64 bits con un archivo completamente distinto.
