@@ -52,9 +52,16 @@ else
   falla "el respaldo fue alterado o esta incompleto. No se restaura."
 fi
 
+# Todo lo que puede impedir la restauracion se comprueba ANTES de escribir
+# nada. Si la carpeta de archivos se revisara despues de pg_restore, un
+# destino ocupado dejaria la base restaurada y los archivos no: una mitad.
 tablas="$(psql "$URL" -XAtc "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'")"
 if [ "$tablas" != "0" ] && [ "$sobrescribir" != "--sobrescribir" ]; then
   falla "la base destino tiene $tablas tablas. Use una base vacia, o --sobrescribir si de verdad quiere reemplazarla."
+fi
+if [ -f "$dir/archivos.tar.gz" ] && [ -n "$ARCHIVOS_DIR_DESTINO" ] && [ -d "$ARCHIVOS_DIR_DESTINO" ] &&
+  [ -n "$(ls -A "$ARCHIVOS_DIR_DESTINO")" ] && [ "$sobrescribir" != "--sobrescribir" ]; then
+  falla "$ARCHIVOS_DIR_DESTINO no esta vacia. Use otra carpeta o --sobrescribir."
 fi
 
 opciones=(--no-owner --no-privileges --exit-on-error)
@@ -64,9 +71,6 @@ ok "base restaurada"
 
 if [ -f "$dir/archivos.tar.gz" ] && [ -n "$ARCHIVOS_DIR_DESTINO" ]; then
   mkdir -p "$ARCHIVOS_DIR_DESTINO"
-  if [ -n "$(ls -A "$ARCHIVOS_DIR_DESTINO")" ] && [ "$sobrescribir" != "--sobrescribir" ]; then
-    falla "$ARCHIVOS_DIR_DESTINO no esta vacia. Use otra carpeta o --sobrescribir."
-  fi
   # Como root, tar conserva el dueño original de cada archivo, que es el que la
   # API necesita. La carpeta creada aqui se le entrega al dueño del respaldo.
   tar -C "$ARCHIVOS_DIR_DESTINO" -xzf "$dir/archivos.tar.gz"
