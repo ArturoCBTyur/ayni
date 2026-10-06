@@ -31,7 +31,6 @@ apps/app/.flutter-plugins
 apps/app/.flutter-plugins-dependencies
 apps/app/build/
 apps/app/.packages
-apps/app/pubspec.lock
 *.iml
 
 # Editores y SO

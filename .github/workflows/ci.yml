@@ -93,7 +93,8 @@ jobs:
           channel: stable
           cache: true
 
-      - run: flutter pub get
+      # El lockfile se versiona: CI resuelve exactamente lo que se probo.
+      - run: flutter pub get --enforce-lockfile
 
       - name: Analisis estatico
         run: flutter analyze
