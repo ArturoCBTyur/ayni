@@ -20,7 +20,7 @@
  */
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 import { PrismaClient } from '@prisma/client';
 import { authenticator } from 'otplib';
@@ -29,7 +29,9 @@ import sharp from 'sharp';
 import { calcularDHash, calcularNitidez } from '../src/modules/gastos/imagen';
 
 const prisma = new PrismaClient();
-const RAIZ_ARCHIVOS = join(process.cwd(), '..', '..', 'storage');
+// Misma resolucion que la API y que seed-demo.ts: si no, con STORAGE_DIR
+// definido las evidencias de la demo quedan donde la API no las busca.
+const RAIZ_ARCHIVOS = resolve(process.cwd(), process.env.STORAGE_DIR ?? '../../storage');
 
 /** La semilla con la que seed-demo genera la evidencia del primer gasto. */
 const SEMILLA_EVIDENCIA_BASE = 97;
