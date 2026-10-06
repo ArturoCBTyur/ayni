@@ -459,6 +459,14 @@ describe('Restablecer el segundo factor (soporte)', () => {
     expect(r.status).toBe(409);
   });
 
+  it('una cuenta que no existe es 404', async () => {
+    const r = await api()
+      .post(`/identidad/usuarios/${randomUUID()}/mfa/restablecer`)
+      .set('Authorization', `Bearer ${admin.token}`)
+      .send({ motivo: MOTIVO });
+    expect(r.status).toBe(404);
+  });
+
   it('el administrador no puede restablecer el suyo', async () => {
     const r = await api()
       .post(`/identidad/usuarios/${admin.id}/mfa/restablecer`)

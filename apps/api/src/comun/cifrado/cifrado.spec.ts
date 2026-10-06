@@ -37,9 +37,11 @@ const nuevaClave = () => randomBytes(32).toString('base64');
 
 // Varias pruebas provocan a proposito un sobre que no abre, y el servicio lo
 // registra como error. Verlos en la salida entrena a ignorar los reales.
+let avisos: jest.SpyInstance;
+
 beforeAll(() => {
   jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-  jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+  avisos = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
 });
 
 afterAll(() => {
@@ -153,6 +155,36 @@ describe('Sobre de cifrado', () => {
     it('un texto con prefijo pero truncado falla, no se lee en claro', () => {
       expect(motivoDe(() => abrirTexto(llavero, 'ayni:v1:AAAA', 'u:1'))).toBe('alterado');
     });
+  });
+});
+
+describe('CifradoService sin clave', () => {
+  // Vacia y no ausente: ConfigService busca en process.env lo que no esta en
+  // su configuracion, y en CI la clave esta definida.
+  let servicio: CifradoService;
+
+  beforeAll(() => {
+    servicio = new CifradoService(configCon({ CIFRADO_CLAVE: '' }));
+  });
+
+  it('no cifra y lo dice al arrancar', () => {
+    expect(servicio.activo).toBe(false);
+    expect(servicio.idClave).toBeNull();
+    expect(avisos).toHaveBeenCalledWith(
+      expect.stringMatching(/CIFRADO_CLAVE no esta definida/),
+    );
+  });
+
+  it('guarda tal cual y lee tal cual', () => {
+    const foto = Buffer.from([0xff, 0xd8, 0xff, 1, 2, 3]);
+    expect(servicio.sellarBytes(foto, 'x')).toBe(foto);
+    expect(servicio.abrirBytes(foto, 'x')).toBe(foto);
+    expect(servicio.sellarTexto('JBSWY3DPEHPK3PXP', 'x')).toBe('JBSWY3DPEHPK3PXP');
+  });
+
+  it('lo que se cifro con una clave no se lee sin ella', () => {
+    const sobre = sellar(crearLlavero(nuevaClave()), Buffer.from('foto'), 'x');
+    expect(() => servicio.abrirBytes(sobre, 'x')).toThrow(ErrorCifrado);
   });
 });
 

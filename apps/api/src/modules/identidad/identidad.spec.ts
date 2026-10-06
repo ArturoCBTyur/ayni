@@ -30,6 +30,7 @@ let prisma: PrismaService;
 let identidad: IdentidadService;
 let tokens: TokensService;
 let hash: HashService;
+let totp: TotpService;
 
 const creados: string[] = [];
 
@@ -75,6 +76,7 @@ beforeAll(async () => {
   identidad = modulo.get(IdentidadService);
   tokens = modulo.get(TokensService);
   hash = modulo.get(HashService);
+  totp = modulo.get(TotpService);
   modulo.get(ConfigService);
 
   await prisma.$connect();
@@ -235,6 +237,50 @@ describe('Segundo factor obligatorio (RNF-02)', () => {
       where: { usuarioId: usuario.id, accion: 'MFA_ACTIVADO' },
     });
     expect(rastro).not.toBeNull();
+  });
+
+  // Solo con el cifrado activo, como en CI: sin clave el secreto se guarda en
+  // claro y no hay sobre que pueda dejar de abrir.
+  const conCifrado = process.env.CIFRADO_CLAVE ? it : it.skip;
+
+  conCifrado('el secreto del enrolamiento se guarda cifrado, no en claro', async () => {
+    const { usuario } = await crearUsuario('ADMIN');
+    const { secreto } = await identidad.iniciarEnrolamientoTotp(usuario.id);
+
+    const guardado = await prisma.usuario.findUniqueOrThrow({ where: { id: usuario.id } });
+    expect(guardado.totpSecreto).toMatch(/^ayni:v1:/);
+    expect(guardado.totpSecreto).not.toContain(secreto);
+  });
+
+  conCifrado('un secreto copiado de otra cuenta no entra, y pide soporte', async () => {
+    // Quien puede escribir la tabla copia sobre una cuenta ajena el secreto
+    // de una cuenta suya, cuyos codigos conoce.
+    const { usuario: propia, secreto } = await crearUsuario('AUDITOR');
+    const { usuario: ajena } = await crearUsuario('AUDITOR', { conMfa: true });
+    await prisma.usuario.update({
+      where: { id: ajena.id },
+      data: { totpSecreto: totp.sellarSecreto(propia.id, secreto) },
+    });
+
+    await expect(
+      identidad.iniciarSesion(
+        { correo: ajena.correo, clave: CLAVE, codigoTotp: authenticator.generate(secreto) },
+        {},
+      ),
+    ).rejects.toThrow(/Contacte a soporte para restablecerla/);
+  });
+
+  conCifrado('confirmar con un secreto que no abre pide reiniciar, no culpa al codigo', async () => {
+    const { usuario: propia, secreto } = await crearUsuario('ADMIN');
+    const { usuario: ajena } = await crearUsuario('ADMIN');
+    await prisma.usuario.update({
+      where: { id: ajena.id },
+      data: { totpSecreto: totp.sellarSecreto(propia.id, secreto) },
+    });
+
+    await expect(
+      identidad.confirmarEnrolamientoTotp(ajena.id, { codigoTotp: authenticator.generate(secreto) }),
+    ).rejects.toThrow(/Vuelva a iniciar la configuracion/);
   });
 });
 
