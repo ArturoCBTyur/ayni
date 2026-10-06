@@ -233,7 +233,11 @@ describe('Compresion y metadatos', () => {
     // No se afirma nada sobre el tamaño en bytes: con una imagen sintetica
     // de bloques planos el PNG de origen comprime mejor que el JPEG, y la
     // comparacion diria mas sobre el fixture que sobre la funcion.
-  });
+    //
+    // Plazo propio: generar y recomprimir 6 megapixeles tarda entre 3 y 9 s
+    // en una maquina de 4 nucleos, y con los 5 s por defecto de Jest la
+    // prueba fallaba o pasaba segun la maquina, no segun el codigo.
+  }, 30_000);
 
   it('no amplia una imagen que ya es pequeña', async () => {
     const pequena = await imagenDePrueba({ ancho: 300, alto: 200 });
