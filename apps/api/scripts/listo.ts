@@ -21,7 +21,12 @@ import { join } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { authenticator } from 'otplib';
 
+import { abrirTexto, contextoTotp, crearLlavero } from '../src/comun/cifrado/sobre';
+
 const prisma = new PrismaClient();
+// Con CIFRADO_CLAVE definida los secretos TOTP están cifrados en la base
+// (RNF-01): el código se calcula sobre el secreto abierto, no sobre el sobre.
+const LLAVERO = crearLlavero(process.env.CIFRADO_CLAVE, process.env.CIFRADO_CLAVES_ANTERIORES);
 
 const VERDE = '\x1b[32m';
 const ROJO = '\x1b[31m';
@@ -332,9 +337,17 @@ async function segundoFactor(): Promise<void> {
       sinEnrolar += 1;
       continue;
     }
-    console.log(
-      `  ${VERDE}ok   ${FIN} ${correo.padEnd(30)} ${authenticator.generate(u.totpSecreto)}`,
-    );
+    let secreto: string;
+    try {
+      secreto = abrirTexto(LLAVERO, u.totpSecreto, contextoTotp(u.id));
+    } catch {
+      console.log(
+        `  ${ROJO}FALTA${FIN} ${correo.padEnd(30)} secreto cifrado: falta la CIFRADO_CLAVE con que se cifró`,
+      );
+      sinEnrolar += 1;
+      continue;
+    }
+    console.log(`  ${VERDE}ok   ${FIN} ${correo.padEnd(30)} ${authenticator.generate(secreto)}`);
   }
 
   if (sinEnrolar > 0) {
