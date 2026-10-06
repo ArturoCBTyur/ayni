@@ -56,6 +56,12 @@ jobs:
       - name: Aplicar migraciones
         run: npx prisma migrate deploy
 
+      # Las pruebas crean sus propias cuentas pero buscan los roles del
+      # catalogo, que vienen de la semilla. Sin este paso, 12 de las 17 suites
+      # fallaban con "No record was found" al buscar el rol DONANTE.
+      - name: Semilla base (roles, regla vigente, motor)
+        run: npm run seed
+
       - name: Lint
         run: npm run lint
 
