@@ -122,3 +122,18 @@ jobs:
 
       - name: Construir API y web
         run: docker compose build
+
+      # RNF-13. Un respaldo que nunca se restauro no esta probado: se respalda
+      # el escenario de la demo, se restaura en una base vacia y restaurar.sh
+      # falla si lo restaurado no es el mismo libro contable.
+      - name: Simulacro de respaldo y restauracion
+        run: |
+          docker compose up -d base
+          docker compose run --rm migraciones
+          docker compose run --rm migraciones npx tsx prisma/seed-demo.ts
+          docker compose --profile respaldo run --rm respaldo
+          docker compose exec -T base createdb -U tr_app trazabilidad_simulacro
+          ultimo="$(ls -d respaldos/respaldo-* | sort | tail -1)"
+          docker compose --profile respaldo run --rm \
+            -e ARCHIVOS_DIR_DESTINO=/respaldos/simulacro-archivos \
+            respaldo /scripts/restaurar.sh "/$ultimo"

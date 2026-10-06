@@ -47,3 +47,6 @@ apps/api/prisma/sql/00-crear-base.sql
 
 # Evidencias y comprobantes subidos en desarrollo
 storage/
+
+# Respaldos locales (RNF-13): contienen la base completa.
+respaldos/

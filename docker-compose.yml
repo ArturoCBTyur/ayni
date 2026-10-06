@@ -12,6 +12,10 @@
 #
 #   docker compose run --rm migraciones npx tsx prisma/seed-demo.ts
 #
+# Respaldo y restauración (RNF-13, ver docs/respaldo.md):
+#
+#   docker compose --profile respaldo run --rm respaldo
+#
 # Los puertos del anfitrión se cambian sin tocar este archivo, para cuando ya
 # hay algo escuchando en ellos:
 #
@@ -125,6 +129,30 @@ services:
       - api
     ports:
       - '${WEB_PUERTO:-8080}:80'
+
+  # RNF-13. No arranca con `up`: se invoca a mano o desde un cron del anfitrión.
+  # Usa la imagen de PostgreSQL porque pg_dump tiene que ser de la misma
+  # versión mayor que el servidor, o más nueva.
+  respaldo:
+    image: postgres:18
+    profiles: ['respaldo']
+    depends_on:
+      base:
+        condition: service_healthy
+    environment:
+      <<: *base-de-datos
+      ARCHIVOS_DIR: /archivos
+      # Para restaurar: a dónde. Por defecto, una base de simulacro en el mismo
+      # servidor, nunca la de trabajo.
+      DATABASE_URL_DESTINO: ${DATABASE_URL_DESTINO:-postgresql://tr_app:${POSTGRES_PASSWORD:-tr_app_local}@base:5432/trazabilidad_simulacro}
+      ARCHIVOS_DIR_DESTINO: ${ARCHIVOS_DIR_DESTINO:-}
+      RETENER: ${RETENER:-}
+    volumes:
+      - archivos:/archivos:ro
+      - ./respaldos:/respaldos
+      - ./apps/api/scripts/respaldo:/scripts:ro
+    entrypoint: ['bash']
+    command: ['/scripts/respaldar.sh', '/respaldos']
 
 volumes:
   datos_postgres:
