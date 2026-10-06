@@ -96,3 +96,51 @@ export const esquemaSolicitudArco = z.object({
     .max(2000),
 });
 export type SolicitudArcoEntrada = z.infer<typeof esquemaSolicitudArco>;
+
+// ---------------------------------------------------------------------------
+// RF-16 · Administracion de usuarios
+// ---------------------------------------------------------------------------
+
+/** Los cinco roles del catalogo (seed.ts). */
+export const CODIGOS_ROL = ['DONANTE', 'ONG_ADMIN', 'ONG_OPERADOR', 'AUDITOR', 'ADMIN'] as const;
+export type CodigoRol = (typeof CODIGOS_ROL)[number];
+
+/**
+ * Motivo de una accion administrativa sobre una cuenta.
+ *
+ * Obligatorio siempre, como al verificar una ONG: bloquear a alguien o darle
+ * el rol de auditor sin dejar dicho por que es exactamente lo que una
+ * bitacora existe para impedir.
+ */
+const motivoAdministrativo = z
+  .string()
+  .trim()
+  .min(10, 'Explique el motivo con al menos 10 caracteres: queda en la bitacora.')
+  .max(500, 'El motivo no puede superar los 500 caracteres.');
+
+export const esquemaFiltroUsuarios = z.object({
+  q: z.string().trim().max(120).optional(),
+  rol: z.enum(CODIGOS_ROL).optional(),
+  estado: z.enum(['PENDIENTE_VERIFICACION', 'ACTIVO', 'BLOQUEADO']).optional(),
+  pagina: z.coerce.number().int().min(1).default(1),
+  porPagina: z.coerce.number().int().min(1).max(100).default(20),
+});
+export type FiltroUsuarios = z.infer<typeof esquemaFiltroUsuarios>;
+
+export const esquemaCambiarRoles = z.object({
+  roles: z
+    .array(z.enum(CODIGOS_ROL))
+    .min(1, 'Una cuenta necesita al menos un rol.')
+    .transform((roles) => [...new Set(roles)]),
+  motivo: motivoAdministrativo,
+});
+export type CambiarRoles = z.infer<typeof esquemaCambiarRoles>;
+
+export const esquemaCambiarEstado = z.object({
+  estado: z.enum(['ACTIVO', 'BLOQUEADO']),
+  motivo: motivoAdministrativo,
+});
+export type CambiarEstado = z.infer<typeof esquemaCambiarEstado>;
+
+export const esquemaMotivo = z.object({ motivo: motivoAdministrativo });
+export type Motivo = z.infer<typeof esquemaMotivo>;

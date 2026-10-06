@@ -121,6 +121,132 @@
         ]
       }
     },
+    "/api/v1/identidad/usuarios": {
+      "get": {
+        "operationId": "UsuariosController_listar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-16 · Buscar cuentas por nombre o correo, rol y estado",
+        "tags": [
+          "identidad"
+        ]
+      }
+    },
+    "/api/v1/identidad/usuarios/roles": {
+      "get": {
+        "operationId": "UsuariosController_roles",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-02 · Catalogo de roles, con cuales exigen segundo factor",
+        "tags": [
+          "identidad"
+        ]
+      }
+    },
+    "/api/v1/identidad/usuarios/{id}": {
+      "get": {
+        "operationId": "UsuariosController_detalle",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-16 · Ficha de una cuenta con su historial administrativo",
+        "tags": [
+          "identidad"
+        ]
+      }
+    },
+    "/api/v1/identidad/usuarios/{id}/roles": {
+      "patch": {
+        "operationId": "UsuariosController_cambiarRoles",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-02 · Reemplazar los roles de una cuenta, con motivo",
+        "tags": [
+          "identidad"
+        ]
+      }
+    },
+    "/api/v1/identidad/usuarios/{id}/estado": {
+      "patch": {
+        "operationId": "UsuariosController_cambiarEstado",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-16 · Bloquear o reactivar una cuenta, con motivo",
+        "tags": [
+          "identidad"
+        ]
+      }
+    },
+    "/api/v1/identidad/usuarios/{id}/mfa/restablecer": {
+      "post": {
+        "operationId": "UsuariosController_restablecerMfa",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RNF-02 · Restablecer el segundo factor de una cuenta, con motivo",
+        "tags": [
+          "identidad"
+        ]
+      }
+    },
     "/api/v1/cumplimiento/consentimientos": {
       "get": {
         "operationId": "CumplimientoController_consentimientos",

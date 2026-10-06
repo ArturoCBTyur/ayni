@@ -9,6 +9,8 @@ import { IdentidadService } from './identidad.service';
 import { HashService } from './servicios/hash.service';
 import { TokensService } from './servicios/tokens.service';
 import { TotpService } from './servicios/totp.service';
+import { UsuariosController } from './usuarios.controller';
+import { UsuariosService } from './usuarios.service';
 
 /**
  * Identidad y Acceso (Tabla 15 del Entregable 2).
@@ -20,9 +22,10 @@ import { TotpService } from './servicios/totp.service';
 @Global()
 @Module({
   imports: [JwtModule.register({}), CifradoModule],
-  controllers: [IdentidadController],
+  controllers: [IdentidadController, UsuariosController],
   providers: [
     IdentidadService,
+    UsuariosService,
     HashService,
     TokensService,
     TotpService,
