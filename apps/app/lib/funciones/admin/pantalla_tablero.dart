@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../comun/descarga.dart';
 import '../../comun/widgets.dart';
 import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
@@ -178,13 +179,32 @@ class _Conciliacion extends ConsumerWidget {
                 ],
                 if (esAdmin) ...[
                   const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () => ref.invalidate(conciliacionProvider),
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Conciliar de nuevo'),
-                    ),
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => descargarCsv(
+                          context,
+                          ref,
+                          ruta: '/analitica/exportar/conciliacion',
+                          nombre: 'conciliacion.csv',
+                        ),
+                        icon: const Icon(Icons.download_outlined),
+                        label: const Text('Exportar CSV'),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => _muestreo(context, ref),
+                        icon: const Icon(Icons.casino_outlined),
+                        label: const Text('Seleccionar muestreo'),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => ref.invalidate(conciliacionProvider),
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Conciliar de nuevo'),
+                      ),
+                    ],
                   ),
                 ],
               ],
@@ -193,6 +213,25 @@ class _Conciliacion extends ConsumerWidget {
         );
       },
     );
+  }
+}
+
+/// RN-08 · Elige al azar casos aprobados automaticamente con nivel ALTO
+/// para que un auditor los revise: es lo que mide los falsos aprobados.
+Future<void> _muestreo(BuildContext context, WidgetRef ref) async {
+  final mensajero = ScaffoldMessenger.of(context);
+  try {
+    final r = await ref.read(clienteApiProvider).enviar('/auditoria/muestreo');
+    final n = (r['seleccionados'] as num?)?.toInt() ?? 0;
+    mensajero.showSnackBar(
+      SnackBar(
+        content: Text(n == 0
+            ? 'Esta vez el sorteo no eligió ningún caso.'
+            : '$n caso(s) aprobados pasan a la bandeja de auditoría por muestreo.'),
+      ),
+    );
+  } on ErrorApi catch (e) {
+    mensajero.showSnackBar(SnackBar(content: Text(e.mensaje)));
   }
 }
 

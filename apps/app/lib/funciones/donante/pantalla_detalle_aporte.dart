@@ -84,7 +84,10 @@ class _Contenido extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(estado['descripcion'] as String, style: tema.textTheme.bodySmall),
                     const Divider(height: 24),
-                    FilaDato(etiqueta: 'Su aporte', valor: Formato.soles(datos['monto'] as String?)),
+                    FilaDato(
+                      etiqueta: 'Su aporte',
+                      valor: Formato.soles(datos['monto'] as String?),
+                    ),
                     FilaDato(
                       etiqueta: 'Comisión de la pasarela',
                       valor: Formato.soles(datos['comision'] as String?),

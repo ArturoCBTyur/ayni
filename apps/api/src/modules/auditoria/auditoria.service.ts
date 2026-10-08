@@ -64,7 +64,8 @@ export class AuditoriaService {
    * muestreo entre los aprobados automaticamente.
    */
   async bandeja(auditorId: string, filtros: BandejaFiltros) {
-    const donde: Prisma.GastoWhereInput = filtros.incluirMuestreo
+    const conMuestreo = filtros.incluirMuestreo !== false && filtros.incluirMuestreo !== 'false';
+    const pendientes: Prisma.GastoWhereInput = conMuestreo
       ? {
           OR: [
             { estado: 'EN_REVISION' },
@@ -72,6 +73,13 @@ export class AuditoriaService {
           ],
         }
       : { estado: 'EN_REVISION' };
+    const donde: Prisma.GastoWhereInput = {
+      AND: [
+        pendientes,
+        ...(filtros.nivel ? [{ analisis: { some: { nivel: filtros.nivel } } }] : []),
+        ...(filtros.ongId ? [{ ongId: filtros.ongId }] : []),
+      ],
+    };
 
     const [total, gastos] = await Promise.all([
       this.prisma.gasto.count({ where: donde }),
@@ -377,6 +385,30 @@ export class AuditoriaService {
    * Se registra en la bitacora con el motivo: un caso que cambia de manos
    * sin explicacion es exactamente lo que una auditoria externa marcaria.
    */
+  /**
+   * Auditores a quienes se puede pasar un caso: activos, distintos de quien
+   * reasigna y sin membresia en la ONG del caso, que es justamente lo que
+   * motiva reasignar.
+   */
+  async auditoresDisponibles(auditorId: string, gastoId?: string) {
+    const gasto = gastoId
+      ? await this.prisma.gasto.findUnique({ where: { id: gastoId }, select: { ongId: true } })
+      : null;
+
+    const auditores = await this.prisma.usuario.findMany({
+      where: {
+        id: { not: auditorId },
+        estado: 'ACTIVO',
+        roles: { some: { rol: { codigo: 'AUDITOR' } } },
+        ...(gasto ? { membresias: { none: { ongId: gasto.ongId, activo: true } } } : {}),
+      },
+      select: { id: true, nombres: true, apellidos: true },
+      orderBy: { nombres: 'asc' },
+    });
+
+    return auditores.map((a) => ({ id: a.id, nombre: `${a.nombres} ${a.apellidos}` }));
+  }
+
   async reasignar(
     gastoId: string,
     auditorOrigenId: string,

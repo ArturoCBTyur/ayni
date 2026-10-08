@@ -86,6 +86,18 @@ class ClienteApi {
     return _comoMapa(r.data);
   }
 
+  /// Para endpoints que devuelven texto plano, como las exportaciones CSV.
+  Future<String> obtenerTexto(String ruta, {Map<String, dynamic>? consulta}) async {
+    final r = await _llamar(
+      () => _dio.get<dynamic>(
+        ruta,
+        queryParameters: consulta,
+        options: Options(responseType: ResponseType.plain),
+      ),
+    );
+    return r.data?.toString() ?? '';
+  }
+
   /// Sube un archivo binario a una URL firmada, como haria contra S3.
   Future<void> subirArchivo(String urlFirmada, List<int> bytes, String mime) async {
     // La URL firmada ya trae su token; el prefijo de la API no se repite.

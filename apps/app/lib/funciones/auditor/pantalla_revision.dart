@@ -7,6 +7,7 @@ import '../../comun/widgets.dart';
 import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
 import '../../nucleo/tema.dart';
+import 'pantalla_informe_ong.dart';
 
 final gastoProvider =
     FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, gastoId) async {
@@ -28,8 +29,22 @@ class PantallaRevision extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final gasto = ref.watch(gastoProvider(gastoId));
 
+    final ongId = gasto.value?['ongId'] as String?;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Revisar gasto')),
+      appBar: AppBar(
+        title: const Text('Revisar gasto'),
+        actions: [
+          if (ongId != null)
+            IconButton(
+              tooltip: 'Informe de auditoría de la organización',
+              icon: const Icon(Icons.summarize_outlined),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => PantallaInformeOng(ongId: ongId)),
+              ),
+            ),
+        ],
+      ),
       body: gasto.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => TarjetaError(
@@ -76,6 +91,9 @@ class _Detalle extends ConsumerWidget {
             const SizedBox(height: 16),
 
             if (analisis != null) TarjetaAnalisis(analisis: analisis),
+            for (final alerta
+                in (datos['alertas'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>())
+              _Alerta(gastoId: gastoId, alerta: alerta),
             const SizedBox(height: 20),
 
             Text('Lo declarado', style: tema.textTheme.titleSmall),
@@ -181,6 +199,115 @@ class _Detalle extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Una alerta abierta del gasto, con la opcion de descartarla si no
+/// corresponde. Descartar la saca del puntaje de la ONG, asi que pide nota.
+class _Alerta extends ConsumerWidget {
+  const _Alerta({required this.gastoId, required this.alerta});
+
+  final String gastoId;
+  final Map<String, dynamic> alerta;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tema = Theme.of(context);
+    final plazo = Formato.aFecha(alerta['plazoSubsanacion']);
+
+    return Card(
+      margin: const EdgeInsets.only(top: 12),
+      color: TemaApp.nivelMedio.withValues(alpha: 0.08),
+      child: ListTile(
+        leading: Icon(Icons.warning_amber_outlined, color: TemaApp.nivelMedio),
+        title: Text(alerta['titulo'] as String? ?? 'Alerta'),
+        subtitle: Text(
+          '${alerta['descripcion'] ?? ''}\n'
+          '${alerta['estado'] == 'EN_SUBSANACION' ? 'La ONG la respondió' : 'Abierta'}'
+          '${plazo != null ? ' · plazo ${Formato.fecha(plazo)}' : ''}',
+          style: tema.textTheme.bodySmall,
+        ),
+        isThreeLine: true,
+        trailing: TextButton(
+          onPressed: () => _descartar(context, ref),
+          child: const Text('Descartar'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _descartar(BuildContext context, WidgetRef ref) async {
+    final nota = await pedirTexto(
+      context,
+      titulo: 'Descartar alerta',
+      explicacion: 'Deja de contar para el puntaje de la ONG. Explique por qué no corresponde.',
+      minimo: 10,
+      accion: 'Descartar',
+    );
+    if (nota == null || !context.mounted) return;
+
+    final mensajero = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(clienteApiProvider)
+          .enviar('/alertas/${alerta['id']}/descartar', cuerpo: {'nota': nota});
+      ref.invalidate(gastoProvider(gastoId));
+      mensajero.showSnackBar(const SnackBar(content: Text('Alerta descartada.')));
+    } on ErrorApi catch (e) {
+      mensajero.showSnackBar(SnackBar(content: Text(e.mensaje)));
+    }
+  }
+}
+
+/// Dialogo que pide un texto con un minimo de caracteres. Devuelve null si
+/// se cancela.
+Future<String?> pedirTexto(
+  BuildContext context, {
+  required String titulo,
+  required String explicacion,
+  required int minimo,
+  required String accion,
+}) {
+  final controlador = TextEditingController();
+  String? error;
+
+  return showDialog<String>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: Text(titulo),
+        content: SizedBox(
+          width: 440,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(explicacion),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controlador,
+                maxLines: 3,
+                decoration: InputDecoration(labelText: 'Motivo', errorText: error),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () {
+              final texto = controlador.text.trim();
+              if (texto.length < minimo) {
+                setState(() => error = 'Escriba al menos $minimo caracteres.');
+                return;
+              }
+              Navigator.of(context).pop(texto);
+            },
+            child: Text(accion),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Pie de una evidencia: su numero y si tiene personas, que es lo que decide

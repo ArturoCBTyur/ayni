@@ -233,6 +233,7 @@ export class GastosService {
       capturadoEn: gasto.capturadoEn,
       fondo: { id: gasto.fondo.id, nombre: gasto.fondo.nombre },
       campana: gasto.fondo.campana.titulo,
+      ongId: gasto.ongId,
       comprobante: gasto.comprobante
         ? {
             tipo: gasto.comprobante.tipo,
@@ -281,6 +282,16 @@ export class GastosService {
           }
         : null,
       alertasAbiertas: gasto.alertas.length,
+      // Las abiertas, para que el auditor las vea donde decide y pueda
+      // descartar la que no corresponde.
+      alertas: gasto.alertas.map((a) => ({
+        id: a.id,
+        titulo: a.titulo,
+        descripcion: a.descripcion,
+        severidad: a.severidad,
+        estado: a.estado,
+        plazoSubsanacion: a.plazoSubsanacion,
+      })),
     };
   }
 

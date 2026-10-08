@@ -21,6 +21,7 @@ import { AplicacionFifoService } from '../contable/aplicacion-fifo.service';
 import { LibroService } from '../contable/libro.service';
 import { AlertasService } from './alertas.service';
 import { AuditoriaService } from './auditoria.service';
+import { esquemaBandeja } from './esquemas';
 import { CifradoService } from '../../comun/cifrado/cifrado.service';
 import { AlmacenamientoDisco } from '../gastos/almacenamiento/disco.storage';
 import { ALMACENAMIENTO } from '../gastos/puertos/almacenamiento.port';
@@ -747,5 +748,84 @@ describe('Bandeja e indicadores', () => {
     expect(indicadores.analisis.porcentajeAutomatico).toBeGreaterThanOrEqual(0);
     expect(indicadores.sla.horasHabiles).toBe(48);
     expect(indicadores.muestreo).toHaveProperty('falsosAprobados');
+  });
+});
+
+describe('Bandeja: filtros, reasignacion y alertas', () => {
+  async function analizar(gastoId: string, nivel: 'ALTO' | 'MEDIO' | 'BAJO') {
+    const [modelo, regla] = await Promise.all([
+      prisma.modeloIa.findFirstOrThrow({ where: { version: 'reglas-v0' } }),
+      prisma.reglaConfianza.findFirstOrThrow({ where: { activa: true } }),
+    ]);
+    await prisma.analisisAini.create({
+      data: {
+        gastoId,
+        modeloId: modelo.id,
+        reglaId: regla.id,
+        scoreDocumental: 50,
+        scoreVisual: 50,
+        scoreAnomalia: 50,
+        scoreFinal: 50,
+        nivel,
+        datosExtraidos: { fuente: 'declarado' },
+        explicacion: { motivos: [], resumen: 'Analisis sembrado para la prueba de filtros.' },
+      },
+    });
+  }
+
+  const pagina = { orden: 'antiguedad' as const, incluirMuestreo: false, pagina: 1, porPagina: 50 };
+
+  it('filtra por nivel del motor y por organizacion', async () => {
+    const fondo = await fondoConDonaciones('Fondo filtros', [800]);
+    const bajo = await gastoEnRevision(fondo.id, 60);
+    const medio = await gastoEnRevision(fondo.id, 70);
+    await analizar(bajo.id, 'BAJO');
+    await analizar(medio.id, 'MEDIO');
+
+    const soloBajo = await auditoria.bandeja(auditorId, { ...pagina, nivel: 'BAJO', ongId });
+    const ids = soloBajo.casos.map((c) => c.id);
+    expect(ids).toContain(bajo.id);
+    expect(ids).not.toContain(medio.id);
+
+    const otraOng = await auditoria.bandeja(auditorId, { ...pagina, ongId: randomUUID() });
+    expect(otraOng.total).toBe(0);
+  });
+
+  it('"incluirMuestreo=false" en la URL excluye el muestreo', () => {
+    // z.coerce.boolean() convertia el texto "false" en true.
+    expect(esquemaBandeja.parse({ incluirMuestreo: 'false' }).incluirMuestreo).toBe('false');
+    expect(esquemaBandeja.parse({}).incluirMuestreo).toBe(true);
+  });
+
+  it('para reasignar ofrece solo auditores sin conflicto con la ONG del caso', async () => {
+    const fondo = await fondoConDonaciones('Fondo candidatos', [300]);
+    const gasto = await gastoEnRevision(fondo.id, 90);
+
+    let candidatos = await auditoria.auditoresDisponibles(auditorId, gasto.id);
+    expect(candidatos.map((c) => c.id)).toContain(auditorAlternoId);
+    expect(candidatos.map((c) => c.id)).not.toContain(auditorId);
+
+    await prisma.ongMiembro.create({
+      data: { ongId, usuarioId: auditorAlternoId, cargo: 'OPERADOR' },
+    });
+    try {
+      candidatos = await auditoria.auditoresDisponibles(auditorId, gasto.id);
+      expect(candidatos.map((c) => c.id)).not.toContain(auditorAlternoId);
+    } finally {
+      await prisma.ongMiembro.deleteMany({ where: { usuarioId: auditorAlternoId } });
+    }
+  });
+
+  it('las observaciones de una ONG solo las ven sus miembros y quien audita', async () => {
+    await expect(
+      alertas.listarPorOng(ongId, { sub: auditorId, roles: ['DONANTE'] }),
+    ).rejects.toThrow(/No pertenece/i);
+
+    await expect(
+      alertas.listarPorOng(ongId, { sub: operadorId, roles: ['ONG_OPERADOR'] }),
+    ).resolves.toBeInstanceOf(Array);
+    await expect(
+      alertas.listarPorOng(ongId, { sub: auditorId, roles: ['AUDITOR'] }),
+    ).resolves.toBeInstanceOf(Array);
   });
 });

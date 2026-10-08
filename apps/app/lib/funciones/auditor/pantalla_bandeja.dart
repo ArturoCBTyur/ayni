@@ -17,11 +17,41 @@ class OrdenBandejaNotifier extends Notifier<String> {
 final ordenBandejaProvider =
     NotifierProvider<OrdenBandejaNotifier, String>(OrdenBandejaNotifier.new);
 
+/// Filtros de la bandeja: nivel del motor, una sola ONG y si entra el muestreo.
+class FiltrosBandeja {
+  const FiltrosBandeja({this.nivel, this.ong, this.muestreo = true});
+
+  final String? nivel;
+
+  /// La ONG elegida, con su nombre para mostrar el filtro activo.
+  final ({String id, String nombre})? ong;
+  final bool muestreo;
+}
+
+class FiltrosBandejaNotifier extends Notifier<FiltrosBandeja> {
+  @override
+  FiltrosBandeja build() => const FiltrosBandeja();
+
+  void nivel(String? nivel) =>
+      state = FiltrosBandeja(nivel: nivel, ong: state.ong, muestreo: state.muestreo);
+  void ong(({String id, String nombre})? ong) =>
+      state = FiltrosBandeja(nivel: state.nivel, ong: ong, muestreo: state.muestreo);
+  void muestreo(bool muestreo) =>
+      state = FiltrosBandeja(nivel: state.nivel, ong: state.ong, muestreo: muestreo);
+}
+
+final filtrosBandejaProvider =
+    NotifierProvider<FiltrosBandejaNotifier, FiltrosBandeja>(FiltrosBandejaNotifier.new);
+
 final bandejaProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final orden = ref.watch(ordenBandejaProvider);
+  final filtros = ref.watch(filtrosBandejaProvider);
   return ref.read(clienteApiProvider).obtener('/auditoria/bandeja', consulta: {
     'orden': orden,
     'porPagina': 30,
+    'incluirMuestreo': '${filtros.muestreo}',
+    if (filtros.nivel != null) 'nivel': filtros.nivel,
+    if (filtros.ong != null) 'ongId': filtros.ong!.id,
   });
 });
 
@@ -37,6 +67,8 @@ class PantallaBandeja extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bandeja = ref.watch(bandejaProvider);
     final orden = ref.watch(ordenBandejaProvider);
+    final filtros = ref.watch(filtrosBandejaProvider);
+    final cambiar = ref.read(filtrosBandejaProvider.notifier);
 
     return Column(
       children: [
@@ -70,6 +102,42 @@ class PantallaBandeja extends ConsumerWidget {
                     onPressed: () => ref.invalidate(bandejaProvider),
                     icon: const Icon(Icons.refresh),
                   ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  for (final (valor, etiqueta) in const [
+                    (null, 'Todos los niveles'),
+                    ('BAJO', 'Bajo'),
+                    ('MEDIO', 'Medio'),
+                    ('ALTO', 'Alto'),
+                  ])
+                    ChoiceChip(
+                      label: Text(etiqueta),
+                      selected: filtros.nivel == valor,
+                      onSelected: (_) => cambiar.nivel(valor),
+                    ),
+                  FilterChip(
+                    label: const Text('Incluir muestreo'),
+                    selected: filtros.muestreo,
+                    onSelected: cambiar.muestreo,
+                  ),
+                  if (filtros.ong != null)
+                    InputChip(
+                      label: Text('Solo ${filtros.ong!.nombre}'),
+                      onDeleted: () => cambiar.ong(null),
+                    ),
                 ],
               ),
             ),
@@ -125,10 +193,128 @@ class PantallaBandeja extends ConsumerWidget {
   }
 }
 
+/// CU15, flujo 3b · Pasar el caso a otro auditor por conflicto de interes.
+class _DialogoReasignar extends ConsumerStatefulWidget {
+  const _DialogoReasignar({required this.gastoId});
+
+  final String gastoId;
+
+  @override
+  ConsumerState<_DialogoReasignar> createState() => _DialogoReasignarState();
+}
+
+class _DialogoReasignarState extends ConsumerState<_DialogoReasignar> {
+  final _motivo = TextEditingController();
+  late final Future<List<Map<String, dynamic>>> _auditores = ref
+      .read(clienteApiProvider)
+      .obtenerLista('/auditoria/auditores', consulta: {'gastoId': widget.gastoId});
+  String? _destino;
+  String? _error;
+  bool _enviando = false;
+
+  @override
+  void dispose() {
+    _motivo.dispose();
+    super.dispose();
+  }
+
+  Future<void> _enviar() async {
+    if (_destino == null || _motivo.text.trim().length < 10) {
+      setState(() => _error = 'Elija un auditor y explique el motivo (al menos 10 caracteres).');
+      return;
+    }
+    setState(() {
+      _enviando = true;
+      _error = null;
+    });
+    try {
+      await ref.read(clienteApiProvider).enviar(
+        '/auditoria/gastos/${widget.gastoId}/reasignar',
+        cuerpo: {'auditorDestinoId': _destino, 'motivo': _motivo.text.trim()},
+      );
+      if (mounted) Navigator.of(context).pop(true);
+    } on ErrorApi catch (e) {
+      setState(() => _error = e.mensaje);
+    } finally {
+      if (mounted) setState(() => _enviando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Reasignar el caso'),
+      content: SizedBox(
+        width: 440,
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: _auditores,
+          builder: (context, snap) {
+            if (!snap.hasData) {
+              return const SizedBox(
+                height: 80,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final auditores = snap.data!;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Solo aparecen auditores sin vínculo con esta organización.'),
+                const SizedBox(height: 12),
+                if (auditores.isEmpty)
+                  const Text('No hay otro auditor disponible. Avise al administrador.')
+                else
+                  DropdownButtonFormField<String>(
+                    initialValue: _destino,
+                    decoration: const InputDecoration(labelText: 'Auditor'),
+                    items: [
+                      for (final a in auditores)
+                        DropdownMenuItem(
+                          value: a['id'] as String,
+                          child: Text(a['nombre'] as String),
+                        ),
+                    ],
+                    onChanged: (v) => setState(() => _destino = v),
+                  ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _motivo,
+                  maxLines: 2,
+                  decoration: InputDecoration(labelText: 'Motivo', errorText: _error),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _enviando ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(onPressed: _enviando ? null : _enviar, child: const Text('Reasignar')),
+      ],
+    );
+  }
+}
+
 class _TarjetaCaso extends ConsumerWidget {
   const _TarjetaCaso({required this.caso});
 
   final Map<String, dynamic> caso;
+
+  Future<void> _reasignar(BuildContext context, WidgetRef ref) async {
+    final hecho = await showDialog<bool>(
+      context: context,
+      builder: (_) => _DialogoReasignar(gastoId: caso['id'] as String),
+    );
+    if (hecho == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Caso reasignado. Queda constancia del motivo.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -238,6 +424,24 @@ class _TarjetaCaso extends ConsumerWidget {
                           ),
                         ),
                       ],
+                    ),
+                ],
+              ),
+              Wrap(
+                spacing: 4,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => ref.read(filtrosBandejaProvider.notifier).ong(
+                          (id: ong['id'] as String, nombre: ong['nombre'] as String),
+                        ),
+                    icon: const Icon(Icons.filter_alt_outlined, size: 18),
+                    label: Text('Solo ${ong['nombre']}'),
+                  ),
+                  if (conflicto)
+                    TextButton.icon(
+                      onPressed: () => _reasignar(context, ref),
+                      icon: const Icon(Icons.swap_horiz, size: 18),
+                      label: const Text('Reasignar'),
                     ),
                 ],
               ),

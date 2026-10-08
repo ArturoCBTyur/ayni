@@ -41,6 +41,9 @@ dependencies:
   fl_chart: ^1.2.0
   image_picker: ^1.2.3
   shared_preferences: ^2.5.5
+  # Descargar los CSV de auditoria en el navegador (Blob + enlace). Ya venia
+  # como dependencia transitiva de Flutter Web; se declara porque se usa.
+  web: ^1.1.1
   flutter_localizations:
     sdk: flutter
 
