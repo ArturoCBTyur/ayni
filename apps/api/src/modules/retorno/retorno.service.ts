@@ -39,6 +39,7 @@ export class RetornoService {
       include: {
         ong: true,
         fondo: { include: { campana: true } },
+        comprobante: true,
         evidencias: true,
         aplicaciones: {
           include: { donacion: { include: { donante: { include: { usuario: true } } } } },
@@ -57,6 +58,40 @@ export class RetornoService {
     // sin foto en lugar de retrasar el aviso al donante.
     const evidencia = gasto.evidencias.find((e) => e.anonimizada) ?? null;
     const plantilla = this.narrativa.elegirPlantilla(gasto.fondo.categoriaGasto);
+    const ong = gasto.ong.nombreComercial ?? gasto.ong.razonSocial;
+
+    // El borrador del ultimo analisis: si la ONG subsano, el anterior describe
+    // otro comprobante. Se revisa una vez por gasto, no por donante, porque
+    // habla del gasto y no de quien lo financio.
+    const analisis = await this.prisma.analisisAini.findFirst({
+      where: { gastoId },
+      orderBy: { creadoEn: 'desc' },
+      select: { narrativaBorrador: true },
+    });
+    const borrador = analisis?.narrativaBorrador ?? null;
+    const revision = borrador
+      ? NarrativaService.revisarBorrador(borrador, [
+          gasto.comprobante?.rucEmisor ?? '',
+          gasto.comprobante?.serie ?? '',
+          gasto.comprobante?.numero ?? '',
+          gasto.comprobante ? soles(gasto.comprobante.subtotal) : '',
+          gasto.comprobante ? soles(gasto.comprobante.igv) : '',
+          gasto.comprobante ? soles(gasto.comprobante.total) : '',
+          soles(gasto.montoDeclarado),
+          gasto.proveedorNombre,
+          gasto.concepto,
+          ong,
+        ])
+      : null;
+    const usaBorrador = revision?.aceptado === true;
+    if (revision && !revision.aceptado) {
+      this.logger.warn(
+        `Gasto ${gastoId}: se descarta el borrador de AIni. ${revision.motivos.join(' ')}`,
+      );
+    }
+    // El registro dice si el texto lleva el borrador: dos años despues tiene
+    // que poder saberse quien escribio cada parrafo que leyo el donante.
+    const firma = `${plantilla.codigo}@${plantilla.version}${usaBorrador ? '+aini' : ''}`;
 
     const notificaciones: string[] = [];
     const omitidas: ResultadoRetorno['omitidas'] = [];
@@ -83,12 +118,16 @@ export class RetornoService {
         concepto: gasto.concepto,
         proveedor: gasto.proveedorNombre,
         fecha: gasto.fechaGasto.toLocaleDateString('es-PE'),
-        ong: gasto.ong.nombreComercial ?? gasto.ong.razonSocial,
+        ong,
         fondo: gasto.fondo.nombre,
         campana: gasto.fondo.campana.titulo,
       };
 
-      const { asunto, cuerpo } = this.narrativa.redactar(plantilla, contexto);
+      const { asunto, cuerpo } = this.narrativa.redactar(
+        plantilla,
+        contexto,
+        usaBorrador ? borrador : null,
+      );
 
       const notificacion = await this.prisma.notificacion.create({
         data: {
@@ -103,7 +142,7 @@ export class RetornoService {
           aplicacionId: aplicacion.id,
           evidenciaId: evidencia?.id ?? null,
           montoAplicado: aplicacion.monto,
-          plantilla: `${plantilla.codigo}@${plantilla.version}`,
+          plantilla: firma,
           // Informa sobre el destino del dinero de esta persona: no es
           // comunicacion promocional.
           transaccional: true,
@@ -121,13 +160,15 @@ export class RetornoService {
       entidadId: gastoId,
       valorNuevo: {
         notificaciones: notificaciones.length,
-        plantilla: `${plantilla.codigo}@${plantilla.version}`,
+        plantilla: firma,
+        borrador: usaBorrador ? 'usado' : revision ? 'rechazado' : 'ausente',
+        ...(revision && !revision.aceptado ? { motivosRechazo: revision.motivos } : {}),
         conEvidencia: evidencia !== null,
       },
     });
 
     this.logger.log(
-      `Gasto ${gastoId}: ${notificaciones.length} donante(s) notificados con ${plantilla.codigo}.`,
+      `Gasto ${gastoId}: ${notificaciones.length} donante(s) notificados con ${firma}.`,
     );
 
     return { gastoId, notificaciones: notificaciones.length, omitidas };

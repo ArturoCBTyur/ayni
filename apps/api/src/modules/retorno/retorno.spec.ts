@@ -93,7 +93,12 @@ async function fondoConDonantes(
 }
 
 /** Gasto aprobado y aplicado FIFO, listo para notificar. */
-async function gastoAprobado(fondoId: string, monto: number, conPersonas = false) {
+async function gastoAprobado(
+  fondoId: string,
+  monto: number,
+  conPersonas = false,
+  borrador: (numero: string) => string | null = () => null,
+) {
   contador += 1;
 
   const gasto = await prisma.gasto.create({
@@ -154,6 +159,7 @@ async function gastoAprobado(fondoId: string, monto: number, conPersonas = false
       nivel: 'ALTO',
       datosExtraidos: { fuente: 'declarado' },
       explicacion: { motivos: [], resumen: 'Aprobado para la prueba de retorno.' },
+      narrativaBorrador: borrador(String(contador)),
     },
   });
 
@@ -270,6 +276,7 @@ describe('RNF-21 · La narrativa no puede afirmar lo no verificado', () => {
       categoria: null,
       asunto: 'Prueba',
       cuerpo: 'Gracias <%= it.donante %>, salvaste <%= it.vidasSalvadas %> vidas.',
+      verificacion: '',
     };
 
     // "vidasSalvadas" no es un dato que el sistema haya comprobado, asi que
@@ -292,11 +299,101 @@ describe('RNF-21 · La narrativa no puede afirmar lo no verificado', () => {
     const permitidos = NarrativaService.camposPermitidos();
 
     for (const plantilla of PLANTILLAS) {
-      const referencias = [...plantilla.cuerpo.matchAll(/it\.(\w+)/g)].map((m) => m[1]);
-      for (const referencia of referencias) {
+      // El cuerpo puede, ademas, colocar el parrafo de verificacion.
+      const delCuerpo = [...plantilla.cuerpo.matchAll(/it\.(\w+)/g)].map((m) => m[1]);
+      for (const referencia of delCuerpo) {
+        expect([...permitidos, 'verificacion']).toContain(referencia);
+      }
+      const deLaVerificacion = [...plantilla.verificacion.matchAll(/it\.(\w+)/g)].map((m) => m[1]);
+      for (const referencia of deLaVerificacion) {
         expect(permitidos).toContain(referencia);
       }
     }
+  });
+});
+
+describe('RNF-21 · El borrador de AIni se revisa antes de llegar al donante', () => {
+  const hechos = ['20601030579', 'B001', '004521', '118.00', 'Clinica Veterinaria San Roque'];
+  const bueno =
+    'La boleta B001-004521 de Clinica Veterinaria San Roque se leyó automáticamente: ' +
+    'el RUC y el total de S/ 118.00 coinciden con lo declarado.';
+
+  it('acepta un borrador que solo usa cifras del gasto', () => {
+    expect(NarrativaService.revisarBorrador(bueno, hechos)).toEqual({ aceptado: true, motivos: [] });
+  });
+
+  it('rechaza una cifra que el gasto no respalda', () => {
+    const r = NarrativaService.revisarBorrador(
+      bueno.replace('118.00', '180.00') + ' Se atendió a 12 perros.',
+      hechos,
+    );
+    expect(r.aceptado).toBe(false);
+    expect(r.motivos.join(' ')).toMatch(/180\.00, 12/);
+  });
+
+  it('rechaza el lenguaje sensacionalista igual que en una plantilla', () => {
+    const r = NarrativaService.revisarBorrador(`${bueno} Fue un caso desgarrador.`, hechos);
+    expect(r.aceptado).toBe(false);
+    expect(r.motivos.join(' ')).toMatch(/desgarrador/);
+  });
+
+  it('rechaza marcado y enlaces', () => {
+    for (const malo of [`${bueno} <script>x</script>`, `${bueno} Mira https://ejemplo.pe`]) {
+      expect(NarrativaService.revisarBorrador(malo, hechos).aceptado).toBe(false);
+    }
+  });
+
+  it('el donante recibe el borrador aceptado y queda registrado quien lo escribio', async () => {
+    const eva = await crearDonante('Eva');
+    const fondo = await fondoConDonantes('Fondo borrador', [
+      { donanteId: eva.donanteId, monto: 200 },
+    ]);
+    const gasto = await gastoAprobado(
+      fondo.id,
+      118,
+      false,
+      (numero) =>
+        `La boleta B001-${numero} de Agroveterinaria El Establo se leyó automáticamente: ` +
+        'el total de S/ 118.00 coincide con lo declarado.',
+    );
+
+    await retorno.notificarImpacto(gasto.id);
+
+    const n = await prisma.notificacion.findFirstOrThrow({
+      where: { usuarioId: eva.usuarioId, gastoId: gasto.id },
+    });
+    expect(n.cuerpo).toContain('se leyó automáticamente');
+    // El texto generico se mantiene: el borrador lo detalla, no lo reemplaza.
+    expect(n.cuerpo).toContain('respaldó el gasto con su comprobante');
+    // Y el monto propio del donante sigue viniendo de la plantilla.
+    expect(n.cuerpo).toContain('S/ 118.00 de tu donación');
+    expect(n.plantilla).toBe('impacto.alimentos@1.0+aini');
+  });
+
+  it('un borrador con una cifra inventada se descarta y sale la plantilla sola', async () => {
+    const leo = await crearDonante('Leo');
+    const fondo = await fondoConDonantes('Fondo borrador malo', [
+      { donanteId: leo.donanteId, monto: 200 },
+    ]);
+    const gasto = await gastoAprobado(
+      fondo.id,
+      100,
+      false,
+      () => 'Gracias a este gasto se alimentaron 40 perros durante 3 semanas.',
+    );
+
+    await retorno.notificarImpacto(gasto.id);
+
+    const n = await prisma.notificacion.findFirstOrThrow({
+      where: { usuarioId: leo.usuarioId, gastoId: gasto.id },
+    });
+    expect(n.cuerpo).not.toContain('40 perros');
+    expect(n.plantilla).toBe('impacto.alimentos@1.0');
+
+    const bitacora = await prisma.bitacoraAuditoria.findFirstOrThrow({
+      where: { accion: 'RETORNO_NOTIFICADO', entidadId: gasto.id },
+    });
+    expect(bitacora.valorNuevo).toMatchObject({ borrador: 'rechazado' });
   });
 });
 
@@ -318,6 +415,7 @@ describe('RF-CO-02 · Revision de lenguaje etico', () => {
       // no la encontraria, y es justo la forma que se usa en la practica.
       asunto: 'Una historia desgarradora',
       cuerpo: 'Gracias a ti, este pobrecito animal moribundo encontro un heroe.',
+      verificacion: '',
     };
 
     const hallazgos = NarrativaService.revisarLenguaje(mala);
@@ -334,6 +432,7 @@ describe('RF-CO-02 · Revision de lenguaje etico', () => {
       categoria: null,
       asunto: 'Un héroe anónimo',
       cuerpo: 'Esta víctima de la miseria vivió una tragedia.',
+      verificacion: '',
     };
 
     // Sin normalizar acentos, ninguna de estas se detectaria y el filtro

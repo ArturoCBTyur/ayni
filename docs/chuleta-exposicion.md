@@ -202,6 +202,7 @@ Baja a la tarjeta **«Lo que el modelo leyó en el papel»**. Campo por campo: R
 
 **4 · Donante otra vez** → Impacto
 La narrativa nombra **su monto exacto aplicado**, no el total del gasto.
+Si cerraste el círculo con la boleta de S/ 78, esa narrativa trae además el párrafo de AIni: qué leyó del papel y qué comprobaciones pasó. La del S/ 118 no lo trae porque la resolvió el motor de reglas, y ese contraste también se puede contar.
 
 **5 · Administrador** (`admin@demo.pe` + código) → Tablero
 Arriba: **«El libro contable cuadra»**. Abajo: los indicadores, y los que dicen **«Sin medir» con su motivo**.

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 
-from . import anomalia, cotejo, documental, ocr, visual
+from . import anomalia, cotejo, documental, narrativa, ocr, visual
 from .contrato import (
     AlertaAnalisis,
     DatosExtraidos,
@@ -266,7 +266,7 @@ def analizar(entrada: EntradaAnalisis, detector: anomalia.DetectorAnomalias) -> 
         datos_extraidos=_datos_extraidos(entrada, leido),
         explicacion=Explicacion(motivos=motivos, resumen=_resumen(nivel, motivos)),
         alertas=_alertas(motivos, bloqueo),
-        narrativa_borrador=None,
+        narrativa_borrador=narrativa.redactar_borrador(entrada, motivos, bloqueo),
         version_modelo=VERSION,
         duracion_ms=int((time.perf_counter() - inicio) * 1000),
     )

@@ -18,13 +18,14 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from aini import anomalia, documental, motor  # noqa: E402
+from aini import anomalia, documental, motor, narrativa  # noqa: E402
 from aini.contrato import (  # noqa: E402
     Comprobante,
     Contexto,
     Declarado,
     EntradaAnalisis,
     Evidencia,
+    MotivoAnalisis,
     ReglaUmbrales,
 )
 
@@ -310,3 +311,63 @@ class TestReglasDelNegocio:
         )
         assert motor.analizar(base, detector).nivel == "ALTO"
         assert motor.analizar(exigente, detector).nivel == "MEDIO"
+
+
+def ok(regla: str) -> MotivoAnalisis:
+    return MotivoAnalisis(regla=regla, senal="documental", resultado="ok", mensaje="ok")
+
+
+class TestBorradorDeNarrativa:
+    """RF-CO-01 · El borrador solo cuenta lo que una comprobacion respaldo."""
+
+    def test_un_gasto_verificado_trae_borrador(self, detector):
+        r = motor.analizar(entrada(), detector)
+        assert r.narrativa_borrador
+        assert "B001-004521" in r.narrativa_borrador
+        assert "Clinica Veterinaria San Roque" in r.narrativa_borrador
+
+    def test_una_evidencia_reciclada_no_lleva_borrador(self, detector):
+        r = motor.analizar(entrada(evidencia={"distanciaMinimaHistorico": 1}), detector)
+        assert r.narrativa_borrador is None
+
+    def test_sin_lectura_del_papel_no_dice_que_lo_leyo(self, detector):
+        """Las pruebas no tienen archivo real: el OCR no lee y no se afirma."""
+        r = motor.analizar(entrada(), detector)
+        assert "leyó" not in r.narrativa_borrador
+        assert "coinciden con lo declarado" not in r.narrativa_borrador
+
+    def test_lo_leido_se_cuenta_con_el_total(self):
+        texto = narrativa.redactar_borrador(
+            entrada(),
+            [ok("ocr.ruc_coincide"), ok("ocr.serie_coincide"), ok("ocr.total_coincide")],
+            bloqueo=False,
+        )
+        assert texto.startswith("La boleta B001-004521 de Clinica Veterinaria San Roque se leyó")
+        assert "el total de S/ 118.00" in texto
+        assert "coinciden con lo declarado" in texto
+
+    def test_una_comprobacion_fallida_no_se_afirma(self, detector):
+        r = motor.analizar(entrada(declarado={"concepto": "alquiler de oficina en Lima"}), detector)
+        assert falla(r, "nlp.coherencia_categoria")
+        assert "destino del fondo" not in (r.narrativa_borrador or "")
+
+    def test_una_regla_que_paso_en_una_evidencia_y_no_en_otra_no_se_afirma(self):
+        mixto = [
+            ok("vis.evidencia_nueva"),
+            MotivoAnalisis(regla="vis.evidencia_nueva", senal="visual", resultado="advertencia", mensaje="x"),
+            ok("doc.ruc_modulo11"),
+        ]
+        texto = narrativa.redactar_borrador(entrada(), mixto, bloqueo=False)
+        assert "foto" not in texto
+        assert "RUC del emisor es válido" in texto
+
+    def test_sin_nada_verificado_no_hay_borrador(self):
+        assert narrativa.redactar_borrador(entrada(), [], bloqueo=False) is None
+
+    def test_solo_cifras_del_comprobante(self, detector):
+        """El backend rechaza cualquier cifra que no salga del gasto: no darle motivo."""
+        import re
+
+        r = motor.analizar(entrada(), detector)
+        permitidas = set(re.findall(r"\d+(?:[.,]\d+)*", "B001 004521 118.00 20601030579"))
+        assert set(re.findall(r"\d+(?:[.,]\d+)*", r.narrativa_borrador)) <= permitidas

@@ -81,6 +81,7 @@ Entra con `donante@demo.pe`.
 
 15. Vuelve a `donante@demo.pe` → **Impacto**.
 16. La narrativa nombra **su monto exacto aplicado**, no el total del gasto: el concepto, el proveedor, la fecha, el comprobante y la foto anonimizada.
+    Si el gasto lo resolvió **AIni**, trae un párrafo más que cuenta *cómo* se verificó: qué leyó del papel y qué comprobaciones pasaron. Lo redacta AIni por reglas, sin modelo generativo, y la API lo revisa antes de usarlo: lenguaje prohibido, marcado y **toda cifra tiene que estar en los datos del gasto**. Si no pasa, el donante recibe la plantilla sola y la bitácora anota por qué. La notificación queda firmada `impacto.…@1.0+aini`.
 17. Muestra el botón de **reportar una inconsistencia**: abre un caso real de auditoría y devuelve el gasto a revisión.
 
 > **Lo que se está enseñando:** el donante no recibe un agradecimiento genérico. Recibe la cuenta de sus soles, con el respaldo documental, y tiene cómo objetar.
