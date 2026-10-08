@@ -230,8 +230,13 @@ async function enrolarSegundoFactor(): Promise<void> {
 async function sembrarCasos(): Promise<void> {
   console.log('\nCasos de demostración');
 
+  // El de la ONG del operador demo: otra ONG registrada desde la app puede
+  // tener un fondo con el mismo nombre.
   const fondo = await prisma.fondo.findFirst({
-    where: { nombre: 'Atencion veterinaria' },
+    where: {
+      nombre: 'Atencion veterinaria',
+      campana: { ong: { miembros: { some: { usuario: { correo: 'ong.operador@demo.pe' } } } } },
+    },
     include: { campana: true },
   });
   const operador = await prisma.usuario.findUnique({

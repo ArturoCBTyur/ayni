@@ -4,6 +4,10 @@ Ten esto abierto en otra ventana: es la tarjeta de referencia, no el guion.
 
 **El guion de la demostración es [presentacion-aplicativo.md](presentacion-aplicativo.md).**
 
+> **Desde octubre de 2026 cada cuenta entra a su Inicio**, con lo que tiene
+> pendiente. Las pestañas que nombra esta chuleta siguen ahí, a un toque. Y
+> el operador, el auditor y el administrador ya no ven el botón «Donar».
+
 ---
 
 ## Arrancar (si algo se cayó)

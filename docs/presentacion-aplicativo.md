@@ -6,6 +6,8 @@ Recorrido de 15 minutos por la aplicación con los cinco roles, con el momento d
 
 **La idea que organiza todo:** cada pantalla responde una pregunta que una persona real se hace. No recorras menús; recorre preguntas.
 
+> **Cada cuenta entra a su Inicio**, que ya es una de esas preguntas: *¿qué tengo pendiente?* Desde ahí, las pestañas que nombra esta guía están a un toque. Si sobra tiempo, [guion-demo.md](guion-demo.md#si-sobra-tiempo-lo-que-cada-rol-puede-hacer-ahora) resume lo que cada rol puede hacer además: crear campañas, verificar una ONG, donar cada mes.
+
 ---
 
 ## 1. Arrancar · cuatro ventanas

@@ -77,13 +77,17 @@ async function main() {
   const operador = await prisma.usuario.findUniqueOrThrow({
     where: { correo: 'ong.operador@demo.pe' },
   });
-  const ong = await prisma.ong.findFirstOrThrow();
+  // La ONG del operador demo, no "la primera": desde la aplicacion ya se
+  // pueden registrar otras, y un fondo de otra ONG puede llamarse igual.
+  const ong = await prisma.ong.findFirstOrThrow({
+    where: { miembros: { some: { usuarioId: operador.id } } },
+  });
 
   const fondoVeterinaria = await prisma.fondo.findFirstOrThrow({
-    where: { nombre: 'Atencion veterinaria' },
+    where: { nombre: 'Atencion veterinaria', campana: { ongId: ong.id } },
   });
   const fondoAlimentos = await prisma.fondo.findFirstOrThrow({
-    where: { nombre: 'Alimentos para rescate animal' },
+    where: { nombre: 'Alimentos para rescate animal', campana: { ongId: ong.id } },
   });
 
   console.info('Sembrando el escenario de demostracion...');
