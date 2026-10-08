@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../comun/tarjeta_analisis.dart';
+import '../../comun/visor_archivo.dart';
 import '../../comun/widgets.dart';
 import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
@@ -51,6 +53,8 @@ class _Detalle extends ConsumerWidget {
     final tema = Theme.of(context);
     final comprobante = datos['comprobante'] as Map<String, dynamic>?;
     final analisis = datos['analisis'] as Map<String, dynamic>?;
+    final evidencias =
+        (datos['evidencias'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
 
     return SingleChildScrollView(
       child: Contenido(
@@ -71,7 +75,7 @@ class _Detalle extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
 
-            if (analisis != null) _Analisis(analisis: analisis),
+            if (analisis != null) TarjetaAnalisis(analisis: analisis),
             const SizedBox(height: 20),
 
             Text('Lo declarado', style: tema.textTheme.titleSmall),
@@ -131,6 +135,37 @@ class _Detalle extends ConsumerWidget {
               ),
             ],
 
+            const SizedBox(height: 20),
+            Text('Los archivos originales', style: tema.textTheme.titleSmall),
+            const SizedBox(height: 4),
+            Text(
+              // El auditor es el unico rol que recibe los originales: es lo
+              // que necesita para comparar, y lo que nadie mas debe ver.
+              'Usted ve los originales, con rostros sin difuminar. Toque una imagen para '
+              'ampliarla.',
+              style: tema.textTheme.bodySmall?.copyWith(
+                color: tema.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                if (comprobante != null)
+                  MiniaturaArchivo(
+                    url: comprobante['url'] as String?,
+                    mime: comprobante['mime'] as String?,
+                    etiqueta: 'Comprobante ${comprobante['serie']}-${comprobante['numero']}',
+                  ),
+                for (final (i, evidencia) in evidencias.indexed)
+                  MiniaturaArchivo(
+                    url: evidencia['url'] as String?,
+                    etiqueta: etiquetaEvidencia(i, evidencia),
+                  ),
+              ],
+            ),
+
             if (analisis?['datosExtraidos'] != null) ...[
               const SizedBox(height: 20),
               _LoQueDiceElPapel(
@@ -146,6 +181,16 @@ class _Detalle extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Pie de una evidencia: su numero y si tiene personas, que es lo que decide
+/// quien puede verla.
+String etiquetaEvidencia(int indice, Map<String, dynamic> evidencia) {
+  final base = 'Evidencia ${indice + 1}';
+  if (evidencia['contienePersonas'] != true) return base;
+  return evidencia['anonimizada'] == true
+      ? '$base · con personas, difuminada para el donante'
+      : '$base · con personas, todavía sin difuminar';
 }
 
 /// RF-IA-02 · Lo que el lector sacó del documento, frente a lo declarado.
@@ -337,90 +382,6 @@ class _FilaCotejo extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-/// RNF-09 · Los motivos del puntaje, en lenguaje legible.
-class _Analisis extends StatelessWidget {
-  const _Analisis({required this.analisis});
-
-  final Map<String, dynamic> analisis;
-
-  @override
-  Widget build(BuildContext context) {
-    final tema = Theme.of(context);
-    final explicacion = analisis['explicacion'] as Map<String, dynamic>?;
-    final motivos =
-        (explicacion?['motivos'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                InsigniaNivel(
-                  nivel: analisis['nivel'] as String,
-                  score: analisis['scoreFinal'] as num?,
-                ),
-                const Spacer(),
-                Text(
-                  Formato.hace(Formato.aFecha(analisis['creadoEn'])),
-                  style: tema.textTheme.bodySmall,
-                ),
-              ],
-            ),
-            if (explicacion?['resumen'] != null) ...[
-              const SizedBox(height: 12),
-              Text(explicacion!['resumen'] as String, style: tema.textTheme.bodyMedium),
-            ],
-            if (motivos.isNotEmpty) ...[
-              const Divider(height: 28),
-              Text('Por qué el motor concluyó esto', style: tema.textTheme.labelLarge),
-              const SizedBox(height: 8),
-              for (final motivo in motivos)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        switch (motivo['resultado']) {
-                          'ok' => Icons.check_circle_outline,
-                          'advertencia' => Icons.info_outline,
-                          _ => Icons.error_outline,
-                        },
-                        size: 16,
-                        color: switch (motivo['resultado']) {
-                          'ok' => TemaApp.nivelAlto,
-                          'advertencia' => TemaApp.nivelMedio,
-                          _ => TemaApp.nivelBajo,
-                        },
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          motivo['mensaje'] as String,
-                          style: tema.textTheme.bodySmall,
-                        ),
-                      ),
-                      if ((motivo['penalizacion'] as num? ?? 0) > 0)
-                        Text(
-                          '−${motivo['penalizacion']}',
-                          style: tema.textTheme.labelSmall?.copyWith(
-                            color: tema.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-            ],
-          ],
-        ),
       ),
     );
   }

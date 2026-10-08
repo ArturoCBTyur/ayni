@@ -83,6 +83,15 @@ class Formato {
         _ => codigo ?? '—',
       };
 
+  /// Nombre legible de un tipo de comprobante de pago.
+  static String tipoComprobante(String? codigo) => switch (codigo) {
+        'FACTURA' => 'Factura',
+        'BOLETA' => 'Boleta',
+        'RECIBO_HONORARIOS' => 'Recibo por honorarios',
+        'NOTA_VENTA' => 'Nota de venta',
+        _ => codigo ?? '—',
+      };
+
   /// Nombre legible de un rol.
   static String rol(String codigo) => switch (codigo) {
         'DONANTE' => 'Donante',

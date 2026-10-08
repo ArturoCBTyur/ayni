@@ -1,8 +1,10 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { BitacoraService, type ContextoPeticion } from '../../comun/bitacora/bitacora.service';
 import { soles } from '../../comun/dinero';
 import { PrismaService } from '../../comun/prisma/prisma.service';
+import { urlPublicable } from '../gastos/evidencia-publica';
+import { ALMACENAMIENTO, type AlmacenamientoArchivos } from '../gastos/puertos/almacenamiento.port';
 import { NarrativaService, type ContextoNarrativa } from './narrativa.service';
 
 export interface ResultadoRetorno {
@@ -19,6 +21,7 @@ export class RetornoService {
     private readonly prisma: PrismaService,
     private readonly narrativa: NarrativaService,
     private readonly bitacora: BitacoraService,
+    @Inject(ALMACENAMIENTO) private readonly almacen: AlmacenamientoArchivos,
   ) {}
 
   /**
@@ -197,8 +200,13 @@ export class RetornoService {
       ong: n.gasto?.ong.nombreComercial ?? n.gasto?.ong.razonSocial ?? null,
       fondo: n.gasto?.fondo.nombre ?? null,
       // Solo se expone la version anonimizada; el original no sale de aqui.
+      // La base ya impide asociar una evidencia sin anonimizar (RNF-06).
       evidencia: n.evidencia
-        ? { id: n.evidencia.id, anonimizada: n.evidencia.anonimizada }
+        ? {
+            id: n.evidencia.id,
+            anonimizada: n.evidencia.anonimizada,
+            url: urlPublicable(this.almacen, n.evidencia),
+          }
         : null,
       gastoId: n.gastoId,
     }));

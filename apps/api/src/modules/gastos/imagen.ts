@@ -184,10 +184,17 @@ export async function difuminarRegiones(
  * verificacion y encarece el almacenamiento y cada descarga posterior.
  */
 export async function comprimirEvidencia(imagen: Buffer): Promise<Buffer> {
-  return sharp(imagen)
-    .resize(1920, 1920, { fit: 'inside', withoutEnlargement: true })
-    .jpeg({ quality: 82, mozjpeg: true })
-    .toBuffer();
+  return (
+    sharp(imagen)
+      // Endereza segun la orientacion EXIF antes de descartarla. El JPEG de
+      // salida no conserva metadatos, asi que sin esto la foto vertical de un
+      // celular quedaba guardada acostada, y asi la veian el auditor y el
+      // donante.
+      .rotate()
+      .resize(1920, 1920, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 82, mozjpeg: true })
+      .toBuffer()
+  );
 }
 
 /**

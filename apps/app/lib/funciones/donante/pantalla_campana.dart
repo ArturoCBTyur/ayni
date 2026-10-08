@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../comun/visor_archivo.dart';
 import '../../comun/widgets.dart';
 import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
@@ -285,6 +286,8 @@ class _TarjetaFondo extends StatelessWidget {
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
     final avance = (fondo['avance'] as num?) ?? 0;
+    final verificados =
+        (fondo['gastosVerificados'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
 
     return Card(
       child: Padding(
@@ -333,6 +336,11 @@ class _TarjetaFondo extends StatelessWidget {
               ],
             ),
 
+            if (verificados.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _GastosVerificados(gastos: verificados),
+            ],
+
             if (onDonar != null) ...[
               const SizedBox(height: 16),
               Align(
@@ -347,6 +355,83 @@ class _TarjetaFondo extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// En que se gasto lo ejecutado del fondo, con su evidencia publicable.
+///
+/// "Ejecutado y verificado" es una cifra; esto es lo que la respalda, y se ve
+/// antes de donar. Las fotos son siempre la version publicable: la API no
+/// entrega aqui un original con rostros.
+class _GastosVerificados extends StatelessWidget {
+  const _GastosVerificados({required this.gastos});
+
+  final List<Map<String, dynamic>> gastos;
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = Theme.of(context);
+
+    return ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(bottom: 8),
+      leading: Icon(Icons.verified_outlined, color: TemaApp.nivelAlto),
+      title: Text(
+        gastos.length == 1
+            ? 'En qué se usó: 1 gasto verificado'
+            : 'En qué se usó: ${gastos.length} gastos verificados',
+        style: tema.textTheme.labelLarge,
+      ),
+      children: [
+        for (final gasto in gastos)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(gasto['concepto'] as String, style: tema.textTheme.bodyMedium),
+                    ),
+                    Text(
+                      Formato.soles(gasto['monto'] as String?),
+                      style: tema.textTheme.labelLarge,
+                    ),
+                  ],
+                ),
+                Text(
+                  [
+                    gasto['proveedor'] as String,
+                    Formato.fecha(Formato.aFecha(gasto['fechaGasto'])),
+                    if (gasto['comprobante'] != null) gasto['comprobante'] as String,
+                  ].join(' · '),
+                  style: tema.textTheme.bodySmall?.copyWith(
+                    color: tema.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                if ((gasto['evidencias'] as List<dynamic>).isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final url in (gasto['evidencias'] as List<dynamic>).cast<String>())
+                        MiniaturaArchivo(
+                          url: url,
+                          etiqueta: 'Evidencia: ${gasto['concepto']}',
+                          ancho: 120,
+                          alto: 90,
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 
+import { GastosModule } from '../gastos/gastos.module';
 import { NarrativaService } from './narrativa.service';
 import { RetornoController } from './retorno.controller';
 import { RetornoService } from './retorno.service';
@@ -14,6 +15,8 @@ import { RetornoService } from './retorno.service';
  */
 @Global()
 @Module({
+  // Para firmar la URL de la evidencia anonimizada en cada notificacion.
+  imports: [GastosModule],
   controllers: [RetornoController],
   providers: [RetornoService, NarrativaService],
   exports: [RetornoService, NarrativaService],

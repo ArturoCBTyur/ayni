@@ -16,6 +16,9 @@ import { cargarConfiguracion } from '../../config/configuracion';
 import { calcularDigitoVerificadorRuc } from '../verificacion/reglas/ruc';
 import { CampanasService } from './campanas.service';
 import { OngsService } from './ongs.service';
+import { CifradoService } from '../../comun/cifrado/cifrado.service';
+import { AlmacenamientoDisco } from '../gastos/almacenamiento/disco.storage';
+import { ALMACENAMIENTO } from '../gastos/puertos/almacenamiento.port';
 
 const marca = randomUUID().slice(0, 8);
 
@@ -140,7 +143,15 @@ async function crearOngConCampana(opciones: {
 beforeAll(async () => {
   const modulo = await Test.createTestingModule({
     imports: [ConfigModule.forRoot({ isGlobal: true, load: [() => cargarConfiguracion()] })],
-    providers: [PrismaService, BitacoraService, CampanasService, OngsService],
+    providers: [
+      PrismaService,
+      BitacoraService,
+      CampanasService,
+      OngsService,
+      CifradoService,
+      AlmacenamientoDisco,
+      { provide: ALMACENAMIENTO, useExisting: AlmacenamientoDisco },
+    ],
   }).compile();
 
   prisma = modulo.get(PrismaService);

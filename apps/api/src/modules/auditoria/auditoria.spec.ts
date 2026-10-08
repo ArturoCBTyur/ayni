@@ -21,6 +21,9 @@ import { AplicacionFifoService } from '../contable/aplicacion-fifo.service';
 import { LibroService } from '../contable/libro.service';
 import { AlertasService } from './alertas.service';
 import { AuditoriaService } from './auditoria.service';
+import { CifradoService } from '../../comun/cifrado/cifrado.service';
+import { AlmacenamientoDisco } from '../gastos/almacenamiento/disco.storage';
+import { ALMACENAMIENTO } from '../gastos/puertos/almacenamiento.port';
 
 const marca = randomUUID().slice(0, 8);
 
@@ -168,6 +171,9 @@ beforeAll(async () => {
       AplicacionFifoService,
       NarrativaService,
       RetornoService,
+      CifradoService,
+      AlmacenamientoDisco,
+      { provide: ALMACENAMIENTO, useExisting: AlmacenamientoDisco },
       OngsService,
       AuditoriaService,
       AlertasService,

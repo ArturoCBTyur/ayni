@@ -1,11 +1,22 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { BitacoraService, type ContextoPeticion } from '../../comun/bitacora/bitacora.service';
 import { PrismaService } from '../../comun/prisma/prisma.service';
 import type { ActualizarCampana, BuscarCausas, CrearCampana, CrearFondo } from './esquemas';
 import { soles } from '../../comun/dinero';
+import { urlPublicable } from '../gastos/evidencia-publica';
+import { ALMACENAMIENTO, type AlmacenamientoArchivos } from '../gastos/puertos/almacenamiento.port';
 import { calcularAvance } from './ongs.service';
+
+/** Cuantos gastos verificados se muestran por fondo en la ficha publica. */
+const GASTOS_VERIFICADOS_POR_FONDO = 5;
 
 /** Fila que devuelve la consulta de busqueda por texto. */
 interface FilaBusqueda {
@@ -33,6 +44,7 @@ export class CampanasService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly bitacora: BitacoraService,
+    @Inject(ALMACENAMIENTO) private readonly almacen: AlmacenamientoArchivos,
   ) {}
 
   /**
@@ -337,6 +349,8 @@ export class CampanasService {
       throw new NotFoundException('No encontramos esa campaña.');
     }
 
+    const verificados = await this.gastosVerificados(campana.fondos.map((f) => f.id));
+
     return {
       id: campana.id,
       slug: campana.slug,
@@ -365,8 +379,51 @@ export class CampanasService {
         retenido: soles(f.saldoRetenido),
         ejecutado: soles(f.saldoEjecutado),
         avance: calcularAvance(f.saldoRecaudado.toNumber(), f.meta.toNumber()),
+        gastosVerificados: verificados.get(f.id) ?? [],
       })),
     };
+  }
+
+  /**
+   * En que se gasto lo ejecutado de cada fondo, con su evidencia publicable.
+   *
+   * "Ejecutado y verificado" es una cifra; esto es lo que la respalda, y se
+   * muestra antes de donar, no solo despues. Solo gastos APROBADOS y solo la
+   * foto publicable: la difuminada si habia personas, nunca el original. Del
+   * comprobante va su identificacion, no el archivo: es un documento de la
+   * ONG y puede traer datos de terceros.
+   */
+  private async gastosVerificados(fondoIds: string[]) {
+    const porFondo = await Promise.all(
+      fondoIds.map((fondoId) =>
+        this.prisma.gasto.findMany({
+          where: { fondoId, estado: 'APROBADO' },
+          orderBy: { aprobadoEn: 'desc' },
+          take: GASTOS_VERIFICADOS_POR_FONDO,
+          include: { comprobante: true, evidencias: true },
+        }),
+      ),
+    );
+
+    return new Map(
+      fondoIds.map((fondoId, i) => [
+        fondoId,
+        porFondo[i].map((g) => ({
+          id: g.id,
+          concepto: g.concepto,
+          proveedor: g.proveedorNombre,
+          monto: soles(g.montoAprobado ?? g.montoDeclarado),
+          fechaGasto: g.fechaGasto,
+          aprobadoEn: g.aprobadoEn,
+          comprobante: g.comprobante
+            ? `${g.comprobante.tipo} ${g.comprobante.serie}-${g.comprobante.numero}`
+            : null,
+          evidencias: g.evidencias
+            .map((e) => urlPublicable(this.almacen, e))
+            .filter((url): url is string => url !== null),
+        })),
+      ]),
+    );
   }
 
   /** Slug legible y unico, derivado del titulo. */
