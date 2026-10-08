@@ -105,6 +105,47 @@ jobs:
       - name: Compilar para web
         run: flutter build web --release
 
+  aini:
+    name: AIni (Python)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: apps/aini
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/aini/requirements.txt
+
+      # opencv, que llega con rapidocr, enlaza contra libGL aunque nunca abra
+      # una ventana. Sin esto el lector falla al importarse.
+      - name: Bibliotecas del sistema
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgl1 libglib2.0-0
+
+      - run: pip install -r requirements.txt
+
+      - name: Modelo de lenguaje
+        run: python -m spacy download es_core_news_md
+
+      # El modelo entrenado no se versiona. Con la semilla fija, este es el
+      # mismo modelo contra el que se escribieron las pruebas.
+      - name: Entrenar detector de anomalias
+        run: python -m entrenamiento.entrenar
+
+      - name: Pruebas
+        run: python -m pytest pruebas/ -q
+
+      # Solo conceptos: spaCy da los mismos vectores en cualquier sistema. El
+      # lector depende de las fuentes y de onnxruntime de cada plataforma, y
+      # su banco de campo no esta en el repo; se compara en local.
+      - name: Evaluacion contra la linea base
+        run: python -m evaluacion --solo conceptos --comparar
+
   docker:
     name: Imagenes Docker
     runs-on: ubuntu-latest

@@ -1,0 +1,195 @@
+concepto,categoria,corresponde,alternativas,origen
+compra de croquetas y alimento seco,ALIMENTOS,si,,probar.limites
+alimento balanceado para perros rescatados,ALIMENTOS,si,,ejemplos
+3 sacos de croqueta para cachorros,ALIMENTOS,si,,redactado
+alimento humedo en lata para gatos convalecientes,ALIMENTOS,si,,redactado
+compra de 2 sacos de dog chow de 15 kg,ALIMENTOS,si,,redactado
+pollo y arroz para la dieta de los perros del albergue,ALIMENTOS,si,,redactado
+alimento para gatitos lactantes,ALIMENTOS,si,,redactado
+leche maternizada para cachorros huérfanos,ALIMENTOS,si,,redactado
+sacos de alimento para el refugio de Amarilis,ALIMENTOS,si,,redactado
+croquetas para la campaña de adopción,ALIMENTOS,si,,redactado
+compra de concentrado para perros adultos,ALIMENTOS,si,,redactado
+menudencia de pollo para los perros,ALIMENTOS,si,,redactado
+compra mensual de alimento para 40 perros,ALIMENTOS,si,,redactado
+galletas y premios para el adiestramiento,ALIMENTOS,si,,redactado
+alimento para gatos del albergue (mes de octubre),ALIMENTOS,si,,redactado
+"arroz, hígado y verduras para preparar la comida de los perros",ALIMENTOS,si,,redactado
+alimento seco premium para hembras gestantes,ALIMENTOS,si,,redactado
+comida para los animales rescatados del río Huallaga,ALIMENTOS,si,,redactado
+racion diaria de alimento para el albergue,ALIMENTOS,si,,redactado
+2 bolsas de whiskas para gatos,ALIMENTOS,si,,redactado
+alfalfa y heno para el burro rescatado,ALIMENTOS,si,,redactado
+comida para perros de la jornada de adopcion,ALIMENTOS,si,,redactado
+alimento de cachorro marca ricocan,ALIMENTOS,si,,redactado
+atun y sardinas para los gatos del albergue,ALIMENTOS,si,,redactado
+atencion veterinaria de urgencia de tres perros rescatados,ATENCION_VETERINARIA,si,,seed-demo
+consulta veterinaria y curacion de una gata herida,ATENCION_VETERINARIA,si,,ejemplos
+radiografia y atencion de un perro con fractura,ATENCION_VETERINARIA,si,,ejemplos
+cirugia veterinaria de un perro atropellado,ATENCION_VETERINARIA,si,,ejemplos
+atencion veterinaria de urgencia,ATENCION_VETERINARIA,si,,probar
+honorarios del veterinario de turno,ATENCION_VETERINARIA,si,OTROS,probar.limites
+desparasitacion de ocho perros rescatados,ATENCION_VETERINARIA,si,MEDICAMENTOS,documental
+vacunacion antirrabica de doce gatos,ATENCION_VETERINARIA,si,MEDICAMENTOS,probar
+vacunacion antirrabica de doce gatos del albergue,ATENCION_VETERINARIA,si,MEDICAMENTOS,documental
+consulta y vacunación de cachorros,ATENCION_VETERINARIA,si,MEDICAMENTOS,redactado
+ecografía abdominal a perra preñada,ATENCION_VETERINARIA,si,,redactado
+hemograma y análisis de sangre de gato con anemia,ATENCION_VETERINARIA,si,,redactado
+curación de herida por mordedura,ATENCION_VETERINARIA,si,,redactado
+hospitalización de perro con parvovirus por 3 dias,ATENCION_VETERINARIA,si,,redactado
+cirugía de cesárea de perra callejera,ATENCION_VETERINARIA,si,,redactado
+limpieza dental con anestesia,ATENCION_VETERINARIA,si,,redactado
+amputación de pata de gato atropellado,ATENCION_VETERINARIA,si,,redactado
+consulta dermatológica por sarna,ATENCION_VETERINARIA,si,,redactado
+sutura de herida en el cuello de un perro,ATENCION_VETERINARIA,si,,redactado
+atención de emergencia nocturna en clínica San Roque,ATENCION_VETERINARIA,si,,redactado
+control post operatorio de la perrita Luna,ATENCION_VETERINARIA,si,,redactado
+tratamiento de fluidoterapia y suero,ATENCION_VETERINARIA,si,MEDICAMENTOS,redactado
+extracción de tumor mamario en perra adulta,ATENCION_VETERINARIA,si,,redactado
+eutanasia humanitaria de perro en estado terminal,ATENCION_VETERINARIA,si,,redactado
+reducción de fractura con clavo intramedular,ATENCION_VETERINARIA,si,,redactado
+consulta veterinaria a domicilio en Pillco Marca,ATENCION_VETERINARIA,si,,redactado
+examen de orina y descarte de leptospirosis,ATENCION_VETERINARIA,si,,redactado
+vacunas antirrabicas,MEDICAMENTOS,si,ATENCION_VETERINARIA,probar.limites
+antibiotico amoxicilina para perro con infeccion,MEDICAMENTOS,si,,redactado
+desparasitante interno para 15 cachorros,MEDICAMENTOS,si,ATENCION_VETERINARIA,redactado
+compra de antipulgas y garrapaticida,MEDICAMENTOS,si,,redactado
+ivermectina para tratamiento de sarna,MEDICAMENTOS,si,,redactado
+meloxicam para el dolor post cirugía,MEDICAMENTOS,si,,redactado
+pastillas nexgard para 10 perros,MEDICAMENTOS,si,,redactado
+suero fisiológico y vitaminas inyectables,MEDICAMENTOS,si,,redactado
+analgésicos y antiinflamatorios para el albergue,MEDICAMENTOS,si,,redactado
+pomada cicatrizante para heridas,MEDICAMENTOS,si,,redactado
+gotas oftálmicas para gato con conjuntivitis,MEDICAMENTOS,si,,redactado
+jarabe para la tos de perrera,MEDICAMENTOS,si,,redactado
+metronidazol para cachorros con diarrea,MEDICAMENTOS,si,,redactado
+vacuna séxtuple para cachorros,MEDICAMENTOS,si,ATENCION_VETERINARIA,redactado
+medicinas recetadas por el veterinario,MEDICAMENTOS,si,,redactado
+tratamiento antibiótico de 10 días,MEDICAMENTOS,si,ATENCION_VETERINARIA,redactado
+complejo B y hierro para perro anémico,MEDICAMENTOS,si,,redactado
+spray antiséptico y yodo,MEDICAMENTOS,si,INSUMOS,redactado
+insulina para perro diabético,MEDICAMENTOS,si,,redactado
+antimicóticos para gatos con hongos,MEDICAMENTOS,si,,redactado
+corticoides para dermatitis alérgica,MEDICAMENTOS,si,,redactado
+medicamentos para el botiquín del albergue,MEDICAMENTOS,si,INSUMOS,redactado
+compra de jeringas y guantes,INSUMOS,si,,probar.limites
+"gasas, vendas y esparadrapo",INSUMOS,si,,redactado
+collares y correas para perros adoptados,INSUMOS,si,,redactado
+jaula transportadora para gatos,INSUMOS,si,,redactado
+guantes de látex y mascarillas descartables,INSUMOS,si,,redactado
+bolsas para recoger heces,INSUMOS,si,,redactado
+camas y mantas para los perros del albergue,INSUMOS,si,,redactado
+platos de acero para comida y agua,INSUMOS,si,,redactado
+arena sanitaria para gatos,INSUMOS,si,,redactado
+desinfectante y lejía para limpiar los caniles,INSUMOS,si,OTROS,redactado
+catéteres y equipos de venoclisis,INSUMOS,si,ATENCION_VETERINARIA,redactado
+bozales de distintas tallas,INSUMOS,si,,redactado
+microchips para identificación de perros,INSUMOS,si,ATENCION_VETERINARIA,redactado
+shampoo medicado para baño de perros,INSUMOS,si,MEDICAMENTOS,redactado
+cepillos y cortaúñas para aseo,INSUMOS,si,,redactado
+pañales para perros postrados,INSUMOS,si,,redactado
+termómetro digital y estetoscopio,INSUMOS,si,,redactado
+collares isabelinos para perros operados,INSUMOS,si,,redactado
+kennel grande para traslado,INSUMOS,si,TRANSPORTE,redactado
+bebederos automáticos,INSUMOS,si,,redactado
+mantas térmicas para cachorros,INSUMOS,si,,redactado
+hojas de bisturí y material de sutura,INSUMOS,si,ATENCION_VETERINARIA|ESTERILIZACION,redactado
+gastos de movilidad del personal,TRANSPORTE,si,,probar.limites
+compra de una camioneta,TRANSPORTE,si,,probar.limites
+combustible para el rescate en Tingo María,TRANSPORTE,si,,redactado
+taxi para llevar perro herido a la clínica,TRANSPORTE,si,,redactado
+pasajes de bus Huánuco - Lima para traslado de gato a cirugía,TRANSPORTE,si,,redactado
+flete para traer sacos de alimento,TRANSPORTE,si,,redactado
+gasolina de la moto del albergue,TRANSPORTE,si,,redactado
+alquiler de mototaxi para jornada de rescate,TRANSPORTE,si,,redactado
+traslado de 5 perros adoptados a sus nuevas familias,TRANSPORTE,si,,redactado
+peaje y combustible de la camioneta,TRANSPORTE,si,,redactado
+cambio de aceite de la camioneta de rescate,TRANSPORTE,si,,redactado
+movilidad para la campaña de esterilización en Ambo,TRANSPORTE,si,,redactado
+envío de encomienda con medicinas desde Lima,TRANSPORTE,si,,redactado
+pasaje del voluntario para recoger un perro abandonado,TRANSPORTE,si,,redactado
+cambio de llantas de la moto,TRANSPORTE,si,,redactado
+taxi colectivo para ir al mercado a comprar alimento,TRANSPORTE,si,,redactado
+servicio de grúa para rescatar un caballo,TRANSPORTE,si,,redactado
+combustible para traslado de animales al albergue,TRANSPORTE,si,,redactado
+transporte de jaulas para la feria de adopción,TRANSPORTE,si,,redactado
+alquiler de camión para mudanza del albergue,TRANSPORTE,si,,redactado
+viáticos de traslado del veterinario a la zona rural,TRANSPORTE,si,OTROS,redactado
+diesel para la camioneta,TRANSPORTE,si,,redactado
+reparacion del techo del albergue,INFRAESTRUCTURA,si,,probar.limites
+construcción de 4 caniles nuevos,INFRAESTRUCTURA,si,,redactado
+"cemento, fierro y ladrillos para el muro perimétrico",INFRAESTRUCTURA,si,,redactado
+cambio de calaminas del techo,INFRAESTRUCTURA,si,,redactado
+instalación de malla metálica en el patio,INFRAESTRUCTURA,si,,redactado
+pintura y mano de obra para el área de cuarentena,INFRAESTRUCTURA,si,,redactado
+reparación de la tubería de agua del albergue,INFRAESTRUCTURA,si,,redactado
+construcción de sala de recuperación postoperatoria,INFRAESTRUCTURA,si,,redactado
+instalación eléctrica del consultorio,INFRAESTRUCTURA,si,,redactado
+puerta metálica para la entrada del refugio,INFRAESTRUCTURA,si,,redactado
+piso de cemento para los caniles,INFRAESTRUCTURA,si,,redactado
+cerco de madera para la zona de gatos,INFRAESTRUCTURA,si,,redactado
+reparación del tanque de agua,INFRAESTRUCTURA,si,,redactado
+techado del área de alimentación,INFRAESTRUCTURA,si,,redactado
+gasfitero para arreglar el desagüe,INFRAESTRUCTURA,si,,redactado
+compra de calaminas y clavos,INFRAESTRUCTURA,si,,redactado
+ampliación del gatario,INFRAESTRUCTURA,si,,redactado
+construcción de canaletas para lluvias,INFRAESTRUCTURA,si,,redactado
+mano de obra del albañil por 5 días,INFRAESTRUCTURA,si,,redactado
+instalación de lavadero para bañar perros,INFRAESTRUCTURA,si,,redactado
+reforzar paredes del canil dañadas por las lluvias,INFRAESTRUCTURA,si,,redactado
+toldo para el área de adopción,INFRAESTRUCTURA,si,INSUMOS,redactado
+esterilizacion de 20 gatos,ESTERILIZACION,si,ATENCION_VETERINARIA,probar.limites
+campaña de esterilización en Amarilis,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+castración de 12 perros machos,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+ovariohisterectomía de perras callejeras,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+esterilización de gatas en la jornada del sábado,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+honorarios del cirujano de la campaña de esterilización,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+anestesia para la jornada de castración,ESTERILIZACION,si,ATENCION_VETERINARIA|MEDICAMENTOS,redactado
+esterilizacion de 30 perras en Pillco Marca,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+castración de gatos del mercado modelo,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+campaña de castración a bajo costo,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+cirugías de esterilización de 8 hembras,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+esterilización de perra en celo,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+jornada de capado de perros en zona rural,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+material quirúrgico para la campaña de esterilización,ESTERILIZACION,si,ATENCION_VETERINARIA|INSUMOS,redactado
+esterilizacion gratuita de mascotas de familias de bajos recursos,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+castracion de 5 gatos machos del albergue,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+esterilización con técnica de flanco,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+anestésicos y suturas para 40 esterilizaciones,ESTERILIZACION,si,ATENCION_VETERINARIA|MEDICAMENTOS|INSUMOS,redactado
+servicio de esterilización a domicilio,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+control post operatorio de las perras esterilizadas,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+campaña de control de natalidad canina,ESTERILIZACION,si,ATENCION_VETERINARIA,redactado
+pago de luz y agua del albergue,OTROS,si,,probar.limites
+alquiler de oficina administrativa,OTROS,si,,ejemplos
+almuerzo del equipo de rescate,OTROS,si,,ejemplos
+publicidad en redes sociales para adopciones,OTROS,si,,redactado
+impresión de afiches para la feria de adopción,OTROS,si,,redactado
+pago al contador por la declaración mensual,OTROS,si,,redactado
+recibo de internet del albergue,OTROS,si,,redactado
+papelería y útiles de oficina,OTROS,si,,redactado
+trámite de licencia municipal,OTROS,si,,redactado
+pago de teléfono celular del coordinador,OTROS,si,,redactado
+comisión bancaria por transferencia,OTROS,si,,redactado
+alquiler de local para el albergue,OTROS,si,INFRAESTRUCTURA,redactado
+pago de vigilancia nocturna,OTROS,si,,redactado
+diseño de página web de la ONG,OTROS,si,,redactado
+notaría para legalizar actas,OTROS,si,,redactado
+recarga de balón de gas,OTROS,si,,redactado
+polos estampados para voluntarios,OTROS,si,,redactado
+recibo de agua de setiembre,OTROS,si,,redactado
+seguro contra accidentes de voluntarios,OTROS,si,,redactado
+capacitación de voluntarios en manejo de animales,OTROS,si,,redactado
+almuerzo del equipo de rescate,ALIMENTOS,no,,probar.limites
+publicidad en redes sociales,ATENCION_VETERINARIA,no,,probar.limites
+alquiler de oficina,ATENCION_VETERINARIA,no,,probar.limites
+compra de alimento,ATENCION_VETERINARIA,no,,probar.limites
+alquiler de oficina administrativa,ATENCION_VETERINARIA,no,,ejemplos
+alquiler de oficina administrativa y mobiliario,ATENCION_VETERINARIA,no,,pruebas
+comida para la reunión de directiva,ALIMENTOS,no,,redactado
+fiesta de aniversario de la ONG,ALIMENTOS,no,,redactado
+compra de celular para la tesorera,INSUMOS,no,,redactado
+pasajes de vacaciones del presidente,TRANSPORTE,no,,redactado
+remodelación de la casa del presidente,INFRAESTRUCTURA,no,,redactado
+alquiler de oficina,ESTERILIZACION,no,,redactado
+gasolina del auto particular del tesorero,ATENCION_VETERINARIA,no,,redactado
+compra de laptop para la oficina,MEDICAMENTOS,no,,redactado
