@@ -335,6 +335,44 @@ describe('Rotacion de sesiones', () => {
     await expect(tokens.rotar(sesion.tokenRefresh)).rejects.toThrow(/sesion expiro/i);
   });
 
+  it('refrescar no convierte una sesion de enrolamiento en una plena', async () => {
+    const { usuario } = await crearUsuario('AUDITOR');
+    const r = await identidad.iniciarSesion({ correo: usuario.correo, clave: CLAVE }, {});
+    expect(r.mfaPendiente).toBe(true);
+
+    const rotada = await tokens.rotar(r.tokenRefresh);
+
+    expect(rotada.mfaPendiente).toBe(true);
+    const carga = await tokens.verificarAcceso(rotada.tokenAcceso);
+    expect(carga.mfaPendiente).toBe(true);
+  });
+
+  it('quien gana un rol que exige MFA lo debe configurar al refrescar', async () => {
+    const { usuario } = await crearUsuario('DONANTE');
+    const r = await identidad.iniciarSesion({ correo: usuario.correo, clave: CLAVE }, {});
+    expect(r.mfaPendiente).toBe(false);
+
+    const ongAdmin = await prisma.rol.findUniqueOrThrow({ where: { codigo: 'ONG_ADMIN' } });
+    await prisma.usuarioRol.create({ data: { usuarioId: usuario.id, rolId: ongAdmin.id } });
+
+    const rotada = await tokens.rotar(r.tokenRefresh);
+    expect(rotada.mfaPendiente).toBe(true);
+    expect((await tokens.verificarAcceso(rotada.tokenAcceso)).roles).toContain('ONG_ADMIN');
+  });
+
+  it('con el segundo factor activo, refrescar entrega una sesion plena', async () => {
+    const { usuario, secreto } = await crearUsuario('AUDITOR', { conMfa: true });
+    const r = await identidad.iniciarSesion(
+      { correo: usuario.correo, clave: CLAVE, codigoTotp: authenticator.generate(secreto) },
+      {},
+    );
+
+    const rotada = await tokens.rotar(r.tokenRefresh);
+
+    expect(rotada.mfaPendiente).toBe(false);
+    expect((await tokens.verificarAcceso(rotada.tokenAcceso)).mfaPendiente).toBeUndefined();
+  });
+
   it('rechaza un refresh inexistente', async () => {
     await expect(tokens.rotar('token-que-nunca-existio')).rejects.toThrow(/sesion expiro/i);
     await expect(tokens.rotar(undefined)).rejects.toThrow(/sesion expiro/i);

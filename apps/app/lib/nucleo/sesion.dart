@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'api/cliente_api.dart';
@@ -155,6 +157,14 @@ class SesionNotifier extends Notifier<EstadoSesion> {
     try {
       final respuesta = await _api.enviar('/identidad/sesion/refrescar');
       _api.establecerToken(respuesta['tokenAcceso'] as String);
+      final mfaPendiente = respuesta['mfaPendiente'] as bool? ?? false;
+
+      // Con el enrolamiento pendiente, el token solo abre las rutas de MFA:
+      // el perfil se pediria con un 403. Basta con lo que trae el token.
+      if (mfaPendiente) {
+        state = EstadoSesion(usuario: _usuarioDelToken(respuesta), mfaPendiente: true);
+        return;
+      }
 
       final perfil = await _api.obtener('/identidad/perfil');
       state = EstadoSesion(
@@ -173,6 +183,24 @@ class SesionNotifier extends Notifier<EstadoSesion> {
       // por primera vez.
       state = const EstadoSesion();
     }
+  }
+
+  /// Usuario a partir de la carga del token de acceso.
+  ///
+  /// Solo se usa mientras el segundo factor esta pendiente, cuando el perfil
+  /// no se puede pedir. No es una verificacion de la firma, ni hace falta:
+  /// lo que el token autoriza lo decide el servidor, no esta lectura.
+  UsuarioSesion _usuarioDelToken(Map<String, dynamic> respuesta) {
+    final partes = (respuesta['tokenAcceso'] as String).split('.');
+    final carga = jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(partes[1]))))
+        as Map<String, dynamic>;
+    return UsuarioSesion(
+      id: carga['sub'] as String,
+      correo: carga['correo'] as String,
+      nombres: '',
+      apellidos: '',
+      roles: (carga['roles'] as List<dynamic>).cast<String>(),
+    );
   }
 
   Future<void> cerrarSesion() async {
