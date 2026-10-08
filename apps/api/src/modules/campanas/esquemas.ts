@@ -63,6 +63,23 @@ export const esquemaVerificarOng = z.object({
 });
 export type VerificarOng = z.infer<typeof esquemaVerificarOng>;
 
+/** Agregar a alguien al equipo de la ONG: tiene que tener cuenta ya. */
+export const esquemaAgregarMiembro = z.object({
+  correo: z.string().trim().toLowerCase().email('Ingrese el correo de su cuenta en Ayni.'),
+  cargo: z.enum(['ADMINISTRADOR', 'OPERADOR']),
+});
+export type AgregarMiembro = z.infer<typeof esquemaAgregarMiembro>;
+
+export const esquemaCambiarMiembro = z
+  .object({
+    cargo: z.enum(['ADMINISTRADOR', 'OPERADOR']).optional(),
+    activo: z.boolean().optional(),
+  })
+  .refine((d) => d.cargo !== undefined || d.activo !== undefined, {
+    message: 'Indique el cargo nuevo o si la persona sigue activa.',
+  });
+export type CambiarMiembro = z.infer<typeof esquemaCambiarMiembro>;
+
 export const esquemaCrearCampana = z.object({
   titulo: z.string().trim().min(5, 'El titulo debe explicar la causa.').max(200),
   descripcion: z

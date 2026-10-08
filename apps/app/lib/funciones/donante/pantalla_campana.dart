@@ -9,6 +9,7 @@ import '../../nucleo/sesion.dart';
 import '../../nucleo/tema.dart';
 import '../ong/pantalla_fondos.dart';
 import 'hoja_donar.dart';
+import 'pantalla_ong.dart';
 
 final campanaProvider =
     FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, slug) async {
@@ -91,10 +92,16 @@ class _Detalle extends ConsumerWidget {
               children: [
                 SelloVerificada(verificada: ong['verificada'] as bool),
                 const SizedBox(width: 12),
-                Text(
-                  ong['nombre'] as String,
-                  style: tema.textTheme.bodyMedium?.copyWith(
-                    color: tema.colorScheme.onSurfaceVariant,
+                // Quien esta detras de la causa, a un toque: su ficha publica.
+                Flexible(
+                  child: TextButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => PantallaOng(ongId: ong['id'] as String),
+                      ),
+                    ),
+                    icon: const Icon(Icons.domain_outlined, size: 18),
+                    label: Text(ong['nombre'] as String, overflow: TextOverflow.ellipsis),
                   ),
                 ),
               ],
@@ -103,7 +110,10 @@ class _Detalle extends ConsumerWidget {
             Text(datos['descripcion'] as String, style: tema.textTheme.bodyLarge),
 
             const SizedBox(height: 24),
-            _PuntajeConfianza(ong: ong),
+            TarjetaConfianza(
+              puntaje: double.tryParse(ong['puntajeConfianza'] as String? ?? '') ?? 0,
+              desglose: ong['desglosePuntaje'] as Map<String, dynamic>?,
+            ),
 
             const SizedBox(height: 32),
             Text(
@@ -159,18 +169,19 @@ class _Detalle extends ConsumerWidget {
 }
 
 /// RF-SO-01 · Puntaje de confianza con sus componentes explicados.
-class _PuntajeConfianza extends StatelessWidget {
-  const _PuntajeConfianza({required this.ong});
+class TarjetaConfianza extends StatelessWidget {
+  const TarjetaConfianza({super.key, required this.puntaje, required this.desglose});
 
-  final Map<String, dynamic> ong;
+  final double puntaje;
+
+  /// Componentes del puntaje e `historialInsuficiente`, tal como los guarda la API.
+  final Map<String, dynamic>? desglose;
 
   @override
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
-    final desglose = ong['desglosePuntaje'] as Map<String, dynamic>?;
     final componentes =
         (desglose?['componentes'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
-    final puntaje = double.tryParse(ong['puntajeConfianza'] as String? ?? '') ?? 0;
 
     return Card(
       child: Padding(

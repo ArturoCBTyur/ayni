@@ -3,15 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../funciones/admin/pantalla_tablero.dart';
 import '../funciones/admin/pantalla_usuarios.dart';
-import '../funciones/auditor/pantalla_bandeja.dart';
+import '../funciones/auditor/pantalla_verificacion_ong.dart';
 import '../funciones/cumplimiento/pantalla_arco_bandeja.dart';
 import '../funciones/cumplimiento/pantalla_privacidad.dart';
 import '../funciones/donante/pantalla_causas.dart';
 import '../funciones/donante/pantalla_historial.dart';
 import '../funciones/donante/pantalla_notificaciones.dart';
 import '../funciones/ong/pantalla_campanas.dart';
+import '../funciones/ong/pantalla_equipo.dart';
 import '../funciones/ong/pantalla_fondos.dart';
 import '../funciones/ong/pantalla_gastos.dart';
+import '../funciones/ong/pantalla_registrar_ong.dart';
 import '../funciones/salud/pantalla_salud.dart';
 import 'sesion.dart';
 
@@ -86,7 +88,7 @@ const _destinos = <_Destino>[
     etiqueta: 'Auditoría',
     icono: Icons.fact_check_outlined,
     iconoActivo: Icons.fact_check,
-    pantalla: PantallaBandeja(),
+    pantalla: PantallaAuditoria(),
     roles: ['AUDITOR', 'ADMIN'],
   ),
   _Destino(
@@ -200,6 +202,18 @@ class _ShellState extends ConsumerState<Shell> {
                     value: 'causas',
                     child: Text('Causas publicadas'),
                   ),
+                if (usuario.tieneRol('ONG_ADMIN'))
+                  const PopupMenuItem(
+                    value: 'equipo',
+                    child: Text('Equipo de la organización'),
+                  ),
+                // Quien audita o administra la plataforma no registra una ONG:
+                // seria juez y parte de su propia verificacion.
+                if (!usuario.tieneRol('AUDITOR') && !usuario.tieneRol('ADMIN'))
+                  const PopupMenuItem(
+                    value: 'registrarOng',
+                    child: Text('Registrar una organización'),
+                  ),
                 if (usuario.tieneRol('ADMIN'))
                   const PopupMenuItem(
                     value: 'salud',
@@ -215,6 +229,8 @@ class _ShellState extends ConsumerState<Shell> {
                 final pantalla = switch (valor) {
                   'privacidad' => const PantallaPrivacidad(),
                   'salud' => const PantallaSalud(),
+                  'equipo' => const PantallaEquipo(),
+                  'registrarOng' => const PantallaRegistrarOng(),
                   // Sin rol de donante, la ficha de cada causa se ve sin el
                   // boton de donar: es una consulta, no una vitrina.
                   'causas' => Scaffold(

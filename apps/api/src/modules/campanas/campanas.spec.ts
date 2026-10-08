@@ -612,6 +612,141 @@ describe('Ciclo de vida de campañas y fondos (RF-04, RF-05)', () => {
   });
 });
 
+describe('Verificacion y equipo de la ONG (CU08, CU14)', () => {
+  const textos = {
+    titulo: 'Campaña para pruebas de equipo',
+    descripcion: 'Descripcion suficientemente larga para pasar la validacion del esquema.',
+    causa: 'Bienestar animal',
+  };
+
+  async function rolesDe(usuarioId: string) {
+    const filas = await prisma.usuarioRol.findMany({ where: { usuarioId }, include: { rol: true } });
+    return filas.map((f) => f.rol.codigo);
+  }
+
+  it('el expediente pendiente trae lo necesario para decidir', async () => {
+    const admin = await crearUsuario();
+    const ong = await ongs.registrar(
+      admin.id,
+      { ...datosOngBase, ruc: rucValido(), telefono: '987654321' },
+      {},
+    );
+    ongsCreadas.push(ong.id);
+
+    const pendiente = (await ongs.pendientesDeVerificacion()).find((o) => o.id === ong.id)!;
+
+    expect(pendiente.correoContacto).toBe(datosOngBase.correoContacto);
+    expect(pendiente.descripcion).toBe(datosOngBase.descripcion);
+    expect(pendiente.documentoRepresentante).toBe(datosOngBase.documentoRepresentante);
+    expect(pendiente.telefono).toBe('987654321');
+  });
+
+  it('un auditor que es miembro de la ONG no puede verificarla', async () => {
+    const admin = await crearUsuario();
+    const ong = await ongs.registrar(admin.id, { ...datosOngBase, ruc: rucValido() }, {});
+    ongsCreadas.push(ong.id);
+    const auditor = await crearUsuario('AUDITOR');
+    await prisma.ongMiembro.create({
+      data: { ongId: ong.id, usuarioId: auditor.id, cargo: 'OPERADOR' },
+    });
+
+    await expect(
+      ongs.verificar(
+        ong.id,
+        auditor.id,
+        { decision: 'VERIFICADA', motivo: 'Intento de verificar la propia organizacion.' },
+        {},
+      ),
+    ).rejects.toThrow(/es miembro de esta organizacion/i);
+  });
+
+  it('el administrador agrega a un operador, que recibe el rol de su cargo', async () => {
+    const { ong, admin } = await crearOngConCampana(textos);
+    const nueva = await crearUsuario();
+
+    await ongs.agregarMiembro(ong.id, admin.id, { correo: nueva.correo, cargo: 'OPERADOR' }, {});
+
+    expect(await rolesDe(nueva.id)).toContain('ONG_OPERADOR');
+    const equipo = await ongs.listarMiembros(ong.id, admin.id);
+    expect(equipo.find((m) => m.usuarioId === nueva.id)).toMatchObject({
+      cargo: 'OPERADOR',
+      activo: true,
+    });
+    expect(equipo.find((m) => m.usuarioId === admin.id)?.esUsted).toBe(true);
+
+    await expect(
+      ongs.agregarMiembro(ong.id, admin.id, { correo: nueva.correo, cargo: 'OPERADOR' }, {}),
+    ).rejects.toThrow(/ya es parte del equipo/i);
+  });
+
+  it('no agrega un correo sin cuenta', async () => {
+    const { ong, admin } = await crearOngConCampana(textos);
+
+    await expect(
+      ongs.agregarMiembro(
+        ong.id,
+        admin.id,
+        { correo: `nadie-${marca}@prueba.pe`, cargo: 'OPERADOR' },
+        {},
+      ),
+    ).rejects.toThrow(/no hay una cuenta activa/i);
+  });
+
+  it('un operador no gestiona el equipo', async () => {
+    const { ong } = await crearOngConCampana(textos);
+    const operador = await crearUsuario();
+    await prisma.ongMiembro.create({
+      data: { ongId: ong.id, usuarioId: operador.id, cargo: 'OPERADOR' },
+    });
+    const otra = await crearUsuario();
+
+    await expect(
+      ongs.agregarMiembro(ong.id, operador.id, { correo: otra.correo, cargo: 'OPERADOR' }, {}),
+    ).rejects.toThrow(/solo un administrador/i);
+    await expect(ongs.listarMiembros(ong.id, operador.id)).rejects.toThrow(/solo un administrador/i);
+  });
+
+  it('siempre queda un administrador activo', async () => {
+    const { ong, admin } = await crearOngConCampana(textos);
+
+    await expect(
+      ongs.cambiarMiembro(ong.id, admin.id, admin.id, { cargo: 'OPERADOR' }, {}),
+    ).rejects.toThrow(/al menos un administrador activo/i);
+    await expect(
+      ongs.cambiarMiembro(ong.id, admin.id, admin.id, { activo: false }, {}),
+    ).rejects.toThrow(/al menos un administrador activo/i);
+
+    // Con otro administrador nombrado, el primero si puede dejar el cargo.
+    const segundo = await crearUsuario();
+    await ongs.agregarMiembro(
+      ong.id,
+      admin.id,
+      { correo: segundo.correo, cargo: 'ADMINISTRADOR' },
+      {},
+    );
+    const r = await ongs.cambiarMiembro(ong.id, admin.id, admin.id, { cargo: 'OPERADOR' }, {});
+    expect(r.cargo).toBe('OPERADOR');
+  });
+
+  it('desactivar conserva la membresia y quita el acceso a la ONG', async () => {
+    const { ong, admin } = await crearOngConCampana(textos);
+    const operador = await crearUsuario();
+    await ongs.agregarMiembro(ong.id, admin.id, { correo: operador.correo, cargo: 'OPERADOR' }, {});
+
+    await ongs.cambiarMiembro(ong.id, operador.id, admin.id, { activo: false }, {});
+
+    expect(await ongs.misOngs(operador.id)).toEqual([]);
+    const fila = await prisma.ongMiembro.findUniqueOrThrow({
+      where: { ongId_usuarioId: { ongId: ong.id, usuarioId: operador.id } },
+    });
+    expect(fila.activo).toBe(false);
+
+    // Volver a agregarlo lo reactiva en vez de duplicarlo.
+    await ongs.agregarMiembro(ong.id, admin.id, { correo: operador.correo, cargo: 'OPERADOR' }, {});
+    expect(await ongs.misOngs(operador.id)).toHaveLength(1);
+  });
+});
+
 describe('Buscador de causas (RF-06, CU02)', () => {
   it('encuentra por texto con raiz y sin acentos', async () => {
     await crearOngConCampana({
