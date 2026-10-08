@@ -65,7 +65,17 @@ if [ -f "$dir/archivos.tar.gz" ] && [ -n "$ARCHIVOS_DIR_DESTINO" ] && [ -d "$ARC
 fi
 
 opciones=(--no-owner --no-privileges --exit-on-error)
-if [ "$sobrescribir" = "--sobrescribir" ]; then opciones+=(--clean --if-exists); fi
+# Sobre una base con datos, todo o nada: si un DROP o un CREATE falla a mitad,
+# la base queda como estaba y no con la mitad de las tablas borradas.
+if [ "$sobrescribir" = "--sobrescribir" ]; then
+  opciones+=(--clean --if-exists --single-transaction)
+  # pgcrypto la instala un superusuario y el usuario de la aplicacion no puede
+  # borrarla: el DROP EXTENSION de --clean fallaria y se llevaria la
+  # transaccion entera. Sobre una base con tablas la extension ya esta.
+  lista="$(mktemp)"
+  pg_restore -l "$dir/base.dump" | grep -v ' EXTENSION ' > "$lista"
+  opciones+=(--use-list="$lista")
+fi
 pg_restore "${opciones[@]}" --dbname="$URL" "$dir/base.dump"
 ok "base restaurada"
 

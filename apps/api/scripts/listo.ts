@@ -37,6 +37,10 @@ const FIN = '\x1b[0m';
 const AINI = 'http://127.0.0.1:8000';
 const API = 'http://127.0.0.1:3000/api/v1';
 const WEB = 'http://127.0.0.1:5000';
+// La que se abre en el navegador. CORS_ORIGENES admite localhost y no
+// 127.0.0.1: son origenes distintos, y desde el segundo el inicio de sesion
+// falla aunque la pagina cargue.
+const WEB_NAVEGADOR = 'http://localhost:5000';
 
 /** Carpeta donde `python probar.py archivos` deja las boletas. */
 const CARPETA_BOLETAS = join(homedir(), 'Desktop', 'boletas-ayni');
@@ -187,7 +191,7 @@ async function servicios(): Promise<void> {
   }
 
   if (await responde(WEB)) {
-    ok('Aplicacion web', WEB);
+    ok('Aplicacion web', WEB_NAVEGADOR);
   } else {
     mal(
       'Aplicacion web',
@@ -375,7 +379,7 @@ async function principal(): Promise<void> {
 
   console.log(`\n${'='.repeat(74)}`);
   if (faltas.length === 0) {
-    console.log(`  ${VERDE}LISTO.${FIN} Abra ${WEB} y siga docs/presentacion-aplicativo.md`);
+    console.log(`  ${VERDE}LISTO.${FIN} Abra ${WEB_NAVEGADOR} y siga docs/presentacion-aplicativo.md`);
   } else {
     console.log(`  ${ROJO}FALTAN ${faltas.length}:${FIN} ${faltas.join(' · ')}`);
     console.log(`  ${GRIS}Cada uno tiene su comando arriba. Vuelva a correr esto despues.${FIN}`);

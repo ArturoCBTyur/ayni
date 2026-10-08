@@ -50,3 +50,6 @@ storage/
 
 # Respaldos locales (RNF-13): contienen la base completa.
 respaldos/
+
+# Salidas de los simulacros de restauracion (copias de evidencias reales)
+storage-ensayo*/
