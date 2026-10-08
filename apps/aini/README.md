@@ -74,9 +74,11 @@ Esto cambia de categoría lo que el sistema puede comprobar. Hasta aquí, todas 
 
 **Motor:** `rapidocr-onnxruntime` (detección y reconocimiento en ONNX). Se eligió sobre Tesseract porque no exige instalar un binario del sistema aparte, que en Windows era el punto de fricción del equipo. Cuesta ~2.6 s por imagen, que es la mayor parte del tiempo de análisis.
 
-Sobre una boleta degradada a propósito el lector recupera el importe y el RUC con la imagen limpia, borrosa, al 50 % de escala, inclinada 7°, oscurecida al 45 % y con el contraste al 35 %. **Eso no es un dato del README, es `TestRobustez`**: las degradaciones se aplican en la prueba, así que si una versión de la biblioteca empeora, falla en vez de dejar esta frase afirmando algo que dejó de ser cierto.
+**Antes que el texto, el QR.** Los comprobantes electrónicos llevan un QR con el formato de SUNAT (`RUC|tipo|serie|número|IGV|total|fecha|…`). Si la foto lo deja decodificar, sus campos mandan sobre lo leído del texto. No es una lectura sino un dato escrito por el sistema de facturación del emisor: no confunde un 1 con un 7, no depende de cómo estén dispuestas las líneas, y retocar el total impreso en la foto no cambia el del QR. Lo decodifica OpenCV, que ya viene con RapidOCR, en décimas de segundo. Si el QR no se puede leer (es pequeño en la foto, o el emisor solo puso un enlace), se sigue con el texto como antes. Cuando el total sale del QR, el mensaje del cotejo lo dice.
 
-Lo que **no** se probó es papel térmico real, arrugado, con pliegues y fotografiado de lado — y eso es justamente lo que llega del campo. Estas son boletas nítidas degradadas por filtros, que es más fácil. Así que **la cifra honesta de precisión en producción todavía no existe.**
+Sobre una boleta degradada a propósito el lector recupera el importe y el RUC con la imagen limpia, borrosa, al 50 % de escala, inclinada 7° hacia cualquier lado, oscurecida al 45 % y con el contraste al 35 %. **Eso no es un dato del README, es `TestRobustez`**: las degradaciones se aplican en la prueba, así que si una versión de la biblioteca empeora, falla en vez de dejar esta frase afirmando algo que dejó de ser cierto.
+
+Comprobantes reales hay **cuatro** en el banco de campo de `evaluacion/`: tres tickets térmicos fotografiados en la mano y una boleta de talonario escrita a mano. Sobre los cuatro, el lector no lee mal ningún campo y no abre ninguna discrepancia falsa. En los térmicos lee el importe, el RUC y la fecha aunque traigan coma decimal, la fecha pegada a la hora o partida en dos líneas, o un «TOTAL GRATUITO» antes del total. Cuando la línea del total es ilegible, lo calcula como subtotal + IGV y el mensaje del cotejo lo indica. En uno el texto no bastaba (los montos salen antes que su etiqueta y no hay IGV impreso para calcular el total), y lo resolvió el QR. **Lo escrito a mano no lo lee**: en la boleta de talonario saca el RUC, la serie y el número, que están impresos, y declara como no leídos la fecha y el total. Leer escritura a mano exigiría otro modelo. Cuatro casos no son una tasa, así que **la cifra honesta de precisión en producción todavía no existe.**
 
 Dos principios gobiernan el cotejo, y los dos están puestos a propósito:
 
@@ -150,7 +152,7 @@ python -m pytest pruebas/ -q
 
 Las pruebas fijan el comportamiento; **cuánto acierta** el motor lo mide `python -m evaluacion` contra bancos etiquetados y una línea base versionada. Ver [`evaluacion/README.md`](evaluacion/README.md).
 
-46 casos. Lo que fijan no son los números del modelo —un umbral puede moverse al reentrenar— sino el comportamiento que el proyecto promete: que un gasto del fondo equivocado se detecte, que una evidencia reutilizada no se rescate con un comprobante impecable, que un monto que no coincide con el papel se detecte y que una foto ilegible no se confunda con uno, que nunca falte la explicación, y que un modelo ausente degrade la señal en vez de tumbar la verificación.
+88 casos. Lo que fijan no son los números del modelo —un umbral puede moverse al reentrenar— sino el comportamiento que el proyecto promete: que un gasto del fondo equivocado se detecte, que una evidencia reutilizada no se rescate con un comprobante impecable, que un monto que no coincide con el papel se detecte y que una foto ilegible no se confunda con uno, que nunca falte la explicación, y que un modelo ausente degrade la señal en vez de tumbar la verificación.
 
 ---
 

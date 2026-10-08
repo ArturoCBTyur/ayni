@@ -43,8 +43,13 @@ def boleta(
     subtotal: float = 100.0,
     igv: float = 18.0,
     total: float = 118.0,
+    qr: str | None = None,
 ) -> str:
-    """Dibuja una boleta de venta con el formato habitual en el Peru."""
+    """Dibuja una boleta de venta con el formato habitual en el Peru.
+
+    Con `qr`, le pega debajo un codigo QR con ese contenido, como el que
+    SUNAT exige en los comprobantes electronicos.
+    """
     lineas = [
         ("CLINICA VETERINARIA SAN ROQUE S.A.C.", 26, True),
         ("Av. Alameda 456 - Amarilis, Huanuco", 18, False),
@@ -64,13 +69,22 @@ def boleta(
         (f"IMPORTE TOTAL:      S/   {total:.2f}", 24, True),
     ]
 
-    img = Image.new("RGB", (620, 760), "white")
+    img = Image.new("RGB", (620, 760 if qr is None else 800), "white")
     dibujo = ImageDraw.Draw(img)
     y = 30
     for texto, tam, negrita in lineas:
         if texto:
             dibujo.text((40, y), texto, fill="black", font=_fuente(tam, negrita))
         y += tam + 12
+
+    if qr is not None:
+        import cv2
+
+        modulos = cv2.QRCodeEncoder.create().encode(qr)
+        codigo = Image.fromarray(modulos).resize(
+            (modulos.shape[1] * 5, modulos.shape[0] * 5), Image.NEAREST
+        )
+        img.paste(codigo.convert("RGB"), (40, y + 10))
 
     img.save(ruta, quality=92)
     return str(ruta)
@@ -198,6 +212,167 @@ class TestOrdenDeLectura:
         assert ocr.orden_de_lectura([]) == []
 
 
+#: Texto que RapidOCR devolvio sobre una boleta termica real (banco de campo,
+#: c001), sin el nombre del cliente. Tiene todo lo que hacia fallar al lector:
+#: coma decimal, fecha AAAA-MM-DD partida en dos lineas, "SUB-TOTALES", un
+#: "TOTAL GRATUITO" antes del total y la linea "TOTAL A PAGAR" ilegible.
+TEXTO_TERMICA = (
+    "SuperPet RUC:20600467124 BOLETA ELECTRONICA B001-227727 "
+    "FECHA DE CREACION:2020-10- 12 NUMERO DEL PEDIDO:S0235216 "
+    "QTY DESCRIPCION P.U. TOTAL 10.0 [AP000045][Perro]- S/9,90S/99,00 "
+    "Canbo Enlatado 11.64oz 2.0 [AP00o045] [Perro]- S/9,90 S/0,00 "
+    "SUB-TOTALES S/83,90 TOTAL GRATUITO S/16.78 TOTALIGV S/15,10 "
+    "TOTALAPAGAR 006675 TIPO DEMONEDA:SOLES"
+)
+
+
+class TestFormatos:
+    """Lo que cambia de un emisor a otro y el lector tiene que reconocer igual."""
+
+    def test_boleta_termica_real(self):
+        campos = ocr.extraer(TEXTO_TERMICA)
+        assert campos.ruc_emisor == "20600467124"
+        assert (campos.serie, campos.numero) == ("B001", "227727")
+        assert campos.fecha_emision.isoformat() == "2020-10-12"
+        assert campos.subtotal == 83.90
+        assert campos.igv == 15.10
+        assert campos.total == 99.00
+
+    def test_total_gratuito_no_se_toma_por_el_total(self):
+        """Era el error grave: leia 16.78 y abria una discrepancia falsa."""
+        campos = ocr.extraer(TEXTO_TERMICA)
+        assert campos.total != 16.78
+
+    def test_subtotal_no_se_toma_por_el_total(self):
+        campos = ocr.extraer("SUBTOTAL: S/100.00 IGV (18%): S/ 18.00 TOTAL: S/118.00")
+        assert campos.total == 118.0
+        assert not campos.total_deducido
+
+    @pytest.mark.parametrize(
+        "impreso,valor",
+        [("118.00", 118.0), ("99,00", 99.0), ("1,250.00", 1250.0), ("1.250,00", 1250.0)],
+    )
+    def test_punto_o_coma_decimal(self, impreso, valor):
+        assert ocr.extraer(f"IMPORTE TOTAL: S/ {impreso}").total == valor
+
+    @pytest.mark.parametrize("impresa", ["14/09/2026", "2026-09-14", "14-SEP-2026", "14-SET-2026"])
+    def test_formatos_de_fecha(self, impresa):
+        assert ocr.extraer(f"Fecha: {impresa}").fecha_emision.isoformat() == "2026-09-14"
+
+    def test_fecha_pegada_a_la_etiqueta_y_a_la_hora(self):
+        campos = ocr.extraer("FECHA26/11/202018:45:37")
+        assert campos.fecha_emision.isoformat() == "2020-11-26"
+
+    def test_la_fecha_de_impresion_del_talonario_no_es_la_de_emision(self):
+        """Pie de imprenta de una boleta de talonario: si se tomara, cada
+        boleta manuscrita daria una advertencia de fecha falsa."""
+        campos = ocr.extraer("Serie:0001 del0301al0800 F.I.12/09/2011N°Aut.8532629023")
+        assert campos.fecha_emision is None
+
+    def test_gravada_sin_op(self):
+        campos = ocr.extraer("GRAVADA: S/229,49 IGV18% S/41,31 DESCUENTO: TOTAL: S/270,80")
+        assert campos.subtotal == 229.49
+        assert campos.total == 270.80
+
+    def test_serie_numerica_de_talonario(self):
+        campos = ocr.extraer("R.U.C.10072486892 BOLETA DEVENTA 001-N0000418")
+        assert (campos.serie, campos.numero) == ("001", "0000418")
+
+    def test_un_telefono_no_es_una_serie(self):
+        campos = ocr.extraer("Telf.:(01)261-0675 Cel.:954-135912")
+        assert campos.serie is None
+
+    def test_el_total_ilegible_se_deduce_de_subtotal_e_igv(self):
+        campos = ocr.extraer("OP. GRAVADA S/ 100.00 IGV S/ 18.00 IMPORTE TOTAL S/ ###")
+        assert campos.total == 118.0
+        assert campos.total_deducido
+
+    def test_no_se_deduce_si_hay_otros_conceptos(self):
+        """Con bolsas cobradas el total no es subtotal + IGV: se deja sin leer."""
+        campos = ocr.extraer("OP. GRAVADA S/ 100.00 IGV S/ 18.00 ICBPER S/ 0.50")
+        assert campos.total is None
+
+    def test_subtotal_e_igv_que_no_cuadran_se_descartan(self):
+        """Foto inclinada: el OCR desordeno los renglones y cada monto quedo
+        junto a la etiqueta de otro. Mejor no leido que mal leido."""
+        campos = ocr.extraer("OP.GRAVADA: S! 18.00 IGV (18%): S/118.00 IMPORTETOTAL:")
+        assert campos.subtotal is None
+        assert campos.igv is None
+        assert campos.total is None
+
+
+#: QR de la boleta estandar, en el formato de SUNAT.
+QR_ESTANDAR = "20601030579|03|B001|004521|18.00|118.00|2026-09-14|6|20609876540|"
+
+
+class TestQR:
+    """El QR no se lee: se decodifica. Lo que dice es lo que emitio el sistema
+    de facturacion, sin la incertidumbre del OCR."""
+
+    def test_toma_los_campos_del_formato_sunat(self):
+        campos = ocr.CamposLeidos()
+        # El documento del cliente es ficticio: el QR real trae el DNI de quien
+        # compro, y un dato personal no se versiona (Ley N.o 29733).
+        ocr.aplicar_qr(campos, "20600598768|03|B004|00001269|0|123|2026-10-08|1|00000000|")
+        assert campos.ruc_emisor == "20600598768"
+        assert (campos.serie, campos.numero) == ("B004", "00001269")
+        assert campos.fecha_emision.isoformat() == "2026-10-08"
+        assert campos.igv == 0.0
+        assert campos.total == 123.0
+
+    def test_un_qr_que_solo_es_un_enlace_se_ignora(self):
+        campos = ocr.extraer(TEXTO_TERMICA)
+        ocr.aplicar_qr(campos, "https://odoo.pse.pe/20600467124")
+        assert campos.qr == ""
+        assert campos.total == 99.0
+
+    def test_manda_sobre_un_total_calculado(self):
+        campos = ocr.extraer(TEXTO_TERMICA)
+        assert campos.total_deducido
+        ocr.aplicar_qr(campos, "20600467124|03|B001|227727|15.10|99.00|2020-10-12|1|00000000|")
+        assert campos.total == 99.0
+        assert not campos.total_deducido
+
+    def test_descarta_el_subtotal_que_no_cuadra_con_su_igv(self):
+        campos = ocr.extraer("OP. GRAVADA S/ 100.00 IMPORTE TOTAL S/ 118.00")
+        ocr.aplicar_qr(campos, "20601030579|03|B001|004521|36.00|236.00|2026-09-14|1|0|")
+        assert campos.subtotal is None
+
+    def test_se_decodifica_de_la_imagen(self, tmp_path):
+        leido = ocr.leer(boleta(tmp_path / "con_qr.jpg", qr=QR_ESTANDAR))
+        assert leido.qr == QR_ESTANDAR
+        assert leido.total == 118.0
+
+    def test_un_total_retocado_en_la_foto_no_engana_al_qr(self, tmp_path):
+        """Alguien cambia el total impreso a 185 y lo declara: el QR conserva
+        el original y el cotejo lo ve."""
+        ruta = boleta(tmp_path / "retocada.jpg", subtotal=156.78, igv=28.22, total=185.0, qr=QR_ESTANDAR)
+        leido = ocr.leer(ruta)
+        assert leido.total == 118.0
+
+        motivos, _ = cotejo.evaluar(comprobante(total=185.0), leido)
+        discrepa = next(m for m in motivos if m.regla == "ocr.total_discrepa")
+        assert "QR" in discrepa.mensaje
+
+    def test_sin_qr_no_cambia_nada(self, leida):
+        assert leida.qr == ""
+        assert leida.total == 118.0
+
+    def test_un_qr_nitido_en_una_foto_por_lo_demas_ilegible(self, tmp_path):
+        import cv2
+
+        modulos = cv2.QRCodeEncoder.create().encode(QR_ESTANDAR)
+        img = Image.new("RGB", (400, 400), "white")
+        lado = modulos.shape[0] * 6
+        img.paste(Image.fromarray(modulos).resize((lado, lado), Image.NEAREST).convert("RGB"), (80, 80))
+        ruta = tmp_path / "solo_qr.png"
+        img.save(ruta)
+
+        leido = ocr.leer(str(ruta))
+        assert leido.leyo_algo
+        assert leido.total == 118.0
+
+
 class TestCotejo:
     """Lo que el OCR habilita: contrastar lo tecleado contra el papel."""
 
@@ -233,6 +408,13 @@ class TestCotejo:
         motivos, penalizacion = cotejo.evaluar(comprobante(total=118.02), leida)
         assert not falla(motivos, "ocr.total_discrepa")
         assert penalizacion == 0
+
+    def test_un_total_deducido_lo_dice(self):
+        """Una cifra calculada no se presenta como leida."""
+        leido = ocr.extraer("RUC:20601030579 B001-004521 OP. GRAVADA S/ 100.00 IGV S/ 18.00")
+        motivos, _ = cotejo.evaluar(comprobante(total=150.0), leido)
+        discrepa = next(m for m in motivos if m.regla == "ocr.total_discrepa")
+        assert "suma del subtotal y el IGV" in discrepa.mensaje
 
     def test_sin_lectura_se_declara_y_no_se_penaliza(self):
         """Una foto mala no es un gasto sospechoso."""
