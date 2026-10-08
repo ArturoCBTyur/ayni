@@ -243,6 +243,17 @@ class TestFormatos:
         campos = ocr.extraer(TEXTO_TERMICA)
         assert campos.total != 16.78
 
+    def test_la_barra_de_soles_leida_como_uno_no_se_pega_al_monto(self):
+        """Texto real del OCR en Linux sobre la boleta inclinada: "S/" salio
+        como "S1", y con el espacio como separador de miles se leia 1100.00."""
+        campos = ocr.extraer(
+            "OP.GRAVADA: S1 100.00 IGV(18%): 18.00 IMPORTE TOTAL: S/118.00"
+        )
+        assert (campos.subtotal, campos.igv, campos.total) == (100.0, 18.0, 118.0)
+
+    def test_el_total_con_la_barra_leida_como_uno(self):
+        assert ocr.extraer("IMPORTE TOTAL: S1 118.00").total == 118.0
+
     def test_subtotal_no_se_toma_por_el_total(self):
         campos = ocr.extraer("SUBTOTAL: S/100.00 IGV (18%): S/ 18.00 TOTAL: S/118.00")
         assert campos.total == 118.0

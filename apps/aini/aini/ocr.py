@@ -125,7 +125,12 @@ _MESES = {
 #: Punto o coma como separador decimal: "118.00", "99,00", "1,250.00",
 #: "1.250,00". Los dos decimales finales deciden cual es cual, asi que el
 #: patron exige exactamente dos y que no los siga otro digito.
-_IMPORTE = r"(?<!\d)(\d{1,3}(?:[.,\s]\d{3})*[.,]\d{2}|\d+[.,]\d{2})(?!\d)"
+#:
+#: El espacio NO separa miles. Los comprobantes peruanos no lo usan, y en el
+#: texto del OCR un espacio entre digitos casi siempre separa dos cosas: la
+#: cantidad y el precio ("2 100.00"), o la barra de "S/" leida como 1 ("S1
+#: 100.00"). Aceptarlo convertia esos casos en 2100.00 y 1100.00.
+_IMPORTE = r"(?<!\d)(\d{1,3}(?:[.,]\d{3})*[.,]\d{2}|\d+[.,]\d{2})(?!\d)"
 
 #: "S/", "S/.", y lo que el OCR hace con la barra ("S!", "S /").
 _MONEDA = r"(?:S\s?[/!|]\.?)?"
