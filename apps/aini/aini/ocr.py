@@ -23,6 +23,7 @@ confianza, se reporta como no leido en vez de adivinarlo.
 from __future__ import annotations
 
 import logging
+import math
 import os
 import re
 import urllib.request
@@ -184,6 +185,67 @@ def leer_desde(url: str) -> CamposLeidos | None:
     return leer(datos) if datos else None
 
 
+def orden_de_lectura(resultado: list) -> list[tuple[str, float]]:
+    """Los fragmentos del OCR en el orden en que se leen en el papel.
+
+    RapidOCR los devuelve ordenados por la altura de su caja, y en una foto
+    inclinada eso desordena las lineas: el monto queda por debajo de su
+    etiqueta y sale despues de la etiqueta siguiente ("OP.GRAVADA: IGV(18%):
+    S/100.00 S/18.00"). Como los importes se buscan tras su etiqueta, el
+    lector tomaba el monto de otra linea.
+
+    Se endereza con la inclinacion que tienen las propias cajas --la mediana
+    del angulo del borde superior de las cajas anchas, que son las que la miden
+    bien--, se agrupan en lineas los fragmentos cuyo centro
+    enderezado esta a menos de media altura de linea, y cada linea se lee de
+    izquierda a derecha.
+    """
+    if not resultado:
+        return []
+
+    cajas = []
+    for caja, texto, confianza in resultado:
+        (x0, y0), (x1, y1), _, (x3, y3) = caja[0], caja[1], caja[2], caja[3]
+        ancho = math.hypot(x1 - x0, y1 - y0)
+        alto = math.hypot(x3 - x0, y3 - y0)
+        cx = sum(p[0] for p in caja) / 4
+        cy = sum(p[1] for p in caja) / 4
+        cajas.append((math.atan2(y1 - y0, x1 - x0), ancho, alto, cx, cy, texto, float(confianza)))
+
+    # Una caja de un solo caracter ("1") sale casi recta aunque la foto este
+    # inclinada; solo las anchas dicen el angulo.
+    anchas = sorted(c for c in cajas if c[1] >= 3 * c[2]) or sorted(cajas)
+    angulo = anchas[len(anchas) // 2][0]
+    seno, coseno = math.sin(angulo), math.cos(angulo)
+    alto_linea = sorted(c[2] for c in cajas)[len(cajas) // 2]
+
+    enderezadas = sorted(
+        (
+            -cx * seno + cy * coseno,
+            cx * coseno + cy * seno,
+            texto,
+            confianza,
+        )
+        for _, _, _, cx, cy, texto, confianza in cajas
+    )
+
+    lineas: list[list[tuple[float, float, str, float]]] = []
+    for fragmento in enderezadas:
+        if lineas:
+            linea = lineas[-1]
+            media = sum(f[0] for f in linea) / len(linea)
+            if fragmento[0] - media < alto_linea / 2:
+                linea.append(fragmento)
+                continue
+        lineas.append([fragmento])
+
+    return [
+        (texto, confianza)
+        for linea in lineas
+        for _, _, texto, confianza in sorted(linea, key=lambda f: f[1])
+    ]
+
+
 def leer(imagen: bytes | str) -> CamposLeidos | None:
     """Corre el OCR sobre una imagen y extrae los campos.
 
@@ -200,7 +262,7 @@ def leer(imagen: bytes | str) -> CamposLeidos | None:
     if not resultado:
         return CamposLeidos(texto="", confianza=0.0)
 
-    fragmentos = [(t, float(c)) for _, t, c in resultado if float(c) >= CONFIANZA_MINIMA]
+    fragmentos = [(t, c) for t, c in orden_de_lectura(resultado) if c >= CONFIANZA_MINIMA]
     if not fragmentos:
         return CamposLeidos(texto="", confianza=0.0)
 

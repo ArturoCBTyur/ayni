@@ -1,5 +1,5 @@
 {
-  "generadaEn": "2026-10-08T16:26:20+00:00",
+  "generadaEn": "2026-10-08T17:06:35+00:00",
   "identidad": {
     "versionMotor": "aini-0.1-sklearn",
     "modeloAnomaliaSha256": "e5d956552202",
@@ -77,23 +77,23 @@
           "incorrecto": 0.0
         },
         "subtotal": {
-          "correcto": 0.9444,
+          "correcto": 1.0,
           "no_leido": 0.0,
-          "incorrecto": 0.0556
+          "incorrecto": 0.0
         },
         "igv": {
-          "correcto": 0.9444,
+          "correcto": 1.0,
           "no_leido": 0.0,
-          "incorrecto": 0.0556
+          "incorrecto": 0.0
         },
         "total": {
-          "correcto": 0.8889,
-          "no_leido": 0.0556,
+          "correcto": 0.9444,
+          "no_leido": 0.0,
           "incorrecto": 0.0556
         }
       },
       "discrepanciasFalsas": 0.0556,
-      "detectaMontoAlterado": 0.8889,
+      "detectaMontoAlterado": 0.9444,
       "totalCorrectoPorCondicion": {
         "baja_resolucion": 1.0,
         "borrosa": 1.0,
@@ -103,7 +103,7 @@
         "factura": 1.0,
         "fecha_iso": 1.0,
         "fecha_textual": 1.0,
-        "inclinada": 0.0,
+        "inclinada": 1.0,
         "limpia": 1.0,
         "montos_grandes": 1.0,
         "oscura": 1.0,
@@ -113,8 +113,8 @@
         "sombra": 1.0
       },
       "segundos": {
-        "p50": 5.13,
-        "p95": 6.49
+        "p50": 3.21,
+        "p95": 5.3
       }
     },
     "ocrCampo": {
@@ -170,8 +170,8 @@
         "termico": 0.0
       },
       "segundos": {
-        "p50": 10.8,
-        "p95": 11.6
+        "p50": 6.58,
+        "p95": 8.09
       }
     }
   }

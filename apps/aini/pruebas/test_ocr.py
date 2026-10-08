@@ -12,6 +12,7 @@ variar un campo a la vez para ver que detecta el cotejo.
 
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
 
@@ -142,6 +143,59 @@ class TestLectura:
         assert campos.fecha_emision is None
         # Lo demas si se leyo: un campo malo no invalida el resto.
         assert campos.ruc_emisor == "20601030579"
+
+
+class TestOrdenDeLectura:
+    """Los fragmentos se leen por lineas del papel, no por altura en la foto.
+
+    Con cajas fabricadas y no con una imagen: el orden en que RapidOCR
+    devuelve los fragmentos cambia con la fuente y la plataforma (en Linux,
+    con DejaVuSans, una boleta inclinada -7 grados leia el total como 18.00),
+    y esta prueba tiene que fallar igual en cualquier maquina.
+    """
+
+    @staticmethod
+    def _caja(x: float, y: float, ancho: float, grados: float, alto: float = 26) -> list:
+        """Rectangulo de texto con esquina superior izquierda en (x, y), girado."""
+        a = math.radians(grados)
+        dx, dy = math.cos(a), math.sin(a)
+        esquinas = [(0, 0), (ancho, 0), (ancho, alto), (0, alto)]
+        return [[x + u * dx - v * dy, y + u * dy + v * dx] for u, v in esquinas]
+
+    def _foto(self, grados: float) -> list:
+        """El pie de una boleta, girado, en el orden en que lo devuelve el OCR."""
+        # Los montos a la derecha, donde los imprime una boleta: a esa distancia,
+        # 7 grados bastan para que un monto quede a la altura de otra linea.
+        lineas = [
+            [("OP.GRAVADA:", 0, 150), ("S/100.00", 330, 120)],
+            [("IGV(18%):", 0, 120), ("S/18.00", 330, 110)],
+            [("IMPORTE TOTAL:", 0, 200), ("S/118.00", 330, 140)],
+        ]
+        a = math.radians(grados)
+        resultado = []
+        for fila, linea in enumerate(lineas):
+            for texto, x, ancho in linea:
+                y = 400 + fila * 34
+                # Se gira la posicion de la caja alrededor del origen, como gira
+                # el papel entero.
+                gx, gy = x * math.cos(a) - y * math.sin(a), x * math.sin(a) + y * math.cos(a)
+                resultado.append([self._caja(gx, gy, ancho, grados), texto, 0.95])
+        # RapidOCR ordena por la altura de la esquina superior izquierda.
+        return sorted(resultado, key=lambda r: (r[0][0][1], r[0][0][0]))
+
+    @pytest.mark.parametrize("grados", [-7, 0, 7])
+    def test_cada_monto_queda_junto_a_su_etiqueta(self, grados):
+        texto = " ".join(t for t, _ in ocr.orden_de_lectura(self._foto(grados)))
+        assert texto == (
+            "OP.GRAVADA: S/100.00 IGV(18%): S/18.00 IMPORTE TOTAL: S/118.00"
+        )
+
+    def test_la_foto_inclinada_se_lee_completa(self):
+        campos = ocr.extraer(" ".join(t for t, _ in ocr.orden_de_lectura(self._foto(7))))
+        assert (campos.subtotal, campos.igv, campos.total) == (100.0, 18.0, 118.0)
+
+    def test_sin_fragmentos_no_hay_nada_que_ordenar(self):
+        assert ocr.orden_de_lectura([]) == []
 
 
 class TestCotejo:
@@ -297,13 +351,17 @@ class TestRobustez:
         )
         assert r.total == 118.0
 
-    def test_inclinada(self, limpia, tmp_path):
+    @pytest.mark.parametrize("grados", [-7, 7])
+    def test_inclinada(self, limpia, tmp_path, grados):
+        """Hacia los dos lados: girada +7 grados, el monto de cada linea quedaba
+        por debajo de su etiqueta y se leia el de otra."""
         r = self._leer(
             limpia,
             tmp_path / "x.jpg",
-            lambda i: i.rotate(-7, expand=True, fillcolor="white"),
+            lambda i: i.rotate(grados, expand=True, fillcolor="white"),
         )
         assert r.total == 118.0
+        assert r.igv == 18.0
 
     def test_oscura(self, limpia, tmp_path):
         from PIL import ImageEnhance
