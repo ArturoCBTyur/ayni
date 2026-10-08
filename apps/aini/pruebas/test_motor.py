@@ -198,6 +198,42 @@ class TestCoherenciaSemantica:
         assert falla(r, "nlp.coherencia_categoria")
 
 
+class TestTildes:
+    """El veredicto no puede depender de la ortografia del operador.
+
+    Medido antes del arreglo: 21 de 85 conceptos escritos con tilde cambiaban
+    de veredicto al quitarselas, porque para el modelo "esterilizacion" y
+    "esterilización" eran palabras distintas (similitud 0,30).
+    """
+
+    @pytest.mark.parametrize(
+        "con_tilde,sin_tilde,categoria",
+        [
+            ("esterilización de gatas en la jornada", "esterilizacion de gatas en la jornada",
+             "ESTERILIZACION"),
+            ("atención de urgencia y curación", "atencion de urgencia y curacion",
+             "ATENCION_VETERINARIA"),
+            ("castración de perros machos", "castracion de perros machos", "ESTERILIZACION"),
+        ],
+    )
+    def test_con_tilde_o_sin_ella_da_lo_mismo(self, con_tilde, sin_tilde, categoria):
+        a = documental.coherencia_concepto_categoria(con_tilde, categoria)
+        b = documental.coherencia_concepto_categoria(sin_tilde, categoria)
+        assert a is not None and a == pytest.approx(b)
+
+    def test_la_desparasitacion_ya_no_se_rechaza(self):
+        """Era el caso documentado: sin tilde, "desparasitacion" no tenia vector
+        y el gasto veterinario se rechazaba (0.418)."""
+        sim = documental.coherencia_concepto_categoria(
+            "desparasitacion de ocho perros rescatados", "ATENCION_VETERINARIA"
+        )
+        assert sim >= documental.UMBRAL_COHERENCIA
+
+    def test_la_enie_no_es_una_tilde(self):
+        """"campaña" y "campana" son palabras distintas: la ñ se conserva."""
+        assert documental._sin_tilde("Campaña de Esterilización") == "Campaña de Esterilizacion"
+
+
 class TestSeñalDocumental:
     def test_ruc_con_digito_verificador_equivocado(self, detector):
         r = motor.analizar(entrada(comprobante={"rucEmisor": "20553456575"}), detector)

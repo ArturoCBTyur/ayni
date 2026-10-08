@@ -77,10 +77,12 @@ def categorias_del_backend() -> list[str] | None:
 
 
 def _palabras_sin_vector(texto: str) -> list[str]:
-    """Palabras de contenido que el modelo de lenguaje no conoce.
+    """Palabras de contenido que el modelo de lenguaje no conoce en ninguna forma.
 
     Son las que `documental` descarta en silencio, y cuando la que falta es la
-    que define el gasto, la similitud se calcula con lo que sobra.
+    que define el gasto, la similitud se calcula con lo que sobra. Se pregunta
+    a `documental._vector`, que prueba la palabra con y sin tilde: si no, una
+    palabra que el motor si usa apareceria aqui como desconocida.
     """
     return [
         token.text
@@ -88,7 +90,7 @@ def _palabras_sin_vector(texto: str) -> list[str]:
         if token.pos_ in ("NOUN", "VERB", "ADJ", "PROPN")
         and not token.is_stop
         and not token.is_digit
-        and not token.has_vector
+        and documental._vector(token.text) is None
     ]
 
 

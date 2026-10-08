@@ -18,12 +18,12 @@ Dos partes bien distintas, y conviene no confundirlas:
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date, datetime, timedelta
 
 import numpy as np
 import spacy
 from spacy.language import Language
-from spacy.tokens import Token
 
 from .contrato import Comprobante, Declarado, MotivoAnalisis
 
@@ -96,12 +96,75 @@ DESCRIPCION_CATEGORIA: dict[str, str] = {
 #: vez de bloquear**: su trabajo es derivar a una persona, no decidir. Un
 #: bloqueo con una de cada ocho equivocaciones seria inaceptable; una derivacion
 #: a revision con esa tasa es util.
-UMBRAL_COHERENCIA = 0.50
-UMBRAL_COHERENCIA_DUDOSA = 0.60
+#:
+#: Sobre el banco de `evaluacion/` (180 conceptos, 1070 pares ajenos) las
+#: cifras son peores que las de arriba: rechaza el 31 % de los correctos. Al
+#: hacer las palabras indiferentes a la tilde (`_vector`) todas las similitudes
+#: suben un poco, y el umbral subio de 0.50 a 0.51 para no aceptar mas desvios:
+#:
+#:                     rechaza correctos   acepta equivocados
+#:   antes, en 0.50          33,1 %              10,6 %
+#:   despues, en 0.50        29,4 %              13,1 %
+#:   despues, en 0.51        30,6 %              11,6 %
+#:   despues, en 0.52        38,1 %               9,3 %
+#:
+#: El salto entre 0.51 y 0.52 dice que el banco aun es chico para afinar mas.
+UMBRAL_COHERENCIA = 0.51
+UMBRAL_COHERENCIA_DUDOSA = 0.61
 
 
-def _palabras_con_carga(texto: str) -> list[Token]:
-    """Sustantivos, verbos, adjetivos y nombres propios con vector propio.
+#: La misma vocal con tilde. Una palabra en español lleva a lo sumo una.
+_CON_TILDE = {"a": "á", "e": "é", "i": "í", "o": "ó", "u": "ú"}
+#: La marca de la ñ descompuesta: la unica que `_sin_tilde` conserva.
+_VIRGULILLA = unicodedata.lookup("COMBINING TILDE")
+
+
+def _sin_tilde(palabra: str) -> str:
+    """Quita las tildes y conserva la ñ: "campaña" y "campana" son otras palabras."""
+    descompuesta = unicodedata.normalize("NFD", palabra)
+    sin_marcas = "".join(
+        c for c in descompuesta if unicodedata.category(c) != "Mn" or c == _VIRGULILLA
+    )
+    return unicodedata.normalize("NFC", sin_marcas)
+
+
+def _vector(palabra: str) -> np.ndarray | None:
+    """Vector unitario de la palabra, igual si se escribio con tilde o sin ella.
+
+    Para el modelo, la tilde cambia la palabra. es_core_news_md guarda 500 000
+    palabras sobre 20 000 vectores, y a una forma poco usada le toca el vector
+    de alguna vecina: "vacunacion" comparte el de "vacunación", pero
+    "esterilizacion" se parece 0,30 a "esterilización" y "castracion" no tiene
+    vector. Medido sobre el banco de evaluacion, 21 de 85 conceptos escritos con
+    tilde cambiaban de veredicto con solo quitarselas: el mismo gasto se
+    aprobaba o iba a revision segun la ortografia del operador.
+
+    Se promedian los vectores de todas las formas de la palabra --sin tilde y
+    con la tilde en cada vocal-- que el modelo conoce. El resultado depende
+    solo de la palabra sin tildes, asi que no puede cambiar con ellas. Se probo
+    tambien llevar cada palabra a su unica forma con tilde: separaba un poco
+    peor y aun dejaba 2 conceptos que cambiaban.
+    """
+    base = _sin_tilde(palabra)
+    formas = {palabra, base} | {
+        base[:i] + _CON_TILDE[c] + base[i + 1 :] for i, c in enumerate(base) if c in _CON_TILDE
+    }
+    vocabulario = nlp().vocab
+    vectores = []
+    for forma in sorted(formas):
+        if vocabulario.has_vector(forma):
+            v = vocabulario.get_vector(forma)
+            norma = float(np.linalg.norm(v))
+            if norma > 0:
+                vectores.append(v / norma)
+    if not vectores:
+        return None
+    promedio = np.mean(vectores, axis=0)
+    return promedio / float(np.linalg.norm(promedio))
+
+
+def _palabras_con_carga(texto: str) -> list[np.ndarray]:
+    """Vectores de los sustantivos, verbos, adjetivos y nombres propios.
 
     Se filtra porque las palabras funcionales no aportan significado y si
     arrastran el resultado. Medido sobre los conceptos de este proyecto, usar
@@ -109,21 +172,19 @@ def _palabras_con_carga(texto: str) -> list[Token]:
     orden: "atencion veterinaria" contra "alquiler de oficina" puntuaba 0.791 y
     contra su propia categoria 0.617.
     """
-    return [
-        token
+    vectores = (
+        _vector(token.text)
         for token in nlp()(texto.lower())
-        if token.pos_ in ("NOUN", "VERB", "ADJ", "PROPN")
-        and not token.is_stop
-        and token.has_vector
-        and token.vector_norm > 0
-    ]
+        if token.pos_ in ("NOUN", "VERB", "ADJ", "PROPN") and not token.is_stop
+    )
+    return [v for v in vectores if v is not None]
 
 
 #: Cuantas coincidencias se promedian. Ver `_similitud`.
 MEJORES_COINCIDENCIAS = 3
 
 
-def _similitud(concepto: list[Token], categoria: list[Token]) -> float:
+def _similitud(concepto: list[np.ndarray], categoria: list[np.ndarray]) -> float:
     """Media de las mejores coincidencias palabra a palabra.
 
     NO se promedian los vectores en un centroide por cada lado, que es lo
@@ -142,18 +203,7 @@ def _similitud(concepto: list[Token], categoria: list[Token]) -> float:
     el centroide (16.6 % contra 33.1 % cuando ambas rechazan el 8 % de los
     conceptos correctos).
     """
-    mejores = [
-        max(
-            float(
-                np.dot(
-                    token.vector / token.vector_norm,
-                    otro.vector / otro.vector_norm,
-                )
-            )
-            for otro in categoria
-        )
-        for token in concepto
-    ]
+    mejores = [max(float(np.dot(palabra, otra)) for otra in categoria) for palabra in concepto]
     mejores.sort(reverse=True)
     return float(np.mean(mejores[:MEJORES_COINCIDENCIAS]))
 
@@ -161,48 +211,27 @@ def _similitud(concepto: list[Token], categoria: list[Token]) -> float:
 # Lo que este esquema todavia no resuelve, medido y no supuesto:
 #
 # Cuando el concepto tiene MENOS de MEJORES_COINCIDENCIAS palabras utiles, se
-# promedian las que haya, y entonces una palabra debil si pesa. Medido:
+# promedian las que haya, y entonces una palabra debil si pesa: el complemento
+# de lugar ("del albergue", "en Huanuco") puede arrastrar la media. El sesgo va
+# en la direccion segura --cae a "parcial", que advierte, no a "no
+# corresponde", que penaliza--, y el arreglo no es subir el umbral sino dejar
+# de contar el lugar como palabra de contenido o exigir un minimo de
+# coincidencias antes de promediar.
 #
-#   "vacunacion antirrabica de doce gatos"              0.721  corresponde
-#   "vacunacion antirrabica de doce gatos del albergue" 0.573  parcial
+# Antes de `_vector` esto pasaba mucho mas, y parte de lo que parecia falta de
+# vocabulario era la tilde: "desparasitacion" y "antirrabica" no tenian vector
+# escritas sin ella, y "desparasitacion de ocho perros rescatados" se
+# rechazaba (0.418). Con tilde o sin ella, hoy corresponde (0.627).
 #
-# La primera aporta dos palabras con vector ("vacunacion" y "gatos";
-# "antirrabica" no esta en el vocabulario del modelo y queda fuera). La segunda
-# suma "albergue", que calza con la categoria a 0.28 y arrastra la media de dos
-# terminos a tres.
-#
-# Importa porque los operadores escriben el lugar casi siempre: "del albergue",
-# "de la clinica", "en Huanuco". El sesgo va en la direccion segura --cae a
-# "parcial", que advierte, no a "no corresponde", que penaliza-- y por eso no
-# se toco antes de la entrega. Pero esta aqui, y el arreglo no es subir el
-# umbral: es dejar de contar como palabra de contenido el complemento de lugar,
-# o exigir un minimo de coincidencias antes de promediar.
-#
-# Y la causa de fondo, que es peor y mas facil de olvidar: **el vocabulario de
-# `es_core_news_md` no cubre la terminologia del dominio.** Es un modelo de
-# proposito general entrenado sobre texto periodistico, y los terminos que una
-# ONG veterinaria usa a diario no estan en el. Medido:
-#
-#   "desparasitacion"  sin vector
-#   "antirrabica"      sin vector
-#
-# Cuando la palabra que define el gasto es la que falta, quedan solo las
-# genericas y el resultado puede invertirse por completo:
-#
-#   "desparasitacion de ocho perros rescatados"       0.418  NO CORRESPONDE
-#   "cirugia veterinaria de un perro atropellado"     0.899  corresponde
-#
-# El primero es un gasto veterinario legitimo y el modelo lo rechaza, porque de
-# sus cuatro palabras solo "perros" y "rescatados" tienen vector y ninguna de
-# las dos dice que sea atencion veterinaria.
-#
-# Esto no se arregla con umbrales. Se arregla con vectores del dominio: o se
-# entrena un modelo sobre texto veterinario, o se amplia la descripcion de cada
-# categoria con los sinonimos que el equipo usa de verdad --que es mas barato,
-# pero cuidado, porque esta medido que las descripciones mas largas empeoran la
-# separacion-- o se mantiene un diccionario de terminos del dominio. Es la
-# limitacion mas relevante que le queda a esta señal.
-
+# Lo que si sigue faltando es vocabulario del dominio. `es_core_news_md` es un
+# modelo de proposito general entrenado sobre texto periodistico, y no conoce,
+# en ninguna forma, "garrapaticida", "venoclisis", "ovariohisterectomia",
+# "gatario" ni las marcas de alimento y medicamentos (`python -m evaluacion
+# --detalle` las lista). Cuando la palabra que define el gasto es una de esas,
+# quedan solo las genericas. Se arregla con vectores del dominio o con un
+# diccionario de terminos que lleve cada una a una palabra que el modelo si
+# conozca; ampliar las descripciones es mas barato pero esta medido que las
+# descripciones largas empeoran la separacion.
 
 def coherencia_concepto_categoria(concepto: str, categoria: str) -> float | None:
     """Similitud coseno entre el concepto y la descripcion de su categoria.

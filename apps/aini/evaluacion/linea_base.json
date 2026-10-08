@@ -1,12 +1,12 @@
 {
-  "generadaEn": "2026-10-08T17:53:59+00:00",
+  "generadaEn": "2026-10-08T23:26:09+00:00",
   "identidad": {
     "versionMotor": "aini-0.1-sklearn",
     "modeloAnomaliaSha256": "e5d956552202",
     "descripcionesCategoriaSha256": "5cc7f0fba0d9",
     "umbrales": {
-      "coherencia": 0.5,
-      "coherenciaDudosa": 0.6,
+      "coherencia": 0.51,
+      "coherenciaDudosa": 0.61,
       "confianzaOcr": 0.7
     },
     "modeloLenguaje": "es_core_news_md@3.8.0",
@@ -28,20 +28,20 @@
       "noMediblesPorCategoria": {
         "OTROS": 20
       },
-      "rechazaCorrectos": 0.3312,
-      "advierteCorrectos": 0.3812,
-      "aceptaEquivocados": 0.1065,
-      "pasaSinAdvertirEquivocados": 0.0196,
-      "aciertaCategoriaTop1": 0.7063,
+      "rechazaCorrectos": 0.3063,
+      "advierteCorrectos": 0.3937,
+      "aceptaEquivocados": 0.1159,
+      "pasaSinAdvertirEquivocados": 0.0234,
+      "aciertaCategoriaTop1": 0.725,
       "similitud": {
-        "propiosMediana": 0.547,
-        "propiosP5": 0.332,
-        "ajenosMediana": 0.372,
-        "ajenosP95": 0.555
+        "propiosMediana": 0.55,
+        "propiosP5": 0.328,
+        "ajenosMediana": 0.378,
+        "ajenosP95": 0.554
       },
       "paresAjenosMedidos": 1070,
       "paresAjenosNoMedibles": 0,
-      "palabrasSinVectorDistintas": 15,
+      "palabrasSinVectorDistintas": 10,
       "categorias": {
         "delBackendSinDescripcion": [
           "OTROS"
