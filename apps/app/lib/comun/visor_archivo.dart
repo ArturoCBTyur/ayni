@@ -142,11 +142,20 @@ class _Marcador extends StatelessWidget {
             children: [
               Icon(icono, color: tema.colorScheme.outline),
               const SizedBox(height: 8),
-              Text(
-                texto,
-                textAlign: TextAlign.center,
-                style: tema.textTheme.bodySmall?.copyWith(
-                  color: tema.colorScheme.onSurfaceVariant,
+              // Flexible: en una miniatura mediana el texto se recorta en vez
+              // de desbordar la caja.
+              Flexible(
+                child: Tooltip(
+                  message: texto,
+                  child: Text(
+                    texto,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 3,
+                    style: tema.textTheme.bodySmall?.copyWith(
+                      color: tema.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ),
               ),
             ],

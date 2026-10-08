@@ -5,9 +5,15 @@ import '../../comun/widgets.dart';
 import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
 import '../../nucleo/tema.dart';
+import 'pantalla_detalle_aporte.dart';
 
 final historialProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   return ref.read(clienteApiProvider).obtener('/donaciones/historial');
+});
+
+final suscripcionesProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  return ref.read(clienteApiProvider).obtenerLista('/suscripciones');
 });
 
 /// RF-13 y RF-PS-01 · Historial con la linea de tiempo de cada aporte.
@@ -21,6 +27,7 @@ class PantallaHistorial extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final historial = ref.watch(historialProvider);
+    final suscripciones = ref.watch(suscripcionesProvider).value ?? const [];
 
     return historial.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -31,7 +38,7 @@ class PantallaHistorial extends ConsumerWidget {
       data: (datos) {
         final donaciones = (datos['donaciones'] as List<dynamic>).cast<Map<String, dynamic>>();
 
-        if (donaciones.isEmpty) {
+        if (donaciones.isEmpty && suscripciones.isEmpty) {
           return const EstadoVacio(
             icono: Icons.volunteer_activism_outlined,
             titulo: 'Todavía no ha donado',
@@ -42,12 +49,22 @@ class PantallaHistorial extends ConsumerWidget {
         }
 
         return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(historialProvider),
+          onRefresh: () async {
+            ref.invalidate(historialProvider);
+            ref.invalidate(suscripcionesProvider);
+          },
           child: Contenido(
-            child: ListView.separated(
-              itemCount: donaciones.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
-              itemBuilder: (context, i) => _TarjetaDonacion(donacion: donaciones[i]),
+            child: ListView(
+              children: [
+                if (suscripciones.isNotEmpty) ...[
+                  _Suscripciones(suscripciones: suscripciones),
+                  const SizedBox(height: 20),
+                ],
+                for (final donacion in donaciones) ...[
+                  _TarjetaDonacion(donacion: donacion),
+                  const SizedBox(height: 12),
+                ],
+              ],
             ),
           ),
         );
@@ -67,9 +84,19 @@ class _TarjetaDonacion extends StatelessWidget {
     final estado = donacion['estado'] as Map<String, dynamic>;
     final campana = donacion['campana'] as Map<String, dynamic>;
     final fondo = donacion['fondo'] as Map<String, dynamic>;
+    final financiados = donacion['gastosFinanciados'] as int? ?? 0;
 
     return Card(
-      child: Padding(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        // El detalle dice en que gastos se uso, con su foto: la tarjeta solo
+        // dice cuanto.
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => PantallaDetalleAporte(donacionId: donacion['id'] as String),
+          ),
+        ),
+        child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,8 +174,21 @@ class _TarjetaDonacion extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                financiados == 0
+                    ? 'Ver detalle'
+                    : financiados == 1
+                        ? 'Ver en qué gasto se usó'
+                        : 'Ver en qué $financiados gastos se usó',
+                style: tema.textTheme.labelLarge?.copyWith(color: tema.colorScheme.primary),
+              ),
+            ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -160,6 +200,108 @@ class _TarjetaDonacion extends StatelessWidget {
         'FALLIDA' || 'REVERSADA' => TemaApp.nivelBajo,
         _ => TemaApp.semilla,
       };
+}
+
+/// CU04 · Donaciones mensuales, con pausar, reanudar y cancelar en un toque
+/// (RF-08): dejar de donar no debe costar mas que empezar.
+class _Suscripciones extends ConsumerWidget {
+  const _Suscripciones({required this.suscripciones});
+
+  final List<Map<String, dynamic>> suscripciones;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tema = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Donaciones mensuales', style: tema.textTheme.titleMedium),
+        const SizedBox(height: 8),
+        for (final s in suscripciones)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                alignment: WrapAlignment.spaceBetween,
+                children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 220, maxWidth: 420),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${Formato.soles(s['monto'] as String?)} al mes · '
+                          '${(s['fondo'] as Map<String, dynamic>?)?['nombre'] ?? 'Fondo'}',
+                          style: tema.textTheme.titleSmall,
+                        ),
+                        Text(
+                          s['estado'] == 'ACTIVA'
+                              ? 'Día ${s['diaCobro']} de cada mes · próximo cobro '
+                                  '${Formato.fecha(Formato.aFecha(s['proximoCobroEn']))}'
+                              : 'En pausa: no se cobra hasta que la reanude.',
+                          style: tema.textTheme.bodySmall?.copyWith(
+                            color: tema.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Wrap(
+                    spacing: 4,
+                    children: [
+                      if (s['estado'] == 'ACTIVA')
+                        TextButton(
+                          onPressed: () => _cambiar(context, ref, s, 'PAUSAR'),
+                          child: const Text('Pausar'),
+                        )
+                      else
+                        TextButton(
+                          onPressed: () => _cambiar(context, ref, s, 'REANUDAR'),
+                          child: const Text('Reanudar'),
+                        ),
+                      TextButton(
+                        onPressed: () => _cambiar(context, ref, s, 'CANCELAR'),
+                        child: const Text('Cancelar'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _cambiar(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> suscripcion,
+    String accion,
+  ) async {
+    final mensajero = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(clienteApiProvider)
+          .actualizar('/suscripciones/${suscripcion['id']}', cuerpo: {'accion': accion});
+      ref.invalidate(suscripcionesProvider);
+      mensajero.showSnackBar(
+        SnackBar(
+          content: Text(switch (accion) {
+            'PAUSAR' => 'Donación mensual en pausa.',
+            'REANUDAR' => 'Donación mensual reanudada.',
+            _ => 'Donación mensual cancelada. No se volverá a cobrar.',
+          }),
+        ),
+      );
+    } on ErrorApi catch (e) {
+      mensajero.showSnackBar(SnackBar(content: Text(e.mensaje)));
+    }
+  }
 }
 
 /// RF-PS-01 · Donado → Retenido → En verificación → Ejecutado → Verificado.

@@ -7,6 +7,7 @@ import '../../nucleo/formato.dart';
 import '../../nucleo/navegacion.dart';
 import '../../nucleo/sesion.dart';
 import '../../nucleo/tema.dart';
+import '../donante/pantalla_campana.dart';
 import '../ong/pantalla_equipo.dart';
 import '../ong/pantalla_fondos.dart';
 import '../ong/pantalla_gastos.dart';
@@ -15,6 +16,12 @@ import '../salud/pantalla_salud.dart';
 
 final panelProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   return ref.read(clienteApiProvider).obtener('/analitica/panel');
+});
+
+/// RF-IA-10 · Fondos afines a lo que el donante ya apoya, con el motivo.
+final recomendacionesProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  return ref.read(clienteApiProvider).obtenerLista('/recomendaciones');
 });
 
 /// Inicio de cada rol: lo que tiene pendiente y como va lo suyo.
@@ -281,6 +288,7 @@ class _SeccionDonante extends ConsumerWidget {
             ),
           ),
         ],
+        const _Recomendaciones(),
         _Acciones([
           FilledButton.icon(
             onPressed: () => ir('Causas'),
@@ -294,6 +302,52 @@ class _SeccionDonante extends ConsumerWidget {
           ),
         ]),
       ],
+    );
+  }
+}
+
+/// Se dice por que se recomienda cada fondo: una sugerencia sin motivo se
+/// parece demasiado a publicidad. Sin historial no hay nada que sugerir, y
+/// la seccion no aparece.
+class _Recomendaciones extends ConsumerWidget {
+  const _Recomendaciones();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lista = ref.watch(recomendacionesProvider).value ?? const [];
+    if (lista.isEmpty) return const SizedBox.shrink();
+    final tema = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Le puede interesar', style: tema.textTheme.titleSmall),
+          const SizedBox(height: 6),
+          for (final r in lista)
+            Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: const Icon(Icons.lightbulb_outline),
+                title: Text('${r['nombre']} · ${(r['campana'] as Map)['titulo']}'),
+                subtitle: Text(
+                  '${r['ong']} · ${r['motivo']}\n'
+                  '${Formato.soles(r['recaudado'] as String?)} de '
+                  '${Formato.soles(r['meta'] as String?)}',
+                ),
+                isThreeLine: true,
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        PantallaCampana(slug: (r['campana'] as Map)['slug'] as String),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

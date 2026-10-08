@@ -60,6 +60,17 @@ export class DonacionesController {
     return this.donaciones.historial(usuarioId);
   }
 
+  // Despues de 'historial': con :id primero, ParseUUIDPipe rechazaria la
+  // palabra "historial" antes de llegar a su ruta.
+  @Get('donaciones/:id')
+  @ApiOperation({ summary: 'RF-13 · Un aporte: en que gastos se uso, con su evidencia' })
+  async detalle(
+    @Param('id', ParseUUIDPipe) donacionId: string,
+    @UsuarioActual('sub') usuarioId: string,
+  ) {
+    return this.donaciones.detalle(donacionId, usuarioId);
+  }
+
   @Roles('DONANTE')
   @Post('suscripciones')
   @ApiOperation({ summary: 'CU04 · Suscribir una donacion recurrente' })
