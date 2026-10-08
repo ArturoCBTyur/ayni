@@ -100,8 +100,9 @@ class _Panel extends ConsumerWidget {
                   ),
                 if (esAdmin && !verificada)
                   const _Aviso(
-                    texto: 'Su organización todavía no está verificada: puede preparar campañas '
-                        'en borrador, pero no publicarlas hasta que un auditor la verifique.',
+                    texto: 'Su organización todavía no está verificada: puede preparar '
+                        'campañas en borrador, pero no publicarlas hasta que un auditor la '
+                        'verifique.',
                   ),
                 if (lista.isEmpty)
                   Padding(
@@ -571,7 +572,8 @@ class _FilaFondo extends StatelessWidget {
               onSelected: onAccion,
               itemBuilder: (_) => [
                 const PopupMenuItem(value: 'editar', child: Text('Editar')),
-                if (estado == 'ACTIVO') const PopupMenuItem(value: 'PAUSADO', child: Text('Pausar')),
+                if (estado == 'ACTIVO')
+                  const PopupMenuItem(value: 'PAUSADO', child: Text('Pausar')),
                 if (estado == 'PAUSADO')
                   const PopupMenuItem(value: 'ACTIVO', child: Text('Reanudar')),
                 const PopupMenuItem(value: 'CERRADO', child: Text('Cerrar')),

@@ -2,10 +2,12 @@ import { Controller, Get, Header, Param, ParseUUIDPipe, Post, Res } from '@nestj
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 
-import { Roles } from '../identidad/decoradores';
+import { Roles, UsuarioActual } from '../identidad/decoradores';
+import type { CargaAcceso } from '../identidad/servicios/tokens.service';
 import { ConciliacionService } from './conciliacion.service';
 import { ExportacionService } from './exportacion.service';
 import { IndicadoresService } from './indicadores.service';
+import { PanelService } from './panel.service';
 
 @ApiTags('analitica')
 @Controller('analitica')
@@ -14,7 +16,15 @@ export class AnaliticaController {
     private readonly indicadores: IndicadoresService,
     private readonly conciliacion: ConciliacionService,
     private readonly exportacion: ExportacionService,
+    private readonly panelRol: PanelService,
   ) {}
+
+  /** Sin @Roles: cada rol ve su propia seccion, y solo la suya. */
+  @Get('panel')
+  @ApiOperation({ summary: 'Inicio de cada rol: lo pendiente y como va lo suyo' })
+  async panel(@UsuarioActual() usuario: CargaAcceso) {
+    return this.panelRol.panel(usuario.sub, usuario.roles);
+  }
 
   @Roles('ADMIN', 'AUDITOR')
   @Get('tablero')

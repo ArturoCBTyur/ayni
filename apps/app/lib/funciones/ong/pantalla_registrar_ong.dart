@@ -193,7 +193,8 @@ class _PantallaRegistrarOngState extends ConsumerState<PantallaRegistrarOng> {
                 _campo(
                   'nombreComercial',
                   'Nombre comercial',
-                  ayuda: 'Es el nombre que verán los donantes, si es distinto de la razón social.',
+                  ayuda: 'Es el nombre que verán los donantes, si es distinto de la razón '
+                      'social.',
                 ),
                 _campo('representanteLegal', 'Representante legal', obligatorio: true, minimo: 3),
                 _campo(

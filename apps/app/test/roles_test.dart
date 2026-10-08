@@ -99,27 +99,32 @@ void main() {
   setUpAll(() async => initializeDateFormatting(Config.locale));
 
   group('pestañas por rol', () {
-    test('el donante entra a las causas', () {
+    test('todos entran al inicio; el donante tiene después las causas', () {
       expect(
         etiquetasDeNavegacion(_usuario(['DONANTE'])),
-        ['Causas', 'Mis aportes', 'Impacto'],
+        ['Inicio', 'Causas', 'Mis aportes', 'Impacto'],
       );
     });
 
     test('el operador no tiene la pestaña de causas', () {
-      expect(etiquetasDeNavegacion(_usuario(['ONG_OPERADOR'])), ['Fondos', 'Gastos']);
+      expect(etiquetasDeNavegacion(_usuario(['ONG_OPERADOR'])), ['Inicio', 'Fondos', 'Gastos']);
     });
 
-    test('quien opera una ONG y tambien dona entra primero a su ONG', () {
+    test('quien opera una ONG y tambien dona tiene primero lo de su ONG', () {
       expect(
         etiquetasDeNavegacion(_usuario(['DONANTE', 'ONG_ADMIN'])),
-        ['Fondos', 'Gastos', 'Campañas', 'Causas', 'Mis aportes', 'Impacto'],
+        ['Inicio', 'Fondos', 'Gastos', 'Campañas', 'Causas', 'Mis aportes', 'Impacto'],
       );
     });
 
     test('auditor y administrador no ven el catalogo como pestaña', () {
       expect(etiquetasDeNavegacion(_usuario(['AUDITOR'])), isNot(contains('Causas')));
       expect(etiquetasDeNavegacion(_usuario(['ADMIN'])), isNot(contains('Causas')));
+    });
+
+    test('el tablero de conciliación es del administrador, no del auditor', () {
+      expect(etiquetasDeNavegacion(_usuario(['AUDITOR'])), ['Inicio', 'Auditoría']);
+      expect(etiquetasDeNavegacion(_usuario(['ADMIN'])), contains('Tablero'));
     });
   });
 
