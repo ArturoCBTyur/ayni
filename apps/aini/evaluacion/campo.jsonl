@@ -1,0 +1,11 @@
+# Banco de campo: un comprobante real por linea, anotado a mano.
+# Las lineas que empiezan con # se ignoran. La imagen va en evaluacion/campo/
+# (no se versiona); aqui solo su anotacion y su hash.
+#
+#   python -c "import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())" campo/c001.jpg
+#
+# Ejemplo (quitar el # para activarla):
+# {"id": "c001", "archivo": "c001.jpg", "sha256": "<64 hex>", "condiciones": ["termico", "arrugado"], "tipo": "BOLETA", "ruc_emisor": "20601030579", "serie": "B001", "numero": "004521", "fecha_emision": "2026-09-14", "subtotal": 100.00, "igv": 18.00, "total": 118.00, "tiene_qr": true, "notas": "TOTAL impreso sin IMPORTE"}
+{"id": "c001", "archivo": "c001.webp", "sha256": "73f72dcc846ff673ef524a27d0582e8f613c02544e0a4c038b9ab93345c707b6", "condiciones": ["termico", "doblado", "sostenido_a_mano", "coma_decimal", "fecha_iso"], "tipo": "BOLETA", "ruc_emisor": "20600467124", "serie": "B001", "numero": "227727", "fecha_emision": "2020-10-12", "subtotal": 83.90, "igv": 15.10, "total": 99.00, "tiene_qr": true, "notas": "SuperPet. Coma decimal; fecha AAAA-MM-DD partida en dos lineas; TOTAL GRATUITO S/16,78 antes del TOTAL A PAGAR, que sale tenue"}
+{"id": "c002", "archivo": "c002.webp", "sha256": "1f07a58a8256df4427f18c2f69ea99d163252a224455b0648fd635d7a3b98672", "condiciones": ["talonario", "manuscrito", "escaneado"], "tipo": "BOLETA", "ruc_emisor": "10072486892", "serie": "001", "numero": "0000418", "fecha_emision": "2014-02-09", "subtotal": null, "igv": null, "total": 1200.00, "tiene_qr": false, "notas": "Productos Lorito. Fecha y total a mano; sin desglose de IGV; pie de imprenta con F.I.12/09/2011 que no es la fecha de emision"}
+{"id": "c003", "archivo": "c003.png", "sha256": "a10d7d15822993b0db818950bac9b9f9e0ad05e6c754e1cde0b550056469b8ce", "condiciones": ["termico", "sostenido_a_mano", "baja_resolucion", "coma_decimal"], "tipo": "BOLETA", "ruc_emisor": "20521571455", "serie": null, "numero": null, "fecha_emision": "2020-11-26", "subtotal": 229.49, "igv": 41.31, "total": 270.80, "tiene_qr": false, "notas": "Abacan Puppy's. Sin serie-numero visible, solo numero de pedido; fecha pegada a la hora; GRAVADA sin OP."}

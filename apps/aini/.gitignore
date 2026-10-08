@@ -8,3 +8,8 @@ venv/
 # `python -m entrenamiento.entrenar` y pesa. Su ficha SI se versiona, porque
 # documenta con que se entreno el que este corriendo.
 modelos/*.joblib
+
+# Fotos reales del banco de evaluacion. Una boleta trae el nombre y a veces el
+# DNI del cliente (Ley N.o 29733): las imagenes se guardan fuera del repo y
+# aqui solo se versiona su anotacion, con el hash (evaluacion/campo.jsonl).
+evaluacion/campo/
