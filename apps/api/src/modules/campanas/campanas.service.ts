@@ -9,14 +9,52 @@ import { Prisma } from '@prisma/client';
 
 import { BitacoraService, type ContextoPeticion } from '../../comun/bitacora/bitacora.service';
 import { PrismaService } from '../../comun/prisma/prisma.service';
-import type { ActualizarCampana, BuscarCausas, CrearCampana, CrearFondo } from './esquemas';
+import type {
+  ActualizarCampana,
+  ActualizarFondo,
+  BuscarCausas,
+  CrearCampana,
+  CrearFondo,
+} from './esquemas';
 import { soles } from '../../comun/dinero';
 import { urlPublicable } from '../gastos/evidencia-publica';
+import { comprimirEvidencia } from '../gastos/imagen';
 import { ALMACENAMIENTO, type AlmacenamientoArchivos } from '../gastos/puertos/almacenamiento.port';
 import { calcularAvance } from './ongs.service';
 
 /** Cuantos gastos verificados se muestran por fondo en la ficha publica. */
 const GASTOS_VERIFICADOS_POR_FONDO = 5;
+
+/**
+ * A que estado puede pasar una campaña desde cada uno.
+ *
+ * Publicada, no vuelve a borrador: hubo donantes que la vieron y quiza
+ * aportaron. Cerrada, no vuelve a nada: su historia es parte de la rendicion
+ * de cuentas y el dinero retenido se sigue justificando igual.
+ */
+const TRANSICIONES_CAMPANA: Record<string, string[]> = {
+  BORRADOR: ['ACTIVA', 'CERRADA'],
+  ACTIVA: ['PAUSADA', 'CERRADA'],
+  PAUSADA: ['ACTIVA', 'CERRADA'],
+  CERRADA: [],
+};
+
+/** Lo mismo para un fondo. Cerrar uno no impide justificar lo que retiene. */
+const TRANSICIONES_FONDO: Record<string, string[]> = {
+  ACTIVO: ['PAUSADO', 'CERRADO'],
+  PAUSADO: ['ACTIVO', 'CERRADO'],
+  CERRADO: [],
+};
+
+const NOMBRE_ESTADO: Record<string, string> = {
+  BORRADOR: 'borrador',
+  ACTIVA: 'publicada',
+  PAUSADA: 'pausada',
+  CERRADA: 'cerrada',
+  ACTIVO: 'activo',
+  PAUSADO: 'pausado',
+  CERRADO: 'cerrado',
+};
 
 /** Fila que devuelve la consulta de busqueda por texto. */
 interface FilaBusqueda {
@@ -95,7 +133,9 @@ export class CampanasService {
         slug: await this.generarSlug(datos.titulo),
         descripcion: datos.descripcion,
         causa: datos.causa,
-        imagenUrl: datos.imagenUrl,
+        imagenUrl: datos.imagenObjeto
+          ? await this.prepararImagen(datos.imagenObjeto)
+          : datos.imagenUrl,
         departamento: datos.departamento ?? ong.departamento,
         fechaInicio: datos.fechaInicio,
         fechaFin: datos.fechaFin,
@@ -136,13 +176,36 @@ export class CampanasService {
 
     await this.exigirMembresia(campana.ongId, usuarioId);
 
+    if (campana.estado === 'CERRADA') {
+      throw new BadRequestException(
+        'Una campaña cerrada ya no se modifica: lo que recaudo y como lo justifico es parte ' +
+          'de la rendicion de cuentas.',
+      );
+    }
+    if (
+      datos.estado &&
+      datos.estado !== campana.estado &&
+      !TRANSICIONES_CAMPANA[campana.estado].includes(datos.estado)
+    ) {
+      throw new BadRequestException(
+        `Una campaña ${NOMBRE_ESTADO[campana.estado]} no puede pasar a ` +
+          `${NOMBRE_ESTADO[datos.estado]}.`,
+      );
+    }
+
+    const fechaInicio = datos.fechaInicio ?? campana.fechaInicio;
+    const fechaFin = datos.fechaFin ?? campana.fechaFin;
+    if (fechaFin && fechaFin <= fechaInicio) {
+      throw new BadRequestException('La fecha de cierre debe ser posterior a la de inicio.');
+    }
+
     if (datos.estado === 'ACTIVA') {
       if (campana.ong.estadoVerificacion !== 'VERIFICADA') {
         throw new BadRequestException(
           'Su organizacion todavia no esta verificada, asi que la campaña no puede publicarse.',
         );
       }
-      if (campana.fondos.length === 0) {
+      if (!campana.fondos.some((f) => f.estado === 'ACTIVO')) {
         throw new BadRequestException(
           'Agregue al menos un fondo antes de publicar: el donante necesita saber a que ' +
             'destino concreto va su aporte.',
@@ -156,7 +219,9 @@ export class CampanasService {
         titulo: datos.titulo,
         descripcion: datos.descripcion,
         causa: datos.causa,
-        imagenUrl: datos.imagenUrl,
+        imagenUrl: datos.imagenObjeto
+          ? await this.prepararImagen(datos.imagenObjeto)
+          : datos.imagenUrl,
         departamento: datos.departamento,
         fechaInicio: datos.fechaInicio,
         fechaFin: datos.fechaFin,
@@ -171,11 +236,46 @@ export class CampanasService {
       entidadId: campanaId,
       antes: { ...campana },
       despues: { ...actualizada },
-      campos: ['titulo', 'descripcion', 'causa', 'estado', 'fechaInicio', 'fechaFin'],
+      campos: [
+        'titulo',
+        'descripcion',
+        'causa',
+        'estado',
+        'departamento',
+        'imagenUrl',
+        'fechaInicio',
+        'fechaFin',
+      ],
       ...contexto,
     });
 
     return actualizada;
+  }
+
+  /**
+   * Comprueba, comprime y deja lista la imagen de portada de una campaña.
+   *
+   * Se recomprime igual que una evidencia: una portada de 12 megapixeles no
+   * se ve mejor en una tarjeta y encarece cada carga del buscador.
+   */
+  private async prepararImagen(objeto: string): Promise<string> {
+    if (!(await this.almacen.existe(objeto))) {
+      throw new BadRequestException('La imagen no termino de subirse. Intente de nuevo.');
+    }
+    const original = await this.almacen.leer(objeto);
+    await this.almacen.guardar(objeto, await comprimirEvidencia(original), 'image/jpeg');
+    return objeto;
+  }
+
+  /**
+   * URL de la portada para quien la va a mostrar.
+   *
+   * Una imagen subida a la plataforma se entrega con URL firmada; una URL
+   * externa (las campañas sembradas antes de poder subir) va tal cual.
+   */
+  private urlImagen(valor: string | null): string | null {
+    if (!valor) return null;
+    return valor.startsWith('campanas/') ? this.almacen.emitirUrlDescarga(valor).url : valor;
   }
 
   async crearFondo(
@@ -188,6 +288,10 @@ export class CampanasService {
     if (!campana) throw new NotFoundException('No encontramos esa campaña.');
 
     await this.exigirMembresia(campana.ongId, usuarioId);
+
+    if (campana.estado === 'CERRADA') {
+      throw new BadRequestException('La campaña esta cerrada: ya no recibe fondos nuevos.');
+    }
 
     try {
       const fondo = await this.prisma.fondo.create({
@@ -225,6 +329,80 @@ export class CampanasService {
     }
   }
 
+  /**
+   * Cambia nombre, descripcion, meta o estado de un fondo.
+   *
+   * La meta no baja de lo ya recaudado: un fondo al 140 % no le dice al
+   * donante nada cierto sobre lo que falta.
+   */
+  async actualizarFondo(
+    fondoId: string,
+    usuarioId: string,
+    datos: ActualizarFondo,
+    contexto: ContextoPeticion,
+  ) {
+    const fondo = await this.prisma.fondo.findUnique({
+      where: { id: fondoId },
+      include: { campana: true },
+    });
+    if (!fondo) throw new NotFoundException('No encontramos ese fondo.');
+
+    await this.exigirMembresia(fondo.campana.ongId, usuarioId);
+
+    if (fondo.estado === 'CERRADO') {
+      throw new BadRequestException(
+        'Un fondo cerrado ya no se modifica. Lo que retiene se sigue justificando con gastos.',
+      );
+    }
+    if (
+      datos.estado &&
+      datos.estado !== fondo.estado &&
+      !TRANSICIONES_FONDO[fondo.estado].includes(datos.estado)
+    ) {
+      throw new BadRequestException(
+        `Un fondo ${NOMBRE_ESTADO[fondo.estado]} no puede pasar a ${NOMBRE_ESTADO[datos.estado]}.`,
+      );
+    }
+    if (datos.estado === 'ACTIVO' && fondo.campana.estado === 'CERRADA') {
+      throw new BadRequestException('La campaña esta cerrada: sus fondos no se reabren.');
+    }
+    if (datos.meta !== undefined && fondo.saldoRecaudado.greaterThan(datos.meta)) {
+      throw new BadRequestException(
+        `La meta no puede quedar por debajo de lo ya recaudado (S/ ${soles(fondo.saldoRecaudado)}).`,
+      );
+    }
+
+    try {
+      const actualizado = await this.prisma.fondo.update({
+        where: { id: fondoId },
+        data: {
+          nombre: datos.nombre,
+          descripcion: datos.descripcion,
+          meta: datos.meta,
+          estado: datos.estado,
+        },
+      });
+
+      await this.bitacora.registrarCambio({
+        usuarioId,
+        accion: 'FONDO_ACTUALIZADO',
+        entidad: 'fondos',
+        entidadId: fondoId,
+        antes: { ...fondo },
+        despues: { ...actualizado },
+        campos: ['nombre', 'descripcion', 'meta', 'estado'],
+        ...contexto,
+      });
+
+      return { ...actualizado, meta: soles(actualizado.meta) };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new BadRequestException('Ya existe un fondo con ese nombre en la campaña.');
+      }
+      throw error;
+    }
+  }
+
   /** Estado de fondos de una ONG: recaudado, retenido y ejecutado (CU12). */
   async estadoFondos(ongId: string, usuarioId: string) {
     await this.exigirMembresia(ongId, usuarioId, ['ADMINISTRADOR', 'OPERADOR']);
@@ -239,9 +417,18 @@ export class CampanasService {
       id: c.id,
       titulo: c.titulo,
       estado: c.estado,
+      // Lo necesario para editarla sin otra consulta.
+      slug: c.slug,
+      descripcion: c.descripcion,
+      causa: c.causa,
+      departamento: c.departamento,
+      fechaInicio: c.fechaInicio,
+      fechaFin: c.fechaFin,
+      imagenUrl: this.urlImagen(c.imagenUrl),
       fondos: c.fondos.map((f) => ({
         id: f.id,
         nombre: f.nombre,
+        descripcion: f.descripcion,
         categoriaGasto: f.categoriaGasto,
         estado: f.estado,
         meta: soles(f.meta),
@@ -319,7 +506,7 @@ export class CampanasService {
         titulo: f.titulo,
         descripcion: f.descripcion,
         causa: f.causa,
-        imagenUrl: f.imagen_url,
+        imagenUrl: this.urlImagen(f.imagen_url),
         departamento: f.departamento,
         fondos: Number(f.fondos),
         meta: soles(f.meta_total),
@@ -357,7 +544,7 @@ export class CampanasService {
       titulo: campana.titulo,
       descripcion: campana.descripcion,
       causa: campana.causa,
-      imagenUrl: campana.imagenUrl,
+      imagenUrl: this.urlImagen(campana.imagenUrl),
       departamento: campana.departamento,
       fechaInicio: campana.fechaInicio,
       fechaFin: campana.fechaFin,

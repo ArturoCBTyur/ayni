@@ -9,6 +9,7 @@
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 
 import { BitacoraService } from '../../comun/bitacora/bitacora.service';
 import { PrismaService } from '../../comun/prisma/prisma.service';
@@ -25,6 +26,8 @@ const marca = randomUUID().slice(0, 8);
 let prisma: PrismaService;
 let campanas: CampanasService;
 let ongs: OngsService;
+let almacen: AlmacenamientoDisco;
+const objetos: string[] = [];
 
 const usuariosCreados: string[] = [];
 const ongsCreadas: string[] = [];
@@ -157,6 +160,7 @@ beforeAll(async () => {
   prisma = modulo.get(PrismaService);
   campanas = modulo.get(CampanasService);
   ongs = modulo.get(OngsService);
+  almacen = modulo.get(AlmacenamientoDisco);
   await prisma.$connect();
 }, 30_000);
 
@@ -188,6 +192,7 @@ async function limpiarLibroDePrueba() {
 }
 
 afterAll(async () => {
+  await Promise.all(objetos.map((o) => almacen.eliminar(o).catch(() => undefined)));
   await limpiarLibroDePrueba();
   await prisma.fondo.deleteMany({ where: { campana: { ongId: { in: ongsCreadas } } } });
   await prisma.campana.deleteMany({ where: { ongId: { in: ongsCreadas } } });
@@ -408,6 +413,202 @@ describe('Campañas y fondos (CU09)', () => {
     );
 
     expect(segunda.slug).toMatch(/^rescate-de-invierno-\d+$/);
+  });
+});
+
+describe('Ciclo de vida de campañas y fondos (RF-04, RF-05)', () => {
+  const textos = {
+    descripcion: 'Descripcion suficientemente larga para pasar la validacion del esquema.',
+    causa: 'Bienestar animal',
+  };
+
+  it('una campaña publicada no vuelve a borrador', async () => {
+    const { campana, admin } = await crearOngConCampana({
+      titulo: `Campaña publicada ${marca}`,
+      ...textos,
+    });
+
+    await expect(
+      campanas.actualizarCampana(campana.id, admin.id, { estado: 'BORRADOR' }, {}),
+    ).rejects.toThrow(/publicada no puede pasar a borrador/i);
+  });
+
+  it('se pausa, se reanuda y se cierra; cerrada ya no cambia ni recibe fondos', async () => {
+    const { campana, admin } = await crearOngConCampana({
+      titulo: `Campaña de ciclo completo ${marca}`,
+      ...textos,
+    });
+
+    await campanas.actualizarCampana(campana.id, admin.id, { estado: 'PAUSADA' }, {});
+    await campanas.actualizarCampana(campana.id, admin.id, { estado: 'ACTIVA' }, {});
+    const cerrada = await campanas.actualizarCampana(
+      campana.id,
+      admin.id,
+      { estado: 'CERRADA' },
+      {},
+    );
+    expect(cerrada.estado).toBe('CERRADA');
+
+    await expect(
+      campanas.actualizarCampana(campana.id, admin.id, { titulo: 'Otro titulo de campaña' }, {}),
+    ).rejects.toThrow(/cerrada ya no se modifica/i);
+    await expect(
+      campanas.crearFondo(
+        campana.id,
+        admin.id,
+        { nombre: 'Fondo tardio', categoriaGasto: 'OTROS', meta: 100 },
+        {},
+      ),
+    ).rejects.toThrow(/cerrada/i);
+  });
+
+  it('rechaza una fecha de cierre anterior al inicio tambien al editar', async () => {
+    const { campana, admin } = await crearOngConCampana({
+      titulo: `Campaña con fechas ${marca}`,
+      ...textos,
+    });
+
+    await expect(
+      campanas.actualizarCampana(
+        campana.id,
+        admin.id,
+        { fechaFin: new Date('2026-01-01') },
+        {},
+      ),
+    ).rejects.toThrow(/posterior a la de inicio/i);
+  });
+
+  it('no publica una campaña cuyos fondos estan todos pausados', async () => {
+    const admin = await crearUsuario();
+    const auditor = await crearUsuario('AUDITOR');
+    const ong = await ongs.registrar(admin.id, { ...datosOngBase, ruc: rucValido() }, {});
+    ongsCreadas.push(ong.id);
+    await ongs.verificar(
+      ong.id,
+      auditor.id,
+      { decision: 'VERIFICADA', motivo: 'Documentacion conforme para la prueba automatizada.' },
+      {},
+    );
+    const campana = await campanas.crearCampana(
+      ong.id,
+      admin.id,
+      { titulo: `Campaña sin fondos activos ${marca}`, ...textos, fechaInicio: new Date() },
+      {},
+    );
+    const fondo = await campanas.crearFondo(
+      campana.id,
+      admin.id,
+      { nombre: 'Fondo pausado', categoriaGasto: 'ALIMENTOS', meta: 500 },
+      {},
+    );
+    await campanas.actualizarFondo(fondo.id, admin.id, { estado: 'PAUSADO' }, {});
+
+    await expect(
+      campanas.actualizarCampana(campana.id, admin.id, { estado: 'ACTIVA' }, {}),
+    ).rejects.toThrow(/al menos un fondo/i);
+  });
+
+  it('la meta de un fondo no baja de lo ya recaudado', async () => {
+    const { fondo, admin } = await crearOngConCampana({
+      titulo: `Campaña con recaudacion ${marca}`,
+      ...textos,
+      recaudado: 800,
+    });
+
+    await expect(
+      campanas.actualizarFondo(fondo.id, admin.id, { meta: 500 }, {}),
+    ).rejects.toThrow(/por debajo de lo ya recaudado/i);
+
+    const r = await campanas.actualizarFondo(fondo.id, admin.id, { meta: 1200 }, {});
+    expect(r.meta).toBe('1200.00');
+  });
+
+  it('un fondo se pausa y se reanuda; cerrado ya no se reabre', async () => {
+    const { fondo, admin } = await crearOngConCampana({
+      titulo: `Campaña de fondos ${marca}`,
+      ...textos,
+    });
+
+    expect((await campanas.actualizarFondo(fondo.id, admin.id, { estado: 'PAUSADO' }, {})).estado)
+      .toBe('PAUSADO');
+    expect((await campanas.actualizarFondo(fondo.id, admin.id, { estado: 'ACTIVO' }, {})).estado)
+      .toBe('ACTIVO');
+    await campanas.actualizarFondo(fondo.id, admin.id, { estado: 'CERRADO' }, {});
+
+    await expect(
+      campanas.actualizarFondo(fondo.id, admin.id, { estado: 'ACTIVO' }, {}),
+    ).rejects.toThrow(/cerrado ya no se modifica/i);
+
+    const rastro = await prisma.bitacoraAuditoria.findMany({
+      where: { entidadId: fondo.id, accion: 'FONDO_ACTUALIZADO' },
+    });
+    expect(rastro).toHaveLength(3);
+  });
+
+  it('un operador no edita fondos', async () => {
+    const { ong, fondo } = await crearOngConCampana({
+      titulo: `Campaña con operador ${marca}`,
+      ...textos,
+    });
+    const operador = await crearUsuario();
+    await prisma.ongMiembro.create({
+      data: { ongId: ong.id, usuarioId: operador.id, cargo: 'OPERADOR' },
+    });
+
+    await expect(
+      campanas.actualizarFondo(fondo.id, operador.id, { meta: 99_000 }, {}),
+    ).rejects.toThrow(/cargo en la organizacion no permite/i);
+  });
+
+  it('la imagen subida se guarda como objeto y se entrega con URL firmada', async () => {
+    const { ong, admin } = await crearOngConCampana({
+      titulo: `Campaña base para portada ${marca}`,
+      ...textos,
+    });
+
+    const objeto = `campanas/${randomUUID()}.png`;
+    objetos.push(objeto);
+    const png = await sharp({
+      create: { width: 640, height: 400, channels: 3, background: { r: 30, g: 120, b: 60 } },
+    })
+      .png()
+      .toBuffer();
+    await almacen.guardar(objeto, png, 'image/png');
+
+    const campana = await campanas.crearCampana(
+      ong.id,
+      admin.id,
+      { titulo: `Campaña con portada ${marca}`, ...textos, imagenObjeto: objeto, fechaInicio: new Date() },
+      {},
+    );
+    expect(campana.imagenUrl).toBe(objeto);
+
+    const [enPanel] = (await campanas.estadoFondos(ong.id, admin.id)).filter(
+      (c) => c.id === campana.id,
+    );
+    expect(enPanel.imagenUrl).toContain(`almacenamiento/${objeto}`);
+    expect(enPanel.imagenUrl).toContain('token=');
+  });
+
+  it('rechaza una imagen que no termino de subirse', async () => {
+    const { ong, admin } = await crearOngConCampana({
+      titulo: `Campaña sin portada ${marca}`,
+      ...textos,
+    });
+
+    await expect(
+      campanas.crearCampana(
+        ong.id,
+        admin.id,
+        {
+          titulo: `Campaña con portada fantasma ${marca}`,
+          ...textos,
+          imagenObjeto: `campanas/${randomUUID()}.jpg`,
+          fechaInicio: new Date(),
+        },
+        {},
+      ),
+    ).rejects.toThrow(/no termino de subirse/i);
   });
 });
 

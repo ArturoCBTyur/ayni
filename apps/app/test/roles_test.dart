@@ -113,7 +113,7 @@ void main() {
     test('quien opera una ONG y tambien dona entra primero a su ONG', () {
       expect(
         etiquetasDeNavegacion(_usuario(['DONANTE', 'ONG_ADMIN'])),
-        ['Fondos', 'Gastos', 'Causas', 'Mis aportes', 'Impacto'],
+        ['Fondos', 'Gastos', 'Campañas', 'Causas', 'Mis aportes', 'Impacto'],
       );
     });
 

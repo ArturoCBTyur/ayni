@@ -75,5 +75,12 @@ void main() {
       expect(Formato.categoria('CATEGORIA_NUEVA'), 'CATEGORIA_NUEVA');
       expect(Formato.rol('ROL_NUEVO'), 'ROL_NUEVO');
     });
+
+    test('una fecha sin hora conserva su dia en cualquier zona horaria', () {
+      // Una columna DATE llega como medianoche UTC. En Lima (UTC-5) eso es
+      // la tarde del dia anterior; el dia de inicio de una campaña no cambia.
+      expect(Formato.aDia('2026-06-01T00:00:00.000Z'), DateTime(2026, 6, 1));
+      expect(Formato.aDia(null), isNull);
+    });
   });
 }

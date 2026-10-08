@@ -8,12 +8,14 @@ import { Publico, Roles, UsuarioActual } from '../identidad/decoradores';
 import { CampanasService } from './campanas.service';
 import {
   esquemaActualizarCampana,
+  esquemaActualizarFondo,
   esquemaBuscarCausas,
   esquemaCrearCampana,
   esquemaCrearFondo,
   esquemaRegistrarOng,
   esquemaVerificarOng,
   type ActualizarCampana,
+  type ActualizarFondo,
   type BuscarCausas,
   type CrearCampana,
   type CrearFondo,
@@ -128,6 +130,17 @@ export class CampanasController {
       datos,
       BitacoraService.contexto(req),
     );
+  }
+
+  @Patch('fondos/:id')
+  @ApiOperation({ summary: 'RF-05 · Editar, pausar o cerrar un fondo' })
+  async actualizarFondo(
+    @Param('id', ParseUUIDPipe) fondoId: string,
+    @UsuarioActual('sub') usuarioId: string,
+    @Body(new ZodPipe(esquemaActualizarFondo)) datos: ActualizarFondo,
+    @Req() req: Request,
+  ) {
+    return this.campanas.actualizarFondo(fondoId, usuarioId, datos, BitacoraService.contexto(req));
   }
 
   @Post('campanas/:id/fondos')

@@ -9,6 +9,7 @@ import '../funciones/cumplimiento/pantalla_privacidad.dart';
 import '../funciones/donante/pantalla_causas.dart';
 import '../funciones/donante/pantalla_historial.dart';
 import '../funciones/donante/pantalla_notificaciones.dart';
+import '../funciones/ong/pantalla_campanas.dart';
 import '../funciones/ong/pantalla_fondos.dart';
 import '../funciones/ong/pantalla_gastos.dart';
 import '../funciones/salud/pantalla_salud.dart';
@@ -71,6 +72,15 @@ const _destinos = <_Destino>[
     iconoActivo: Icons.photo_camera,
     pantalla: PantallaGastos(),
     roles: ['ONG_ADMIN', 'ONG_OPERADOR'],
+  ),
+  // Solo el administrador de ONG la tiene como pestaña: es quien crea y
+  // publica causas. El operador las ve en Fondos, que es lo que necesita.
+  _Destino(
+    etiqueta: 'Campañas',
+    icono: Icons.campaign_outlined,
+    iconoActivo: Icons.campaign,
+    pantalla: PantallaCampanas(),
+    roles: ['ONG_ADMIN'],
   ),
   _Destino(
     etiqueta: 'Auditoría',

@@ -50,6 +50,14 @@ class Formato {
     return DateTime.tryParse(valor.toString())?.toLocal();
   }
 
+  /// Fecha sin hora (columnas DATE): el dia que dice, sin pasar por la zona
+  /// horaria. Con [aFecha], "2026-06-01T00:00:00Z" se convierte a la hora de
+  /// Lima y se muestra como el 31 de mayo.
+  static DateTime? aDia(dynamic valor) {
+    final fecha = valor == null ? null : DateTime.tryParse(valor.toString());
+    return fecha == null ? null : DateTime(fecha.year, fecha.month, fecha.day);
+  }
+
   /// "hace 3 dias", para listas donde la antiguedad importa mas que la fecha.
   static String hace(DateTime? valor) {
     if (valor == null) return '—';

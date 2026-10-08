@@ -36,11 +36,17 @@ export class GastosService {
     @Inject(ALMACENAMIENTO) private readonly almacen: AlmacenamientoArchivos,
   ) {}
 
-  /** Emite una URL firmada para subir un archivo antes de registrar el gasto. */
+  /**
+   * Emite una URL firmada para subir un archivo: el comprobante y la foto de
+   * un gasto, o la imagen de una campaña. Subir no asocia el archivo a nada;
+   * eso lo decide despues la ruta que lo usa, con sus propios permisos.
+   */
   async urlDeSubida(usuarioId: string, datos: UrlSubidaEntrada) {
     await this.exigirOperador(usuarioId);
     return this.almacen.emitirUrlSubida({
-      carpeta: datos.tipo === 'comprobante' ? 'comprobantes' : 'evidencias',
+      carpeta: { comprobante: 'comprobantes', evidencia: 'evidencias', campana: 'campanas' }[
+        datos.tipo
+      ],
       extension: datos.extension,
       mime: datos.extension === 'pdf' ? 'application/pdf' : `image/${datos.extension}`,
     });
