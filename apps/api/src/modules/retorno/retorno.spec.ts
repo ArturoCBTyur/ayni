@@ -381,9 +381,9 @@ describe('RNF-21 · El borrador de AIni se revisa antes de llegar al donante', (
   });
 
   it('un borrador con una cifra inventada se descarta y sale la plantilla sola', async () => {
-    const leo = await crearDonante('Leo');
+    const lino = await crearDonante('Lino');
     const fondo = await fondoConDonantes('Fondo borrador malo', [
-      { donanteId: leo.donanteId, monto: 200 },
+      { donanteId: lino.donanteId, monto: 200 },
     ]);
     const gasto = await gastoAprobado(
       fondo.id,
@@ -395,7 +395,7 @@ describe('RNF-21 · El borrador de AIni se revisa antes de llegar al donante', (
     await retorno.notificarImpacto(gasto.id);
 
     const n = await prisma.notificacion.findFirstOrThrow({
-      where: { usuarioId: leo.usuarioId, gastoId: gasto.id },
+      where: { usuarioId: lino.usuarioId, gastoId: gasto.id },
     });
     expect(n.cuerpo).not.toContain('40 perros');
     expect(n.plantilla).toBe('impacto.alimentos@1.0');
@@ -677,14 +677,14 @@ describe('CU07 · Control social del donante (RF-SO-02)', () => {
 
 describe('La evidencia a la vista del donante y del publico', () => {
   it('la bandeja trae la URL firmada de la foto publicable', async () => {
-    const mara = await crearDonante('Mara');
+    const olga = await crearDonante('Olga');
     const fondo = await fondoConDonantes('Fondo con foto', [
-      { donanteId: mara.donanteId, monto: 200 },
+      { donanteId: olga.donanteId, monto: 200 },
     ]);
     const gasto = await gastoAprobado(fondo.id, 100);
     await retorno.notificarImpacto(gasto.id);
 
-    const [n] = await retorno.bandeja(mara.usuarioId);
+    const [n] = await retorno.bandeja(olga.usuarioId);
     expect(n.evidencia?.anonimizada).toBe(true);
     expect(n.evidencia?.url).toContain(`almacenamiento/evidencias/${marca}-`);
     expect(n.evidencia?.url).toContain('token=');
@@ -713,7 +713,7 @@ describe('La evidencia a la vista del donante y del publico', () => {
   });
 
   it('un gasto que no esta aprobado no aparece en la ficha', async () => {
-    const fondo = await fondoConDonantes('Fondo sin aprobar', []);
+    const fondo = await fondoConDonantes('Fondo de ficha sin aprobar', []);
     await prisma.gasto.create({
       data: {
         fondoId: fondo.id,
