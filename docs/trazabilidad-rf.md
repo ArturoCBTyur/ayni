@@ -81,6 +81,33 @@ Tres están implementados con modelos en `apps/aini` —el lector de comprobante
 | RF-07 / RF-08 | Pagos por pasarela | ✅ con `FakeGateway`: webhook firmado, idempotente y asíncrono. Culqi implementa la misma interfaz |
 | RF-12 | Notificaciones push | ⏸️ In-app y correo cubren el flujo; FCM diferido ([ADR-0004](adr/0004-notificaciones-sin-push.md)) |
 
+## Requerimientos transdisciplinarios (plan de octubre de 2026)
+
+Vienen del [plan de trabajo](plan-transdisciplinario.md) y se registran **antes** de implementarlos, con su criterio de aceptación (T0.1). Las decisiones de las que dependen están en [ADR-0007](adr/0007-decisiones-transdisciplinarias.md), todavía sin firmar. Los números continúan desde el último que usa el repositorio en cada disciplina; si el Entregable 2 ya usaba alguno, se renumera aquí.
+
+| ID | Requerimiento | Tarea | Depende de | Criterio de aceptación | Estado |
+|---|---|---|---|---|---|
+| RF-CF-05 | Correspondencia de las cuentas internas con el PCGE al exportar | T1.1 | D1 | Cada tipo de movimiento tiene asiento PCGE; exportado, el debe iguala al haber por asiento y en total; ningún asiento se reescribe | ⬜ Pendiente |
+| RF-CF-06 | Saldos del fondo con restricción y liberados | T1.2 | D1 | La clasificación de cada fondo suma lo recaudado bruto y coincide con los saldos que mantiene la base | ⬜ Pendiente |
+| RF-CF-07 | Estado de actividades y situación del fondo por período | T2.1 | D1 | Los totales del período son la suma de sus movimientos; el retenido final es el inicial más la variación y coincide con el saldo del fondo; la conciliación no reporta descuadre | ⬜ Pendiente |
+| RF-CF-08 | Estados mensuales en JSON, Excel y PDF | T2.2, T2.5 | D5 | Los ven el administrador, el auditor y los miembros de la ONG dueña; un miembro de otra ONG y un donante reciben 403 (prueba HTTP); se descargan desde la app | ⬜ Pendiente |
+| RF-CF-09 | Cierre mensual inmutable | T2.3 | D1 | Un cierre por fondo y mes, con el hash SHA-256 de su contenido; la base rechaza modificarlo o borrarlo y rechaza un hash que no corresponda al contenido; la ONG recibe aviso | ⬜ Pendiente |
+| RF-CF-10 | Libro diario y mayor en formato PLE | T2.4 | D1, D5 | Estructura validada por un contador | ⬜ Pendiente |
+| RF-CF-11 | Remanente al cerrar una causa | T3.1 | D2 | Al vencer el plazo, cada remanente se devuelve o reasigna con su motivo; la cadena sigue íntegra y la conciliación cuadra | ⬜ Pendiente |
+| RF-CF-12 | Informe de cierre de causa | T3.2 | D2, D5 | PDF con resumen, estados acumulados, gastos con comprobante y fotos publicables, verificación de cadena y destino del remanente | ⬜ Pendiente |
+| RF-IN-05 | Verificación pública del informe de cierre | T3.3 | — | El QR del informe lleva a una página que muestra su hash y recalcula la cadena del fondo | ⬜ Pendiente |
+| RF-CO-03 | Aviso de cierre a cada donante | T3.4 | D2 | Cada donante recibe su parte y su destino, por plantilla y con el filtro de lenguaje ético | ⬜ Pendiente |
+| RF-SO-05 | Instrumentos de encuesta versionados | T4.1 | D3, D6 | Ítems, escala y versión inmutables una vez publicados; las respuestas no guardan la identidad de quien responde | ⬜ Pendiente |
+| RF-DE-06 | Consentimiento para investigación | T4.1 | D6 | Nadie responde una encuesta sin la finalidad otorgada; revocarla desvincula sus respuestas | ⬜ Pendiente |
+| RF-SO-06 | SOC-1 medido | T4.2 | D3 | La variación se calcula sobre pares línea base–seguimiento y reemplaza el «Sin medir» del tablero | ⬜ Pendiente |
+| RF-PS-06 | PSI-1 medido con el SUS | T4.3 | D3 | Puntaje SUS con la fórmula estándar; sesión con usuarios reales y su acta | ⬜ Pendiente |
+| RF-SO-07 | Umbral de publicación de agregados | T4.4 | D6 | Ningún indicador se publica con menos respuestas que el umbral; el tablero muestra el *n* | ⬜ Pendiente |
+| RF-SO-08 | Unidades de impacto en el gasto | T5.1 | D4 | La ONG declara unidades al registrar el gasto, según su categoría | ⬜ Pendiente |
+| RF-SO-09 | Costo por unidad de impacto | T5.2 | D4 | Por fondo y por causa, incluido en el informe de cierre | ⬜ Pendiente |
+| RF-DE-07 | Constancia de donación | T6.1 | — | PDF para el donante; si la ONG es perceptora de donaciones, con lo que la norma exige, validado por un contador | ⬜ Pendiente |
+| RF-DE-08 | Informe de cumplimiento de la Ley N.° 29733 | T6.2 | — | ARCO en plazo, consentimientos por finalidad y DER-1, exportable | ⬜ Pendiente |
+| RF-IN-06 | Exportación IATI | T7.1 | D5 | Actividades, transacciones y resultados de cada causa válidos contra el esquema IATI | ⬜ Pendiente |
+
 ---
 
 ## Resumen de avance
@@ -99,6 +126,7 @@ Tres están implementados con modelos en `apps/aini` —el lector de comprobante
 | 9 · Conciliación, analítica y reportes | ✅ Cerrada — conciliación entre fuentes independientes, indicadores de la Tabla 3, exportaciones y tablero de KPIs |
 | Frontend Flutter | ✅ Sesión con segundo factor, causas, donación, historial, narrativas, panel de ONG, bandeja de auditoría, tablero de indicadores y derechos ARCO. Desde octubre de 2026, además, un inicio por rol, fotos y comprobantes según el rol, gestión de campañas y fondos, registro y verificación de ONG con su equipo, donación mensual y herramientas del auditor (ver más abajo) |
 | 10 y 11 | ⬜ Planificadas |
+| Plan transdisciplinario · Fase 0 | 🟡 Decisiones D1–D6 propuestas en [ADR-0007](adr/0007-decisiones-transdisciplinarias.md), **sin firmar**; RF nuevos registrados arriba como pendientes |
 
 **Pruebas hoy:** 397 en el API (3 omitidas) y 78 en Flutter. El detalle por suite está en la salida de `npm test`. Las del API se corrieron sobre PostgreSQL 18.6 y con el cifrado en reposo activo, igual que en CI.
 

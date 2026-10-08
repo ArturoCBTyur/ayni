@@ -61,7 +61,7 @@ Indicadores de la Tabla 3 que hoy dicen «Sin medir»: **SOC-1** (variación del
 
 ## Parte B · Fase 0 · Decisiones previas (bloquean el resto)
 
-Cada decisión queda escrita y firmada por la disciplina responsable en `docs/adr/0006-decisiones-transdisciplinarias.md`.
+Cada decisión queda escrita y firmada por la disciplina responsable en [`docs/adr/0007-decisiones-transdisciplinarias.md`](adr/0007-decisiones-transdisciplinarias.md) (el 0006 ya estaba ocupado).
 
 | ID | Decisión | Responsable |
 |---|---|---|
