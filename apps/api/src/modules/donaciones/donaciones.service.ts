@@ -46,6 +46,7 @@ export class DonacionesService {
     });
 
     this.exigirFondoDisponible(fondo);
+    await this.exigirSinConflictoDeInteres(usuarioId, fondo!.campana.ongId);
 
     const usuario = await this.prisma.usuario.findUniqueOrThrow({ where: { id: usuarioId } });
 
@@ -246,6 +247,7 @@ export class DonacionesService {
       include: { campana: { include: { ong: true } } },
     });
     this.exigirFondoDisponible(fondo);
+    await this.exigirSinConflictoDeInteres(usuarioId, fondo!.campana.ongId);
 
     const activa = await this.prisma.suscripcion.findFirst({
       where: { donanteId: donante.id, fondoId: datos.fondoId, estado: 'ACTIVA' },
@@ -479,6 +481,27 @@ export class DonacionesService {
     }
     if (fondo.estado !== 'ACTIVO') {
       throw new BadRequestException('Ese fondo esta cerrado. Elija otro destino de la campaña.');
+    }
+  }
+
+  /**
+   * Quien trabaja en una ONG no dona a esa misma ONG.
+   *
+   * No es una regla de cortesia: el que registra los gastos de un fondo y a
+   * la vez lo financia puede inflar la recaudacion de su propia campaña, y
+   * su aporte se mezcla en el FIFO con el de donantes que no la conocen por
+   * dentro. A otras organizaciones si puede donar, si tiene rol de donante.
+   */
+  private async exigirSinConflictoDeInteres(usuarioId: string, ongId: string): Promise<void> {
+    const miembro = await this.prisma.ongMiembro.findFirst({
+      where: { usuarioId, ongId, activo: true },
+      select: { id: true },
+    });
+    if (miembro) {
+      throw new ForbiddenException(
+        'No puede donar a una organizacion de la que es miembro. Puede aportar a las causas ' +
+          'de otras organizaciones.',
+      );
     }
   }
 

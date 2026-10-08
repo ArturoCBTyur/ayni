@@ -355,6 +355,50 @@ describe('CU03 · Donar a un fondo especifico', () => {
     await prisma.campana.delete({ where: { id: c.id } });
     await prisma.ong.delete({ where: { id: ongSinVerificar.id } });
   });
+
+  it('un miembro de la ONG no dona ni se suscribe a su propia organizacion', async () => {
+    const usuario = await crearUsuarioDonante();
+    await prisma.ongMiembro.create({ data: { ongId, usuarioId: usuario.id, cargo: 'OPERADOR' } });
+
+    try {
+      await expect(
+        donaciones.donar(
+          usuario.id,
+          { fondoId, monto: 50, tokenTarjeta: 'tok_ok_4242', anonima: false },
+          {},
+        ),
+      ).rejects.toThrow(/miembro/i);
+      await expect(
+        donaciones.suscribir(
+          usuario.id,
+          { fondoId, monto: 20, diaCobro: 5, tokenTarjeta: 'tok_ok_4242', anonima: false },
+          {},
+        ),
+      ).rejects.toThrow(/miembro/i);
+
+      expect(await prisma.donacion.count({ where: { donante: { usuarioId: usuario.id } } })).toBe(0);
+    } finally {
+      await prisma.ongMiembro.deleteMany({ where: { usuarioId: usuario.id } });
+    }
+  });
+
+  it('una membresia desactivada ya no bloquea el aporte', async () => {
+    const usuario = await crearUsuarioDonante();
+    await prisma.ongMiembro.create({
+      data: { ongId, usuarioId: usuario.id, cargo: 'OPERADOR', activo: false },
+    });
+
+    try {
+      const r = await donaciones.donar(
+        usuario.id,
+        { fondoId, monto: 50, tokenTarjeta: 'tok_ok_4242', anonima: false },
+        {},
+      );
+      expect(r.estado).toBe('PENDIENTE');
+    } finally {
+      await prisma.ongMiembro.deleteMany({ where: { usuarioId: usuario.id } });
+    }
+  });
 });
 
 describe('Idempotencia del webhook', () => {

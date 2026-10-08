@@ -11,6 +11,7 @@ import '../funciones/donante/pantalla_historial.dart';
 import '../funciones/donante/pantalla_notificaciones.dart';
 import '../funciones/ong/pantalla_fondos.dart';
 import '../funciones/ong/pantalla_gastos.dart';
+import '../funciones/salud/pantalla_salud.dart';
 import 'sesion.dart';
 
 /// Destino de navegacion, con el rol que lo habilita.
@@ -33,12 +34,15 @@ class _Destino {
 }
 
 const _destinos = <_Destino>[
+  // Causas es la vitrina del donante. Los demas roles la consultan desde el
+  // menu de cuenta: como pestaña, y primera, ponia a un operador o a un
+  // auditor frente a botones de "Donar" que no le corresponden.
   _Destino(
     etiqueta: 'Causas',
     icono: Icons.explore_outlined,
     iconoActivo: Icons.explore,
     pantalla: PantallaCausas(),
-    roles: [],
+    roles: ['DONANTE'],
   ),
   _Destino(
     etiqueta: 'Mis aportes',
@@ -98,6 +102,30 @@ const _destinos = <_Destino>[
   ),
 ];
 
+/// Destinos que ve un usuario, con los de su rol principal primero.
+///
+/// Quien es donante y a la vez opera una ONG entra a sus tareas de la ONG,
+/// no al catalogo: el orden lo decide [UsuarioSesion.rolPrincipal]. Dentro de
+/// cada grupo se respeta el orden de [_destinos].
+List<_Destino> _destinosPara(UsuarioSesion? usuario) {
+  if (usuario == null) return const [];
+
+  final visibles = _destinos
+      .where((d) => d.roles.isEmpty || d.roles.any(usuario.tieneRol))
+      .toList();
+  final principal = usuario.rolPrincipal;
+
+  return [
+    ...visibles.where((d) => d.roles.contains(principal)),
+    ...visibles.where((d) => !d.roles.contains(principal)),
+  ];
+}
+
+/// Etiquetas de la navegacion de un usuario, en orden. Solo para pruebas.
+@visibleForTesting
+List<String> etiquetasDeNavegacion(UsuarioSesion usuario) =>
+    _destinosPara(usuario).map((d) => d.etiqueta).toList();
+
 /// Contenedor principal con navegacion segun rol.
 ///
 /// Se adapta al ancho: rail lateral en escritorio y barra inferior en movil.
@@ -119,9 +147,10 @@ class _ShellState extends ConsumerState<Shell> {
     final sesion = ref.watch(sesionProvider);
     final usuario = sesion.usuario;
 
-    final visibles = _destinos
-        .where((d) => d.roles.isEmpty || d.roles.any((r) => usuario?.tieneRol(r) ?? false))
-        .toList();
+    var visibles = _destinosPara(usuario);
+    // Una cuenta sin ningun rol con pantalla propia no se queda en blanco:
+    // al menos puede ver las causas publicadas.
+    if (visibles.isEmpty) visibles = [_destinos.first];
 
     // Si el rol cambia y el indice queda fuera de rango, se vuelve al inicio.
     final indice = _indice.clamp(0, visibles.length - 1);
@@ -156,6 +185,16 @@ class _ShellState extends ConsumerState<Shell> {
                   ),
                 ),
                 const PopupMenuDivider(),
+                if (!usuario.tieneRol('DONANTE'))
+                  const PopupMenuItem(
+                    value: 'causas',
+                    child: Text('Causas publicadas'),
+                  ),
+                if (usuario.tieneRol('ADMIN'))
+                  const PopupMenuItem(
+                    value: 'salud',
+                    child: Text('Estado del sistema'),
+                  ),
                 const PopupMenuItem(
                   value: 'privacidad',
                   child: Text('Mis datos y privacidad'),
@@ -163,12 +202,21 @@ class _ShellState extends ConsumerState<Shell> {
                 const PopupMenuItem(value: 'salir', child: Text('Cerrar sesión')),
               ],
               onSelected: (valor) {
+                final pantalla = switch (valor) {
+                  'privacidad' => const PantallaPrivacidad(),
+                  'salud' => const PantallaSalud(),
+                  // Sin rol de donante, la ficha de cada causa se ve sin el
+                  // boton de donar: es una consulta, no una vitrina.
+                  'causas' => Scaffold(
+                      appBar: AppBar(title: const Text('Causas publicadas')),
+                      body: const PantallaCausas(),
+                    ),
+                  _ => null,
+                };
                 if (valor == 'salir') {
                   ref.read(sesionProvider.notifier).cerrarSesion();
-                } else if (valor == 'privacidad') {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(builder: (_) => const PantallaPrivacidad()),
-                  );
+                } else if (pantalla != null) {
+                  Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => pantalla));
                 }
               },
             ),

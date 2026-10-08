@@ -19,7 +19,7 @@ import type { Request } from 'express';
 
 import { BitacoraService } from '../../comun/bitacora/bitacora.service';
 import { ZodPipe } from '../../comun/validacion/zod.pipe';
-import { Publico, UsuarioActual } from '../identidad/decoradores';
+import { Publico, Roles, UsuarioActual } from '../identidad/decoradores';
 import { DonacionesService } from './donaciones.service';
 import {
   esquemaCambiarSuscripcion,
@@ -40,6 +40,10 @@ export class DonacionesController {
     @Inject(PASARELA_PAGO) private readonly pasarela: PasarelaPago,
   ) {}
 
+  // Solo quien tiene perfil de donante aporta. Antes cualquier sesion veia el
+  // boton y la API contestaba "complete su perfil", que a un operador de ONG
+  // no le dice nada: el permiso se declara aqui, donde se lee.
+  @Roles('DONANTE')
   @Post('donaciones')
   @ApiOperation({ summary: 'CU03 · Donar a un fondo especifico' })
   async donar(
@@ -56,6 +60,7 @@ export class DonacionesController {
     return this.donaciones.historial(usuarioId);
   }
 
+  @Roles('DONANTE')
   @Post('suscripciones')
   @ApiOperation({ summary: 'CU04 · Suscribir una donacion recurrente' })
   async suscribir(
