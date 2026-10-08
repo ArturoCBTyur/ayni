@@ -36,6 +36,7 @@ Columnas: `concepto, categoria, corresponde, alternativas, origen`.
 
 - Las categorías son **las del backend** (`enum CategoriaGasto` del esquema de Prisma), no las que AIni describe. Es lo que llega en producción.
 - Cada concepto con `corresponde=si` se mide contra su categoría y contra las demás: esos son los pares ajenos. `alternativas` (separadas por `|`) excluye las categorías donde el gasto también sería legítimo, y `OTROS` nunca cuenta como ajena.
+- Un par ajeno contra una categoría que AIni no sabe medir cuenta como **aceptado**, porque en producción «no se pudo evaluar» no resta puntos. Si se dejara fuera, un desvío hacia esa categoría no contaría en ningún lado.
 - `corresponde=no` añade pares ajenos explícitos, como los casos difíciles de `probar.py`.
 - `origen=redactado` son conceptos escritos para arrancar el banco, **sin revisar todavía por el equipo**. Las etiquetas entre `MEDICAMENTOS` y `ATENCION_VETERINARIA` son las más discutibles. Hay que revisarlas y sumar conceptos reales de la base.
 

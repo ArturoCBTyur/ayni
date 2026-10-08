@@ -1,8 +1,8 @@
 {
-  "generadaEn": "2026-10-08T17:06:35+00:00",
+  "generadaEn": "2026-10-08T17:47:41+00:00",
   "identidad": {
     "versionMotor": "aini-0.1-sklearn",
-    "modeloAnomaliaSha256": "e5d956552202",
+    "modeloAnomaliaSha256": null,
     "descripcionesCategoriaSha256": "fc75a28068c5",
     "umbrales": {
       "coherencia": 0.5,
@@ -31,8 +31,8 @@
       },
       "rechazaCorrectos": 0.3381,
       "advierteCorrectos": 0.3669,
-      "aceptaEquivocados": 0.0955,
-      "pasaSinAdvertirEquivocados": 0.0187,
+      "aceptaEquivocados": 0.2299,
+      "pasaSinAdvertirEquivocados": 0.0159,
       "aciertaCategoriaTop1": 0.741,
       "similitud": {
         "propiosMediana": 0.548,
@@ -41,6 +41,7 @@
         "ajenosP95": 0.539
       },
       "paresAjenosMedidos": 911,
+      "paresAjenosNoMedibles": 159,
       "palabrasSinVectorDistintas": 15,
       "categorias": {
         "delBackendSinDescripcion": [
