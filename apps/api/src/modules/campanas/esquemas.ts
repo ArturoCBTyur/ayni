@@ -63,6 +63,23 @@ export const esquemaVerificarOng = z.object({
 });
 export type VerificarOng = z.infer<typeof esquemaVerificarOng>;
 
+/** Agregar a alguien al equipo de la ONG: tiene que tener cuenta ya. */
+export const esquemaAgregarMiembro = z.object({
+  correo: z.string().trim().toLowerCase().email('Ingrese el correo de su cuenta en Ayni.'),
+  cargo: z.enum(['ADMINISTRADOR', 'OPERADOR']),
+});
+export type AgregarMiembro = z.infer<typeof esquemaAgregarMiembro>;
+
+export const esquemaCambiarMiembro = z
+  .object({
+    cargo: z.enum(['ADMINISTRADOR', 'OPERADOR']).optional(),
+    activo: z.boolean().optional(),
+  })
+  .refine((d) => d.cargo !== undefined || d.activo !== undefined, {
+    message: 'Indique el cargo nuevo o si la persona sigue activa.',
+  });
+export type CambiarMiembro = z.infer<typeof esquemaCambiarMiembro>;
+
 export const esquemaCrearCampana = z.object({
   titulo: z.string().trim().min(5, 'El titulo debe explicar la causa.').max(200),
   descripcion: z
@@ -72,6 +89,19 @@ export const esquemaCrearCampana = z.object({
     .max(4000),
   causa: z.string().trim().min(3).max(100),
   imagenUrl: z.string().trim().url().optional(),
+  /**
+   * Imagen subida con URL firmada (`tipo: campana`). Solo se acepta un objeto
+   * de la carpeta de campañas: asi no se puede colgar como portada el
+   * comprobante o la foto de un beneficiario de otro gasto.
+   */
+  imagenObjeto: z
+    .string()
+    .trim()
+    .regex(
+      /^campanas\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp)$/,
+      'La imagen de la campaña no es valida.',
+    )
+    .optional(),
   departamento: z.string().trim().max(100).optional(),
   fechaInicio: z.coerce.date(),
   fechaFin: z.coerce.date().optional(),
@@ -102,6 +132,20 @@ export const esquemaCrearFondo = z.object({
     .max(9_999_999_999, 'La meta excede el maximo permitido.'),
 });
 export type CrearFondo = z.infer<typeof esquemaCrearFondo>;
+
+/**
+ * Cambios de un fondo ya creado. La categoria no esta: es la que el donante
+ * eligio al aportar y la que el motor usa para juzgar si un gasto es
+ * coherente con el destino. Cambiarla despues reescribiria a que se dono.
+ */
+export const esquemaActualizarFondo = esquemaCrearFondo
+  .omit({ categoriaGasto: true })
+  .partial()
+  .extend({ estado: z.enum(['ACTIVO', 'PAUSADO', 'CERRADO']).optional() })
+  .refine((d) => Object.values(d).some((v) => v !== undefined), {
+    message: 'Indique que quiere cambiar del fondo.',
+  });
+export type ActualizarFondo = z.infer<typeof esquemaActualizarFondo>;
 
 export const esquemaBuscarCausas = z.object({
   /** Texto libre; se busca con full-text search en español. */

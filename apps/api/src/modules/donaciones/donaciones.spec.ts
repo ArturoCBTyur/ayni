@@ -19,6 +19,9 @@ import { DonacionesService } from './donaciones.service';
 import type { EventoWebhookEntrada } from './esquemas';
 import { FakeGateway } from './pasarelas/fake.gateway';
 import { PASARELA_PAGO } from './puertos/pasarela-pago.port';
+import { CifradoService } from '../../comun/cifrado/cifrado.service';
+import { AlmacenamientoDisco } from '../gastos/almacenamiento/disco.storage';
+import { ALMACENAMIENTO } from '../gastos/puertos/almacenamiento.port';
 
 const marca = randomUUID().slice(0, 8);
 
@@ -103,6 +106,9 @@ beforeAll(async () => {
       DonacionesService,
       FakeGateway,
       { provide: PASARELA_PAGO, useExisting: FakeGateway },
+      CifradoService,
+      AlmacenamientoDisco,
+      { provide: ALMACENAMIENTO, useExisting: AlmacenamientoDisco },
     ],
   }).compile();
 
@@ -354,6 +360,139 @@ describe('CU03 · Donar a un fondo especifico', () => {
     await prisma.fondo.delete({ where: { id: f.id } });
     await prisma.campana.delete({ where: { id: c.id } });
     await prisma.ong.delete({ where: { id: ongSinVerificar.id } });
+  });
+
+  it('un miembro de la ONG no dona ni se suscribe a su propia organizacion', async () => {
+    const usuario = await crearUsuarioDonante();
+    await prisma.ongMiembro.create({ data: { ongId, usuarioId: usuario.id, cargo: 'OPERADOR' } });
+
+    try {
+      await expect(
+        donaciones.donar(
+          usuario.id,
+          { fondoId, monto: 50, tokenTarjeta: 'tok_ok_4242', anonima: false },
+          {},
+        ),
+      ).rejects.toThrow(/miembro/i);
+      await expect(
+        donaciones.suscribir(
+          usuario.id,
+          { fondoId, monto: 20, diaCobro: 5, tokenTarjeta: 'tok_ok_4242', anonima: false },
+          {},
+        ),
+      ).rejects.toThrow(/miembro/i);
+
+      expect(await prisma.donacion.count({ where: { donante: { usuarioId: usuario.id } } })).toBe(0);
+    } finally {
+      await prisma.ongMiembro.deleteMany({ where: { usuarioId: usuario.id } });
+    }
+  });
+
+  it('una membresia desactivada ya no bloquea el aporte', async () => {
+    const usuario = await crearUsuarioDonante();
+    await prisma.ongMiembro.create({
+      data: { ongId, usuarioId: usuario.id, cargo: 'OPERADOR', activo: false },
+    });
+
+    try {
+      const r = await donaciones.donar(
+        usuario.id,
+        { fondoId, monto: 50, tokenTarjeta: 'tok_ok_4242', anonima: false },
+        {},
+      );
+      expect(r.estado).toBe('PENDIENTE');
+    } finally {
+      await prisma.ongMiembro.deleteMany({ where: { usuarioId: usuario.id } });
+    }
+  });
+});
+
+describe('RF-13 · Detalle de un aporte', () => {
+  it('muestra el aporte confirmado, todavia sin gastos que lo usen', async () => {
+    const usuario = await crearUsuarioDonante();
+    const { donacionId } = await donarYConfirmar(usuario.id, 80);
+
+    const d = await donaciones.detalle(donacionId, usuario.id);
+
+    expect(d.monto).toBe('80.00');
+    expect(d.fondo.id).toBe(fondoId);
+    expect(d.aplicaciones).toEqual([]);
+    expect(d.montoEsperandoEvidencia).toBe(d.montoNeto);
+  });
+
+  it('dice en que gasto aprobado se uso, con su foto publicable', async () => {
+    const usuario = await crearUsuarioDonante();
+    const { donacionId } = await donarYConfirmar(usuario.id, 120);
+    const operador = await crearUsuarioDonante();
+
+    // El gasto aprobado y su aplicacion van juntos: la base exige, al cerrar
+    // la transaccion, que lo aplicado iguale el monto aprobado (RN-04).
+    const gastoId = randomUUID();
+    await prisma.$transaction([
+      prisma.gasto.create({
+        data: {
+          id: gastoId,
+          fondoId,
+          ongId,
+          registradoPor: operador.id,
+          montoDeclarado: 45,
+          montoAprobado: 45,
+          concepto: 'alimento balanceado para el refugio',
+          proveedorNombre: 'Agroveterinaria El Establo',
+          fechaGasto: new Date('2026-09-10'),
+          estado: 'APROBADO',
+          aprobadoEn: new Date(),
+          evidencias: {
+            create: [
+              {
+                archivoUrl: `evidencias/detalle-${marca}.jpg`,
+                archivoMime: 'image/jpeg',
+                archivoBytes: 10,
+                hashSha256: randomUUID().replace(/-/g, '').padEnd(64, '0'),
+                anonimizada: true,
+              },
+              {
+                archivoUrl: `evidencias/detalle-personas-${marca}.jpg`,
+                archivoMime: 'image/jpeg',
+                archivoBytes: 10,
+                hashSha256: randomUUID().replace(/-/g, '').padEnd(64, '1'),
+                contienePersonas: true,
+                anonimizada: false,
+              },
+            ],
+          },
+        },
+      }),
+      prisma.aplicacionDonacion.create({ data: { gastoId, donacionId, monto: 45 } }),
+    ]);
+
+    try {
+      const d = await donaciones.detalle(donacionId, usuario.id);
+
+      expect(d.montoAplicado).toBe('45.00');
+      expect(d.aplicaciones).toHaveLength(1);
+      expect(d.aplicaciones[0]).toMatchObject({
+        monto: '45.00',
+        gasto: { id: gastoId, estado: 'APROBADO', total: '45.00' },
+      });
+      // Solo la foto publicable; la que tiene personas sin difuminar, no.
+      expect(d.aplicaciones[0].gasto.evidencias).toHaveLength(1);
+      expect(d.aplicaciones[0].gasto.evidencias[0]).toContain(`detalle-${marca}`);
+    } finally {
+      await prisma.$transaction([
+        prisma.aplicacionDonacion.deleteMany({ where: { gastoId } }),
+        prisma.evidencia.deleteMany({ where: { gastoId } }),
+        prisma.gasto.delete({ where: { id: gastoId } }),
+      ]);
+    }
+  });
+
+  it('el aporte de otra persona no existe para quien lo pide', async () => {
+    const duena = await crearUsuarioDonante();
+    const curiosa = await crearUsuarioDonante();
+    const { donacionId } = await donarYConfirmar(duena.id, 30);
+
+    await expect(donaciones.detalle(donacionId, curiosa.id)).rejects.toThrow(/no encontramos/i);
   });
 });
 

@@ -8,13 +8,19 @@ import { Publico, Roles, UsuarioActual } from '../identidad/decoradores';
 import { CampanasService } from './campanas.service';
 import {
   esquemaActualizarCampana,
+  esquemaActualizarFondo,
+  esquemaAgregarMiembro,
   esquemaBuscarCausas,
+  esquemaCambiarMiembro,
   esquemaCrearCampana,
   esquemaCrearFondo,
   esquemaRegistrarOng,
   esquemaVerificarOng,
   type ActualizarCampana,
+  type ActualizarFondo,
+  type AgregarMiembro,
   type BuscarCausas,
+  type CambiarMiembro,
   type CrearCampana,
   type CrearFondo,
   type RegistrarOng,
@@ -80,6 +86,46 @@ export class CampanasController {
     return this.campanas.estadoFondos(ongId, usuarioId);
   }
 
+  // ----- Equipo de la ONG ---------------------------------------------------
+
+  @Get('ongs/:id/miembros')
+  @ApiOperation({ summary: 'Equipo de la organizacion, para su administrador' })
+  async miembros(
+    @Param('id', ParseUUIDPipe) ongId: string,
+    @UsuarioActual('sub') usuarioId: string,
+  ) {
+    return this.ongs.listarMiembros(ongId, usuarioId);
+  }
+
+  @Post('ongs/:id/miembros')
+  @ApiOperation({ summary: 'Agregar a una persona con cuenta al equipo de la organizacion' })
+  async agregarMiembro(
+    @Param('id', ParseUUIDPipe) ongId: string,
+    @UsuarioActual('sub') usuarioId: string,
+    @Body(new ZodPipe(esquemaAgregarMiembro)) datos: AgregarMiembro,
+    @Req() req: Request,
+  ) {
+    return this.ongs.agregarMiembro(ongId, usuarioId, datos, BitacoraService.contexto(req));
+  }
+
+  @Patch('ongs/:id/miembros/:usuarioId')
+  @ApiOperation({ summary: 'Cambiar el cargo de un miembro o desactivarlo' })
+  async cambiarMiembro(
+    @Param('id', ParseUUIDPipe) ongId: string,
+    @Param('usuarioId', ParseUUIDPipe) miembroId: string,
+    @UsuarioActual('sub') usuarioId: string,
+    @Body(new ZodPipe(esquemaCambiarMiembro)) datos: CambiarMiembro,
+    @Req() req: Request,
+  ) {
+    return this.ongs.cambiarMiembro(
+      ongId,
+      miembroId,
+      usuarioId,
+      datos,
+      BitacoraService.contexto(req),
+    );
+  }
+
   // ----- Auditor -----------------------------------------------------------
 
   @Roles('AUDITOR', 'ADMIN')
@@ -128,6 +174,17 @@ export class CampanasController {
       datos,
       BitacoraService.contexto(req),
     );
+  }
+
+  @Patch('fondos/:id')
+  @ApiOperation({ summary: 'RF-05 · Editar, pausar o cerrar un fondo' })
+  async actualizarFondo(
+    @Param('id', ParseUUIDPipe) fondoId: string,
+    @UsuarioActual('sub') usuarioId: string,
+    @Body(new ZodPipe(esquemaActualizarFondo)) datos: ActualizarFondo,
+    @Req() req: Request,
+  ) {
+    return this.campanas.actualizarFondo(fondoId, usuarioId, datos, BitacoraService.contexto(req));
   }
 
   @Post('campanas/:id/fondos')

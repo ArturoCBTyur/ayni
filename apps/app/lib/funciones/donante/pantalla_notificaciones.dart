@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../comun/visor_archivo.dart';
 import '../../comun/widgets.dart';
 import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
@@ -123,20 +124,14 @@ class _TarjetaImpacto extends ConsumerWidget {
             ],
 
             if (evidencia != null) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(Icons.photo_outlined, size: 16, color: tema.colorScheme.outline),
-                  const SizedBox(width: 6),
-                  Text(
-                    // Se dice explicitamente: la foto que ve el donante es la
-                    // anonimizada, nunca el original (RNF-06).
-                    'Incluye evidencia visual con rostros difuminados',
-                    style: tema.textTheme.bodySmall?.copyWith(
-                      color: tema.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 16),
+              MiniaturaArchivo(
+                url: evidencia['url'] as String?,
+                // Se dice explicitamente: la foto que ve el donante es la
+                // publicable, nunca el original con rostros (RNF-06).
+                etiqueta: 'Evidencia del gasto · si había personas, con rostros difuminados',
+                ancho: 280,
+                alto: 190,
               ),
             ],
 

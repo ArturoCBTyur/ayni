@@ -5,6 +5,7 @@ import { createHash, randomBytes } from 'node:crypto';
 
 import { PrismaService } from '../../../comun/prisma/prisma.service';
 import type { Configuracion } from '../../../config/configuracion';
+import { TotpService } from './totp.service';
 
 export interface CargaAcceso {
   sub: string;
@@ -94,7 +95,7 @@ export class TokensService {
   async rotar(
     tokenRefresh: string | undefined,
     contexto: { ip?: string; userAgent?: string } = {},
-  ): Promise<ParSesion> {
+  ): Promise<ParSesion & { mfaPendiente: boolean }> {
     if (!tokenRefresh) {
       throw new UnauthorizedException('Su sesion expiro. Vuelva a iniciar sesion.');
     }
@@ -126,15 +127,26 @@ export class TokensService {
       data: { revocadaEn: new Date() },
     });
 
-    return this.emitir(
+    const roles = sesion.usuario.roles.map((r) => r.rol.codigo);
+
+    // La misma regla que al iniciar sesion. Sin esto, quien entraba solo con
+    // la contraseña y aun no configuraba el segundo factor recibia un token
+    // de enrolamiento, y al refrescar obtenia uno pleno: el MFA quedaba a
+    // una recarga de pagina. Igual para quien gana un rol que lo exige
+    // estando ya en sesion, como el donante que registra una ONG.
+    const mfaPendiente = TotpService.exigeMfa(roles) && !sesion.usuario.totpHabilitado;
+
+    const par = await this.emitir(
       {
         sub: sesion.usuario.id,
         correo: sesion.usuario.correo,
-        roles: sesion.usuario.roles.map((r) => r.rol.codigo),
+        roles,
         ongs: sesion.usuario.membresias.map((m) => ({ ongId: m.ongId, cargo: m.cargo })),
+        ...(mfaPendiente ? { mfaPendiente: true } : {}),
       },
       contexto,
     );
+    return { ...par, mfaPendiente };
   }
 
   async revocar(tokenRefresh: string | undefined): Promise<void> {

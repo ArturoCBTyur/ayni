@@ -241,6 +241,7 @@ export class ExportacionService {
     return {
       generadoEn: new Date().toISOString(),
       organizacion: {
+        id: ong.id,
         razonSocial: ong.razonSocial,
         ruc: ong.ruc,
         estadoVerificacion: ong.estadoVerificacion,
@@ -251,6 +252,8 @@ export class ExportacionService {
         puntajeConfianza: soles(ong.puntajeConfianza),
       },
       fondos: fondos.map((f, i) => ({
+        // Para pedir el extracto del libro de este fondo.
+        id: f.id,
         campana: f.campana.titulo,
         nombre: f.nombre,
         meta: soles(f.meta),

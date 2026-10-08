@@ -24,7 +24,7 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 | RNF-03 | OWASP ASVS nivel 2 | 🟡 | Revisión por capítulo en [revision-asvs-l2.md](revision-asvs-l2.md), con cuatro hallazgos corregidos: límite de 5/min en las rutas que prueban credenciales (antes 7 200 intentos/hora), Swagger fuera de producción, comodín de CORS rechazado al arrancar y `sharp` actualizado | `gastos.http.spec.ts` (19 casos) e `identidad.http.spec.ts` (5). Falta prueba de penetración independiente |
 | RNF-04 | No almacenar datos de tarjeta | ✅ | Solo token y últimos 4; la tokenización ocurre en la pasarela | `donaciones.spec.ts` |
 | RNF-05 | Privacidad desde el diseño | ✅ | Consentimiento por finalidad con revocación que conserva la historia, ARCO con plazos en días hábiles y exportación de datos sin credenciales | `cumplimiento.spec.ts` · 15 casos |
-| RNF-06 | Anonimización de beneficiarios | 🟡 | Difuminado manual en el servidor + trigger de la base | `imagen.spec.ts`, `gastos.spec.ts`, `integridad.spec.ts`. Automático diferido a AIni |
+| RNF-06 | Anonimización de beneficiarios | 🟡 | Difuminado manual en el servidor + trigger de la base. La ONG marca los rostros en `pantalla_difuminar.dart`; hasta entonces la API no entrega a nadie más que al auditor una URL de esa foto (`evidencia-publica.ts`) | `imagen.spec.ts`, `gastos.spec.ts`, `integridad.spec.ts`, `retorno.spec.ts`, `evidencias_test.dart`. Automático diferido a AIni |
 | RNF-07 | Libro de movimientos inalterable | ✅ | `fn_libro_solo_insercion`, `fn_movimiento_encadenar`, `fn_verificar_cadena`, más la verificación diaria de todas las cadenas en `ConciliacionService` | `integridad.spec.ts` · 7 casos; `analitica.spec.ts` altera un movimiento y comprueba que la conciliación lo detecta; `npm run demo:romper` lo demuestra en vivo |
 | RNF-08 | Bitácora de acciones sensibles | ✅ | `BitacoraService` como punto único de escritura, con comparación antes/después; registro atómico dentro de transacción donde hace falta | `identidad.spec.ts`, `cumplimiento.spec.ts` |
 | RNF-09 | Explicabilidad de las decisiones | ✅ | Cada motivo dice qué regla evaluó, cómo salió y con qué valor; el análisis queda atado al motor y a la regla vigente | `reglas-v0.motor.spec.ts`, `verificacion.spec.ts` |
@@ -97,14 +97,37 @@ Tres están implementados con modelos en `apps/aini` —el lector de comprobante
 | 7 · Auditoría, alertas y FIFO | ✅ Cerrada — decisión fundamentada, conflicto de interés, debido proceso reputacional |
 | 8 · Motor de Retorno y control social | ✅ Cerrada — narrativa por donante, filtro ético, reporte que abre caso real |
 | 9 · Conciliación, analítica y reportes | ✅ Cerrada — conciliación entre fuentes independientes, indicadores de la Tabla 3, exportaciones y tablero de KPIs |
-| Frontend Flutter | ✅ Sesión con segundo factor, causas, donación, historial, narrativas, panel de ONG, bandeja de auditoría, tablero de indicadores y derechos ARCO |
+| Frontend Flutter | ✅ Sesión con segundo factor, causas, donación, historial, narrativas, panel de ONG, bandeja de auditoría, tablero de indicadores y derechos ARCO. Desde octubre de 2026, además, un inicio por rol, fotos y comprobantes según el rol, gestión de campañas y fondos, registro y verificación de ONG con su equipo, donación mensual y herramientas del auditor (ver más abajo) |
 | 10 y 11 | ⬜ Planificadas |
 
-**Pruebas hoy:** 348 en el API y 32 en Flutter. El detalle por suite está en la salida de `npm test`. Las del API se corrieron sobre PostgreSQL 18.6 y con el cifrado en reposo activo, igual que en CI.
+**Pruebas hoy:** 397 en el API (3 omitidas) y 78 en Flutter. El detalle por suite está en la salida de `npm test`. Las del API se corrieron sobre PostgreSQL 18.6 y con el cifrado en reposo activo, igual que en CI.
 
 **CI estaba en rojo** en `main` sin que la tabla lo dijera: el job del API aplicaba las migraciones pero no la semilla, y 12 de las 17 suites fallaban al buscar los roles del catálogo. Ahora corre `npm run seed` antes de las pruebas.
 
 Las suites del API corren en un solo worker a propósito: escriben sobre la misma base y sobre un libro contable que es un recurso global, con transacciones SERIALIZABLE y advisory locks por fondo. En paralelo se estorban y producen fallos intermitentes, que enseñan a desconfiar de la suite en lugar de a corregir el código.
+
+### Mejora del aplicativo por rol (octubre 2026)
+
+La API tenía casi todo lo que el Entregable 2 pide; la aplicación no lo ofrecía. Una ONG nueva, una campaña, un operador o el sello de verificada solo podían venir de la semilla, y ninguna pantalla mostraba una sola foto o comprobante. Esta tabla cierra lo que faltaba en la interfaz; cada fila tiene su prueba.
+
+| Tema | Estado | Prueba |
+|---|---|---|
+| Coherencia de roles | ✅ Solo el donante dona (`@Roles('DONANTE')`), y nunca a la ONG de la que es miembro. Causas deja de ser la primera pestaña de todos; cada rol entra a su **Inicio** | `donaciones.http.spec.ts`, `donaciones.spec.ts`, `roles_test.dart` |
+| Inicio por rol | ✅ `GET /analitica/panel`: el donante ve lo aportado y lo que espera evidencia; la ONG, lo que debe justificar y lo observado; el auditor, su cola y los casos fuera de plazo; el administrador, ARCO, cola de análisis y cuentas bloqueadas. La sección de la ONG sale de la membresía, no del rol | `panel.spec.ts`, `inicio_test.dart` |
+| Fotos y comprobantes por rol | ✅ El auditor ve los originales; la ONG, su comprobante y sus fotos tal como las verá el donante; el donante y el público, solo la versión publicable. La ficha de cada causa muestra «En qué se usó», con la foto de cada gasto aprobado | `gastos.spec.ts`, `retorno.spec.ts`, `evidencias_test.dart` |
+| RF-04, RF-05 · Campañas y fondos | ✅ Crear, editar, publicar, pausar y cerrar desde la app, con portada. Transiciones válidas (publicada no vuelve a borrador; cerrada no cambia), `PATCH /fondos/:id` sin cambiar la categoría ni bajar la meta de lo recaudado | `campanas.spec.ts`, `campanas_test.dart` |
+| CU08, CU14 · Registro y verificación de ONG | ✅ Cualquier cuenta registra una ONG; el auditor la verifica desde su bandeja con el expediente completo, y no puede verificar una de la que es miembro | `campanas.spec.ts`, `ong_test.dart` |
+| Equipo de la ONG | ✅ `/ongs/:id/miembros`: el administrador agrega por correo, cambia el cargo o desactiva sin borrar; siempre queda un administrador activo | `campanas.spec.ts`, `ong_test.dart` |
+| CU04, RF-08 · Donación mensual | ✅ «Cada mes» al donar; pausar, reanudar y cancelar en un toque desde Mis aportes | `donante_test.dart` |
+| RF-13 · Detalle del aporte | ✅ `GET /donaciones/:id`: en qué gastos se usó cada aporte, cuánto de él en cada uno y su evidencia publicable | `donaciones.spec.ts`, `donante_test.dart` |
+| RF-IA-10 · Recomendaciones | ✅ En el inicio del donante, con el motivo de cada sugerencia | `donante_test.dart` |
+| CU15, CU17, RF-15 · Herramientas del auditor | ✅ Filtros por nivel y ONG, reasignar por conflicto de interés, descartar alertas con motivo, informe de la ONG y extractos CSV del libro, los gastos y la conciliación | `auditoria.spec.ts`, `auditoria_test.dart` |
+
+Tres hallazgos de seguridad aparecieron en el camino y quedaron corregidos con su prueba:
+
+- **Refrescar la sesión saltaba el segundo factor pendiente.** `tokens.rotar` emitía un token pleno sin mirar si la cuenta tenía MFA configurado: una recarga de página convertía un token de enrolamiento en uno pleno (`identidad.spec.ts`, `sesion_test.dart`).
+- **`GET /ongs/:id/alertas` no comprobaba nada**: cualquier sesión leía lo que un auditor le había observado a cualquier ONG. Ahora exige membresía o rol de auditoría (`auditoria.spec.ts`).
+- **`incluirMuestreo=false` no excluía nada**: `z.coerce.boolean()` convierte el texto `"false"` en `true` (`auditoria.spec.ts`).
 
 ### Fase 10 · Calidad y seguridad (en curso)
 

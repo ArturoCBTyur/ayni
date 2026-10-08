@@ -10,11 +10,16 @@ const monto = z.coerce
     message: 'El monto no puede tener mas de dos decimales.',
   });
 
-export const esquemaUrlSubida = z.object({
-  tipo: z.enum(['comprobante', 'evidencia']),
-  /** Extension del archivo; define como se guarda y se sirve despues. */
-  extension: z.enum(['jpg', 'jpeg', 'png', 'webp', 'pdf', 'mp4']),
-});
+export const esquemaUrlSubida = z
+  .object({
+    tipo: z.enum(['comprobante', 'evidencia', 'campana']),
+    /** Extension del archivo; define como se guarda y se sirve despues. */
+    extension: z.enum(['jpg', 'jpeg', 'png', 'webp', 'pdf', 'mp4']),
+  })
+  .refine((d) => d.tipo !== 'campana' || ['jpg', 'jpeg', 'png', 'webp'].includes(d.extension), {
+    message: 'La imagen de la campaña debe ser una foto (jpg, png o webp).',
+    path: ['extension'],
+  });
 export type UrlSubidaEntrada = z.infer<typeof esquemaUrlSubida>;
 
 const esquemaComprobante = z.object({

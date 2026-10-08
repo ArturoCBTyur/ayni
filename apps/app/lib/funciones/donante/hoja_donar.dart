@@ -29,6 +29,10 @@ class _HojaDonarState extends ConsumerState<HojaDonar> {
   /// Tokens de prueba de la pasarela simulada.
   String _token = 'tok_ok_4242';
   bool _anonima = false;
+
+  /// CU04 · Donar cada mes en vez de una sola vez.
+  bool _mensual = false;
+  int _diaCobro = DateTime.now().day.clamp(1, 28);
   bool _enviando = false;
   String? _error;
   Map<String, dynamic>? _resultado;
@@ -48,13 +52,17 @@ class _HojaDonarState extends ConsumerState<HojaDonar> {
     });
 
     try {
-      final r = await ref.read(clienteApiProvider).enviar('/donaciones', cuerpo: {
-        'fondoId': widget.fondoId,
-        'monto': double.parse(_monto.text.replaceAll(',', '.')),
-        'tokenTarjeta': _token,
-        'anonima': _anonima,
-      });
-      setState(() => _resultado = r);
+      final r = await ref.read(clienteApiProvider).enviar(
+        _mensual ? '/suscripciones' : '/donaciones',
+        cuerpo: {
+          'fondoId': widget.fondoId,
+          'monto': double.parse(_monto.text.replaceAll(',', '.')),
+          'tokenTarjeta': _token,
+          'anonima': _anonima,
+          if (_mensual) 'diaCobro': _diaCobro,
+        },
+      );
+      setState(() => _resultado = {...r, 'mensual': _mensual});
     } on ErrorApi catch (e) {
       setState(() => _error = e.mensaje);
     } finally {
@@ -75,7 +83,9 @@ class _HojaDonarState extends ConsumerState<HojaDonar> {
       ),
       child: SingleChildScrollView(
         child: _resultado != null
-            ? _Confirmacion(resultado: _resultado!, fondo: widget.nombreFondo)
+            ? (_resultado!['mensual'] == true
+                ? _ConfirmacionMensual(resultado: _resultado!, fondo: widget.nombreFondo)
+                : _Confirmacion(resultado: _resultado!, fondo: widget.nombreFondo))
             : Form(
                 key: _formulario,
                 child: Column(
@@ -91,7 +101,16 @@ class _HojaDonarState extends ConsumerState<HojaDonar> {
                         color: tema.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
+                    SegmentedButton<bool>(
+                      selected: {_mensual},
+                      onSelectionChanged: (s) => setState(() => _mensual = s.first),
+                      segments: const [
+                        ButtonSegment(value: false, label: Text('Una vez')),
+                        ButtonSegment(value: true, label: Text('Cada mes')),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
 
                     TextFormField(
                       controller: _monto,
@@ -122,6 +141,21 @@ class _HojaDonarState extends ConsumerState<HojaDonar> {
                       ],
                     ),
 
+                    if (_mensual) ...[
+                      const SizedBox(height: 20),
+                      DropdownMenu<int>(
+                        initialSelection: _diaCobro,
+                        expandedInsets: EdgeInsets.zero,
+                        label: const Text('Día del cobro'),
+                        helperText: 'Del 1 al 28, para que exista en todos los meses. Puede '
+                            'pausar o cancelar cuando quiera desde Mis aportes.',
+                        onSelected: (v) => setState(() => _diaCobro = v ?? _diaCobro),
+                        dropdownMenuEntries: [
+                          for (var d = 1; d <= 28; d++)
+                            DropdownMenuEntry(value: d, label: 'Día $d de cada mes'),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     DropdownMenu<String>(
                       initialSelection: _token,
@@ -178,7 +212,7 @@ class _HojaDonarState extends ConsumerState<HojaDonar> {
                               width: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Confirmar donación'),
+                          : Text(_mensual ? 'Donar cada mes' : 'Confirmar donación'),
                     ),
                     TextButton(
                       onPressed: _enviando ? null : () => Navigator.of(context).pop(false),
@@ -248,6 +282,54 @@ class _Confirmacion extends StatelessWidget {
           ),
         ),
 
+        const SizedBox(height: 24),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Entendido'),
+        ),
+      ],
+    );
+  }
+}
+
+/// La donacion mensual no cobra hoy: el primer cobro es en su dia del mes
+/// siguiente, y se dice con la fecha exacta.
+class _ConfirmacionMensual extends StatelessWidget {
+  const _ConfirmacionMensual({required this.resultado, required this.fondo});
+
+  final Map<String, dynamic> resultado;
+  final String fondo;
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = Theme.of(context);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Icon(Icons.event_repeat, size: 48, color: TemaApp.nivelAlto),
+        const SizedBox(height: 16),
+        Text(
+          'Donación mensual creada',
+          style: tema.textTheme.titleLarge,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '${Formato.soles(resultado['monto'] as String?)} a $fondo el día '
+          '${resultado['diaCobro']} de cada mes. El primer cobro será el '
+          '${Formato.fechaLarga(Formato.aFecha(resultado['proximoCobroEn']))}.',
+          style: tema.textTheme.bodyMedium,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Cada cobro queda retenido en el fondo igual que una donación única, hasta que la '
+          'organización demuestre el gasto. Puede pausarla o cancelarla desde Mis aportes.',
+          style: tema.textTheme.bodySmall?.copyWith(color: tema.colorScheme.onSurfaceVariant),
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 24),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(true),

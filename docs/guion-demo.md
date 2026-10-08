@@ -43,10 +43,10 @@ En local, `npm run demo:preparar` lo hace de una vez y `npm run demo:codigos` im
 
 ## Minuto 0–2 · El donante encuentra una causa verificada
 
-Entra con `donante@demo.pe`.
+Entra con `donante@demo.pe`. Cada cuenta entra a su **Inicio**: el del donante resume lo aportado, lo ya gastado con respaldo y lo que sigue esperando evidencia.
 
 1. **Causas.** Dos campañas de «Huellas del Ande», ambas con sello de organización verificada y su puntaje de confianza a la vista.
-2. Abre **«Esterilización comunitaria»**. Muestra el desglose del puntaje: no es una estrella inventada, son tres componentes con su detalle.
+2. Abre **«Esterilización comunitaria»**. Muestra el desglose del puntaje: no es una estrella inventada, son tres componentes con su detalle. Bajo cada fondo, **«En qué se usó»** lista los gastos ya aprobados con su foto: lo ejecutado se ve antes de donar, no solo después.
 3. **Lo que conviene decir aquí:** el donante no elige una ONG, elige un **fondo** con una categoría de gasto concreta. Ese es el primer acto de trazabilidad, antes de que entre un sol.
 
 ## Minuto 2–4 · Dona, y el dinero queda retenido
@@ -62,7 +62,7 @@ Entra con `donante@demo.pe`.
 7. Sal y entra con `ong.operador@demo.pe` (pide el código del segundo factor).
 8. **Fondos**: se ve el saldo retenido disponible.
 9. **Gastos**: el gasto sembrado de **S/ 118.00**, «atención veterinaria de urgencia de tres perros rescatados», boleta B001-004521 de Clínica Veterinaria San Roque, ya analizado por el motor.
-10. Abre el detalle: **puntaje, nivel y los motivos en español**. Cada motivo dice qué regla se evaluó, cómo salió y con qué valor.
+10. Abre el detalle: **puntaje, nivel y los motivos en español**, el comprobante y las fotos tal como las verá el donante. Cada motivo dice qué regla se evaluó, cómo salió y con qué valor. Si una foto tiene personas, desde aquí se marcan los rostros para difuminarlos: hasta entonces el donante no la ve.
 
 > **Si alguien pregunta por la IA:** hay dos motores detrás de la misma interfaz y se conmutan con una variable de entorno. Este gasto lo resolvió el determinista —dígito verificador del RUC, aritmética del IGV, huella perceptual contra todo el histórico, desviación del monto—. Los gastos de **S/ 145** y **S/ 185** los resolvió **AIni**, que corre en `apps/aini`: lee el comprobante con OCR, mide la coherencia del concepto con spaCy y perfila el gasto con Isolation Forest. Cada análisis guarda cuál de los dos decidió y con qué regla de umbrales, así que dos años después se sabe con qué criterio se aprobó.
 >
@@ -97,6 +97,15 @@ Entra con `donante@demo.pe`.
 
 ---
 
+## Si sobra tiempo: lo que cada rol puede hacer ahora
+
+Cada uno se muestra en menos de un minuto:
+
+- **Administradora de ONG** → **Campañas**: crea una campaña en borrador; la app explica que para publicarla necesita un fondo activo y, si la ONG no estuviera verificada, que no puede publicarla. Desde el menú de cuenta, **Equipo de la organización**: agrega a una persona por correo como operadora.
+- **Donante** → al donar, **«Cada mes»**: la confirmación dice la fecha exacta del primer cobro. En **Mis aportes**, cada aporte se abre y muestra en qué gasto se usó, con su foto; la donación mensual se pausa o cancela en un toque.
+- **Auditor** → **Auditoría**, pestaña **Organizaciones**: el expediente completo de una ONG que pidió verificación, y la decisión con motivo. En la revisión de un gasto, el ícono de informe abre el **informe de auditoría de la ONG**, con la integridad del libro de cada fondo y su extracto en CSV.
+- **Operador u otro rol que no dona** → el botón «Donar» no aparece: la ficha de la causa se ve en modo consulta y lo dice.
+
 ## Si sobra tiempo: intentar romperlo
 
 Lo más convincente de la demostración no es lo que funciona, sino lo que se defiende. Los cuatro fallan:
@@ -108,7 +117,7 @@ Lo más convincente de la demostración no es lo que funciona, sino lo que se de
 | Aprobar un gasto mayor al saldo retenido | «No se puede gastar lo que aún no se ha recaudado» |
 | Notificar una evidencia sin anonimizar | Un trigger lo impide, no una validación de la aplicación |
 
-Y desde la terminal, la prueba que más impresiona a un auditor:
+Y la prueba que más impresiona a un auditor. Desde la aplicación, en el informe de la ONG o en el tablero; o desde la terminal:
 
 ```bash
 curl https://<tu-api>/api/v1/analitica/exportar/libro/<fondo-id> -H "Authorization: Bearer <token>"

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../comun/tarjeta_analisis.dart';
+import '../../comun/visor_archivo.dart';
 import '../../comun/widgets.dart';
 import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
 import '../../nucleo/tema.dart';
+import 'pantalla_informe_ong.dart';
 
 final gastoProvider =
     FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, gastoId) async {
@@ -26,8 +29,22 @@ class PantallaRevision extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final gasto = ref.watch(gastoProvider(gastoId));
 
+    final ongId = gasto.value?['ongId'] as String?;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Revisar gasto')),
+      appBar: AppBar(
+        title: const Text('Revisar gasto'),
+        actions: [
+          if (ongId != null)
+            IconButton(
+              tooltip: 'Informe de auditoría de la organización',
+              icon: const Icon(Icons.summarize_outlined),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => PantallaInformeOng(ongId: ongId)),
+              ),
+            ),
+        ],
+      ),
       body: gasto.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => TarjetaError(
@@ -51,6 +68,8 @@ class _Detalle extends ConsumerWidget {
     final tema = Theme.of(context);
     final comprobante = datos['comprobante'] as Map<String, dynamic>?;
     final analisis = datos['analisis'] as Map<String, dynamic>?;
+    final evidencias =
+        (datos['evidencias'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
 
     return SingleChildScrollView(
       child: Contenido(
@@ -71,7 +90,10 @@ class _Detalle extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
 
-            if (analisis != null) _Analisis(analisis: analisis),
+            if (analisis != null) TarjetaAnalisis(analisis: analisis),
+            for (final alerta
+                in (datos['alertas'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>())
+              _Alerta(gastoId: gastoId, alerta: alerta),
             const SizedBox(height: 20),
 
             Text('Lo declarado', style: tema.textTheme.titleSmall),
@@ -131,6 +153,37 @@ class _Detalle extends ConsumerWidget {
               ),
             ],
 
+            const SizedBox(height: 20),
+            Text('Los archivos originales', style: tema.textTheme.titleSmall),
+            const SizedBox(height: 4),
+            Text(
+              // El auditor es el unico rol que recibe los originales: es lo
+              // que necesita para comparar, y lo que nadie mas debe ver.
+              'Usted ve los originales, con rostros sin difuminar. Toque una imagen para '
+              'ampliarla.',
+              style: tema.textTheme.bodySmall?.copyWith(
+                color: tema.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                if (comprobante != null)
+                  MiniaturaArchivo(
+                    url: comprobante['url'] as String?,
+                    mime: comprobante['mime'] as String?,
+                    etiqueta: 'Comprobante ${comprobante['serie']}-${comprobante['numero']}',
+                  ),
+                for (final (i, evidencia) in evidencias.indexed)
+                  MiniaturaArchivo(
+                    url: evidencia['url'] as String?,
+                    etiqueta: etiquetaEvidencia(i, evidencia),
+                  ),
+              ],
+            ),
+
             if (analisis?['datosExtraidos'] != null) ...[
               const SizedBox(height: 20),
               _LoQueDiceElPapel(
@@ -146,6 +199,125 @@ class _Detalle extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Una alerta abierta del gasto, con la opcion de descartarla si no
+/// corresponde. Descartar la saca del puntaje de la ONG, asi que pide nota.
+class _Alerta extends ConsumerWidget {
+  const _Alerta({required this.gastoId, required this.alerta});
+
+  final String gastoId;
+  final Map<String, dynamic> alerta;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tema = Theme.of(context);
+    final plazo = Formato.aFecha(alerta['plazoSubsanacion']);
+
+    return Card(
+      margin: const EdgeInsets.only(top: 12),
+      color: TemaApp.nivelMedio.withValues(alpha: 0.08),
+      child: ListTile(
+        leading: Icon(Icons.warning_amber_outlined, color: TemaApp.nivelMedio),
+        title: Text(alerta['titulo'] as String? ?? 'Alerta'),
+        subtitle: Text(
+          '${alerta['descripcion'] ?? ''}\n'
+          '${alerta['estado'] == 'EN_SUBSANACION' ? 'La ONG la respondió' : 'Abierta'}'
+          '${plazo != null ? ' · plazo ${Formato.fecha(plazo)}' : ''}',
+          style: tema.textTheme.bodySmall,
+        ),
+        isThreeLine: true,
+        trailing: TextButton(
+          onPressed: () => _descartar(context, ref),
+          child: const Text('Descartar'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _descartar(BuildContext context, WidgetRef ref) async {
+    final nota = await pedirTexto(
+      context,
+      titulo: 'Descartar alerta',
+      explicacion: 'Deja de contar para el puntaje de la ONG. Explique por qué no corresponde.',
+      minimo: 10,
+      accion: 'Descartar',
+    );
+    if (nota == null || !context.mounted) return;
+
+    final mensajero = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(clienteApiProvider)
+          .enviar('/alertas/${alerta['id']}/descartar', cuerpo: {'nota': nota});
+      ref.invalidate(gastoProvider(gastoId));
+      mensajero.showSnackBar(const SnackBar(content: Text('Alerta descartada.')));
+    } on ErrorApi catch (e) {
+      mensajero.showSnackBar(SnackBar(content: Text(e.mensaje)));
+    }
+  }
+}
+
+/// Dialogo que pide un texto con un minimo de caracteres. Devuelve null si
+/// se cancela.
+Future<String?> pedirTexto(
+  BuildContext context, {
+  required String titulo,
+  required String explicacion,
+  required int minimo,
+  required String accion,
+}) {
+  final controlador = TextEditingController();
+  String? error;
+
+  return showDialog<String>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: Text(titulo),
+        content: SizedBox(
+          width: 440,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(explicacion),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controlador,
+                maxLines: 3,
+                decoration: InputDecoration(labelText: 'Motivo', errorText: error),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () {
+              final texto = controlador.text.trim();
+              if (texto.length < minimo) {
+                setState(() => error = 'Escriba al menos $minimo caracteres.');
+                return;
+              }
+              Navigator.of(context).pop(texto);
+            },
+            child: Text(accion),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Pie de una evidencia: su numero y si tiene personas, que es lo que decide
+/// quien puede verla.
+String etiquetaEvidencia(int indice, Map<String, dynamic> evidencia) {
+  final base = 'Evidencia ${indice + 1}';
+  if (evidencia['contienePersonas'] != true) return base;
+  return evidencia['anonimizada'] == true
+      ? '$base · con personas, difuminada para el donante'
+      : '$base · con personas, todavía sin difuminar';
 }
 
 /// RF-IA-02 · Lo que el lector sacó del documento, frente a lo declarado.
@@ -337,90 +509,6 @@ class _FilaCotejo extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-/// RNF-09 · Los motivos del puntaje, en lenguaje legible.
-class _Analisis extends StatelessWidget {
-  const _Analisis({required this.analisis});
-
-  final Map<String, dynamic> analisis;
-
-  @override
-  Widget build(BuildContext context) {
-    final tema = Theme.of(context);
-    final explicacion = analisis['explicacion'] as Map<String, dynamic>?;
-    final motivos =
-        (explicacion?['motivos'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                InsigniaNivel(
-                  nivel: analisis['nivel'] as String,
-                  score: analisis['scoreFinal'] as num?,
-                ),
-                const Spacer(),
-                Text(
-                  Formato.hace(Formato.aFecha(analisis['creadoEn'])),
-                  style: tema.textTheme.bodySmall,
-                ),
-              ],
-            ),
-            if (explicacion?['resumen'] != null) ...[
-              const SizedBox(height: 12),
-              Text(explicacion!['resumen'] as String, style: tema.textTheme.bodyMedium),
-            ],
-            if (motivos.isNotEmpty) ...[
-              const Divider(height: 28),
-              Text('Por qué el motor concluyó esto', style: tema.textTheme.labelLarge),
-              const SizedBox(height: 8),
-              for (final motivo in motivos)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        switch (motivo['resultado']) {
-                          'ok' => Icons.check_circle_outline,
-                          'advertencia' => Icons.info_outline,
-                          _ => Icons.error_outline,
-                        },
-                        size: 16,
-                        color: switch (motivo['resultado']) {
-                          'ok' => TemaApp.nivelAlto,
-                          'advertencia' => TemaApp.nivelMedio,
-                          _ => TemaApp.nivelBajo,
-                        },
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          motivo['mensaje'] as String,
-                          style: tema.textTheme.bodySmall,
-                        ),
-                      ),
-                      if ((motivo['penalizacion'] as num? ?? 0) > 0)
-                        Text(
-                          '−${motivo['penalizacion']}',
-                          style: tema.textTheme.labelSmall?.copyWith(
-                            color: tema.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-            ],
-          ],
-        ),
       ),
     );
   }

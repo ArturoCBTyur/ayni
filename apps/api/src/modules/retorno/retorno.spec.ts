@@ -18,6 +18,10 @@ import { AplicacionFifoService } from '../contable/aplicacion-fifo.service';
 import { LibroService } from '../contable/libro.service';
 import { NarrativaService, normalizar, PLANTILLAS } from './narrativa.service';
 import { RetornoService } from './retorno.service';
+import { CifradoService } from '../../comun/cifrado/cifrado.service';
+import { AlmacenamientoDisco } from '../gastos/almacenamiento/disco.storage';
+import { ALMACENAMIENTO } from '../gastos/puertos/almacenamiento.port';
+import { CampanasService } from '../campanas/campanas.service';
 
 const marca = randomUUID().slice(0, 8);
 
@@ -25,6 +29,7 @@ let prisma: PrismaService;
 let retorno: RetornoService;
 let narrativa: NarrativaService;
 let fifo: AplicacionFifoService;
+let campanas: CampanasService;
 
 const usuarios: string[] = [];
 let ongId: string;
@@ -177,6 +182,10 @@ beforeAll(async () => {
       AplicacionFifoService,
       NarrativaService,
       RetornoService,
+      CifradoService,
+      AlmacenamientoDisco,
+      { provide: ALMACENAMIENTO, useExisting: AlmacenamientoDisco },
+      CampanasService,
     ],
   }).compile();
 
@@ -184,6 +193,7 @@ beforeAll(async () => {
   retorno = modulo.get(RetornoService);
   narrativa = modulo.get(NarrativaService);
   fifo = modulo.get(AplicacionFifoService);
+  campanas = modulo.get(CampanasService);
   await prisma.$connect();
 
   const ong = await prisma.ong.create({
@@ -371,9 +381,9 @@ describe('RNF-21 · El borrador de AIni se revisa antes de llegar al donante', (
   });
 
   it('un borrador con una cifra inventada se descarta y sale la plantilla sola', async () => {
-    const leo = await crearDonante('Leo');
+    const lino = await crearDonante('Lino');
     const fondo = await fondoConDonantes('Fondo borrador malo', [
-      { donanteId: leo.donanteId, monto: 200 },
+      { donanteId: lino.donanteId, monto: 200 },
     ]);
     const gasto = await gastoAprobado(
       fondo.id,
@@ -385,7 +395,7 @@ describe('RNF-21 · El borrador de AIni se revisa antes de llegar al donante', (
     await retorno.notificarImpacto(gasto.id);
 
     const n = await prisma.notificacion.findFirstOrThrow({
-      where: { usuarioId: leo.usuarioId, gastoId: gasto.id },
+      where: { usuarioId: lino.usuarioId, gastoId: gasto.id },
     });
     expect(n.cuerpo).not.toContain('40 perros');
     expect(n.plantilla).toBe('impacto.alimentos@1.0');
@@ -662,6 +672,63 @@ describe('CU07 · Control social del donante (RF-SO-02)', () => {
 
     const sinCambios = await prisma.gasto.findUniqueOrThrow({ where: { id: gasto.id } });
     expect(sinCambios.estado).toBe('APROBADO');
+  });
+});
+
+describe('La evidencia a la vista del donante y del publico', () => {
+  it('la bandeja trae la URL firmada de la foto publicable', async () => {
+    const olga = await crearDonante('Olga');
+    const fondo = await fondoConDonantes('Fondo con foto', [
+      { donanteId: olga.donanteId, monto: 200 },
+    ]);
+    const gasto = await gastoAprobado(fondo.id, 100);
+    await retorno.notificarImpacto(gasto.id);
+
+    const [n] = await retorno.bandeja(olga.usuarioId);
+    expect(n.evidencia?.anonimizada).toBe(true);
+    expect(n.evidencia?.url).toContain(`almacenamiento/evidencias/${marca}-`);
+    expect(n.evidencia?.url).toContain('token=');
+  });
+
+  it('la ficha publica muestra en que se gasto, sin entregar nunca una foto sin difuminar', async () => {
+    const nora = await crearDonante('Nora');
+    const fondo = await fondoConDonantes('Fondo publico', [
+      { donanteId: nora.donanteId, monto: 300 },
+    ]);
+    const sinPersonas = await gastoAprobado(fondo.id, 60);
+    const conPersonas = await gastoAprobado(fondo.id, 40, true);
+
+    const ficha = await campanas.detalleCampana(`retorno-${marca}`);
+    const verificados = ficha.fondos.find((f) => f.id === fondo.id)!.gastosVerificados;
+
+    expect(verificados.map((g) => g.id).sort()).toEqual([sinPersonas.id, conPersonas.id].sort());
+
+    const publicable = verificados.find((g) => g.id === sinPersonas.id)!;
+    expect(publicable.monto).toBe('60.00');
+    expect(publicable.comprobante).toMatch(/^BOLETA B001-/);
+    expect(publicable.evidencias).toHaveLength(1);
+
+    // La foto con personas existe, pero sin difuminar no se publica.
+    expect(verificados.find((g) => g.id === conPersonas.id)!.evidencias).toEqual([]);
+  });
+
+  it('un gasto que no esta aprobado no aparece en la ficha', async () => {
+    const fondo = await fondoConDonantes('Fondo de ficha sin aprobar', []);
+    await prisma.gasto.create({
+      data: {
+        fondoId: fondo.id,
+        ongId,
+        registradoPor: operadorId,
+        montoDeclarado: 30,
+        concepto: 'gasto todavia en analisis',
+        proveedorNombre: 'Proveedor',
+        fechaGasto: new Date('2026-09-10'),
+        estado: 'EN_REVISION',
+      },
+    });
+
+    const ficha = await campanas.detalleCampana(`retorno-${marca}`);
+    expect(ficha.fondos.find((f) => f.id === fondo.id)!.gastosVerificados).toEqual([]);
   });
 });
 

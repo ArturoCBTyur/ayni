@@ -7,6 +7,7 @@ import '../../comun/widgets.dart';
 import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
 import '../../nucleo/tema.dart';
+import 'pantalla_detalle_gasto.dart';
 import 'pantalla_fondos.dart';
 import 'pantalla_registrar_gasto.dart';
 
@@ -84,7 +85,10 @@ class PantallaGastos extends ConsumerWidget {
                   child: ListView.separated(
                     itemCount: gastosLista.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (context, i) => _TarjetaGasto(gasto: gastosLista[i]),
+                    itemBuilder: (context, i) => _TarjetaGasto(
+                      gasto: gastosLista[i],
+                      onAbrir: () => _abrir(context, ref, ongId, gastosLista[i]['id'] as String),
+                    ),
                   ),
                 ),
               );
@@ -102,6 +106,14 @@ class PantallaGastos extends ConsumerWidget {
     );
   }
 
+  Future<void> _abrir(BuildContext context, WidgetRef ref, String ongId, String gastoId) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => PantallaDetalleGasto(gastoId: gastoId)),
+    );
+    // En el detalle se pudo difuminar una foto: la lista lo refleja al volver.
+    ref.invalidate(gastosOngProvider(ongId));
+  }
+
   Future<void> _registrar(BuildContext context, WidgetRef ref, String ongId) async {
     final registrado = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => PantallaRegistrarGasto(ongId: ongId)),
@@ -115,9 +127,10 @@ class PantallaGastos extends ConsumerWidget {
 }
 
 class _TarjetaGasto extends StatelessWidget {
-  const _TarjetaGasto({required this.gasto});
+  const _TarjetaGasto({required this.gasto, required this.onAbrir});
 
   final Map<String, dynamic> gasto;
+  final VoidCallback onAbrir;
 
   @override
   Widget build(BuildContext context) {
@@ -125,9 +138,13 @@ class _TarjetaGasto extends StatelessWidget {
     final nivel = gasto['nivel'] as String?;
     final observaciones =
         (gasto['observaciones'] as List<dynamic>?)?.cast<String>() ?? const <String>[];
+    final porDifuminar = gasto['fotosPorDifuminar'] as int? ?? 0;
 
     return Card(
-      child: Padding(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onAbrir,
+        child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,7 +175,7 @@ class _TarjetaGasto extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                _EstadoGasto(estado: gasto['estado'] as String),
+                EstadoGasto(estado: gasto['estado'] as String),
                 const SizedBox(width: 8),
                 if (nivel != null)
                   InsigniaNivel(nivel: nivel, score: gasto['scoreFinal'] as num?),
@@ -201,15 +218,36 @@ class _TarjetaGasto extends StatelessWidget {
                   ),
                 ),
             ],
+            if (porDifuminar > 0) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Icon(Icons.blur_on, size: 16, color: TemaApp.nivelMedio),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      porDifuminar == 1
+                          ? 'Una foto con personas por difuminar: el donante no la verá hasta '
+                              'entonces. Abra el gasto para hacerlo.'
+                          : '$porDifuminar fotos con personas por difuminar. Abra el gasto para '
+                              'hacerlo.',
+                      style: tema.textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
+      ),
       ),
     );
   }
 }
 
-class _EstadoGasto extends StatelessWidget {
-  const _EstadoGasto({required this.estado});
+/// Estado del gasto en palabras de quien lo registro.
+class EstadoGasto extends StatelessWidget {
+  const EstadoGasto({super.key, required this.estado});
 
   final String estado;
 

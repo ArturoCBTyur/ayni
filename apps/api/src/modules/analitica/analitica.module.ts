@@ -4,6 +4,7 @@ import { AnaliticaController } from './analitica.controller';
 import { ConciliacionService } from './conciliacion.service';
 import { ExportacionService } from './exportacion.service';
 import { IndicadoresService } from './indicadores.service';
+import { PanelService } from './panel.service';
 
 /**
  * Analitica de Impacto (Tabla 15 del Entregable 2).
@@ -14,7 +15,7 @@ import { IndicadoresService } from './indicadores.service';
  */
 @Module({
   controllers: [AnaliticaController],
-  providers: [IndicadoresService, ConciliacionService, ExportacionService],
+  providers: [IndicadoresService, ConciliacionService, ExportacionService, PanelService],
   exports: [IndicadoresService, ConciliacionService, ExportacionService],
 })
 export class AnaliticaModule {}

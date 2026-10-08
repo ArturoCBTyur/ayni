@@ -483,6 +483,84 @@
         ]
       }
     },
+    "/api/v1/ongs/{id}/miembros": {
+      "get": {
+        "operationId": "CampanasController_miembros",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Equipo de la organizacion, para su administrador",
+        "tags": [
+          "causas"
+        ]
+      },
+      "post": {
+        "operationId": "CampanasController_agregarMiembro",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Agregar a una persona con cuenta al equipo de la organizacion",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/ongs/{id}/miembros/{usuarioId}": {
+      "patch": {
+        "operationId": "CampanasController_cambiarMiembro",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "usuarioId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Cambiar el cargo de un miembro o desactivarlo",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
     "/api/v1/verificaciones/pendientes": {
       "get": {
         "operationId": "CampanasController_pendientes",
@@ -570,6 +648,30 @@
         ]
       }
     },
+    "/api/v1/fondos/{id}": {
+      "patch": {
+        "operationId": "CampanasController_actualizarFondo",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-05 · Editar, pausar o cerrar un fondo",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
     "/api/v1/campanas/{id}/fondos": {
       "post": {
         "operationId": "CampanasController_crearFondo",
@@ -591,112 +693,6 @@
         "summary": "CU09 · Crear un fondo con categoria de gasto y meta",
         "tags": [
           "causas"
-        ]
-      }
-    },
-    "/api/v1/donaciones": {
-      "post": {
-        "operationId": "DonacionesController_donar",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "summary": "CU03 · Donar a un fondo especifico",
-        "tags": [
-          "donaciones"
-        ]
-      }
-    },
-    "/api/v1/donaciones/historial": {
-      "get": {
-        "operationId": "DonacionesController_historial",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "RF-13 · Historial con la linea de tiempo de cada aporte",
-        "tags": [
-          "donaciones"
-        ]
-      }
-    },
-    "/api/v1/suscripciones": {
-      "post": {
-        "operationId": "DonacionesController_suscribir",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "summary": "CU04 · Suscribir una donacion recurrente",
-        "tags": [
-          "donaciones"
-        ]
-      },
-      "get": {
-        "operationId": "DonacionesController_misSuscripciones",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Mis donaciones recurrentes",
-        "tags": [
-          "donaciones"
-        ]
-      }
-    },
-    "/api/v1/suscripciones/{id}": {
-      "patch": {
-        "operationId": "DonacionesController_cambiarSuscripcion",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "RF-08 · Pausar, reanudar o cancelar en un clic",
-        "tags": [
-          "donaciones"
-        ]
-      }
-    },
-    "/api/v1/webhooks/pasarela": {
-      "post": {
-        "operationId": "DonacionesController_webhook",
-        "parameters": [
-          {
-            "name": "x-pasarela-firma",
-            "required": true,
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Confirmacion de cobro firmada por la pasarela",
-        "tags": [
-          "donaciones"
         ]
       }
     },
@@ -882,6 +878,136 @@
         "summary": "Proveedor de almacenamiento activo",
         "tags": [
           "gastos"
+        ]
+      }
+    },
+    "/api/v1/donaciones": {
+      "post": {
+        "operationId": "DonacionesController_donar",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "CU03 · Donar a un fondo especifico",
+        "tags": [
+          "donaciones"
+        ]
+      }
+    },
+    "/api/v1/donaciones/historial": {
+      "get": {
+        "operationId": "DonacionesController_historial",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-13 · Historial con la linea de tiempo de cada aporte",
+        "tags": [
+          "donaciones"
+        ]
+      }
+    },
+    "/api/v1/donaciones/{id}": {
+      "get": {
+        "operationId": "DonacionesController_detalle",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-13 · Un aporte: en que gastos se uso, con su evidencia",
+        "tags": [
+          "donaciones"
+        ]
+      }
+    },
+    "/api/v1/suscripciones": {
+      "post": {
+        "operationId": "DonacionesController_suscribir",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "CU04 · Suscribir una donacion recurrente",
+        "tags": [
+          "donaciones"
+        ]
+      },
+      "get": {
+        "operationId": "DonacionesController_misSuscripciones",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Mis donaciones recurrentes",
+        "tags": [
+          "donaciones"
+        ]
+      }
+    },
+    "/api/v1/suscripciones/{id}": {
+      "patch": {
+        "operationId": "DonacionesController_cambiarSuscripcion",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-08 · Pausar, reanudar o cancelar en un clic",
+        "tags": [
+          "donaciones"
+        ]
+      }
+    },
+    "/api/v1/webhooks/pasarela": {
+      "post": {
+        "operationId": "DonacionesController_webhook",
+        "parameters": [
+          {
+            "name": "x-pasarela-firma",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Confirmacion de cobro firmada por la pasarela",
+        "tags": [
+          "donaciones"
         ]
       }
     },
@@ -1110,6 +1236,30 @@
         ]
       }
     },
+    "/api/v1/auditoria/auditores": {
+      "get": {
+        "operationId": "AuditoriaController_auditores",
+        "parameters": [
+          {
+            "name": "gastoId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "CU15 · Auditores sin conflicto a quienes reasignar un caso",
+        "tags": [
+          "auditoria"
+        ]
+      }
+    },
     "/api/v1/auditoria/gastos/{id}/reasignar": {
       "post": {
         "operationId": "AuditoriaController_reasignar",
@@ -1218,6 +1368,21 @@
         "summary": "Cerrar una alerta que no corresponde",
         "tags": [
           "auditoria"
+        ]
+      }
+    },
+    "/api/v1/analitica/panel": {
+      "get": {
+        "operationId": "AnaliticaController_panel",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Inicio de cada rol: lo pendiente y como va lo suyo",
+        "tags": [
+          "analitica"
         ]
       }
     },

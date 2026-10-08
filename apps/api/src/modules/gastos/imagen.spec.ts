@@ -247,6 +247,22 @@ describe('Compresion y metadatos', () => {
     expect(meta.height).toBe(200);
   });
 
+  it('endereza la foto vertical de un celular segun su EXIF', async () => {
+    // Orientacion 6: el sensor guardo 300x200 y la camara indica girar 90
+    // grados para verla derecha, como hace un celular en vertical.
+    const acostada = await sharp(await imagenDePrueba({ ancho: 300, alto: 200 }))
+      .jpeg()
+      .withMetadata({ orientation: 6 })
+      .toBuffer();
+
+    const meta = await sharp(await comprimirEvidencia(acostada)).metadata();
+
+    expect(meta.width).toBe(200);
+    expect(meta.height).toBe(300);
+    // Ya no queda una orientacion que un visor pudiera aplicar dos veces.
+    expect(meta.orientation ?? 1).toBe(1);
+  });
+
   it('lee las dimensiones y tolera la ausencia de EXIF', async () => {
     const meta = await leerMetadatos(await imagenDePrueba({ ancho: 320, alto: 240 }));
 

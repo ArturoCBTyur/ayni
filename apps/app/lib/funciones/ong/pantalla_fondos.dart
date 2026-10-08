@@ -218,6 +218,27 @@ class _CabeceraOng extends StatelessWidget {
                       Text('RUC ${ong['ruc']}', style: tema.textTheme.bodySmall),
                     ],
                   ),
+                  if (ong['motivoRechazo'] != null && !verificada) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Motivo: ${ong['motivoRechazo']}',
+                      style: tema.textTheme.bodySmall?.copyWith(color: TemaApp.nivelBajo),
+                    ),
+                  ],
+                  if (ong['cargo'] != null) ...[
+                    const SizedBox(height: 4),
+                    // El administrador crea campañas y fondos; el operador
+                    // registra gastos. Decirlo evita buscar opciones que su
+                    // cargo no tiene.
+                    Text(
+                      ong['cargo'] == 'ADMINISTRADOR'
+                          ? 'Su cargo: administrador de la organización'
+                          : 'Su cargo: operador de campo',
+                      style: tema.textTheme.labelSmall?.copyWith(
+                        color: tema.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

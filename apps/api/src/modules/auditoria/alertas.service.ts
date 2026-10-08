@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { PrismaService } from '../../comun/prisma/prisma.service';
@@ -14,7 +14,22 @@ export class AlertasService {
   ) {}
 
   /** Alertas abiertas de una ONG, para su panel. */
-  async listarPorOng(ongId: string) {
+  /**
+   * Observaciones de una ONG, para ella misma o para quien la audita.
+   *
+   * Antes la ruta no comprobaba nada: cualquier sesion leia lo que un
+   * auditor le reprocho a cualquier organizacion. Es la misma regla que en
+   * los gastos: lo que autoriza es la membresia, o el rol que audita.
+   */
+  async listarPorOng(ongId: string, usuario: { sub: string; roles: string[] }) {
+    const audita = usuario.roles.includes('AUDITOR') || usuario.roles.includes('ADMIN');
+    if (!audita) {
+      const miembro = await this.prisma.ongMiembro.findUnique({
+        where: { ongId_usuarioId: { ongId, usuarioId: usuario.sub } },
+      });
+      if (!miembro?.activo) throw new ForbiddenException('No pertenece a esa organizacion.');
+    }
+
     const alertas = await this.prisma.alerta.findMany({
       where: { ongId },
       orderBy: [{ estado: 'asc' }, { plazoSubsanacion: 'asc' }],

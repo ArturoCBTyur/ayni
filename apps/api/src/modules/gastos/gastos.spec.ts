@@ -475,5 +475,39 @@ describe('RF-DE-04 · Anonimizacion manual', () => {
     expect(comoAuditor.evidencias[0].url).toBeTruthy();
     // Sin anonimizar todavia: no hay URL que entregar.
     expect(comoOng.evidencias[0].url).toBeNull();
+    // La ONG si recibe el original, por un campo aparte, para poder difuminarlo.
+    expect(comoOng.evidencias[0].urlParaDifuminar).toBeTruthy();
+    expect(comoAuditor.evidencias[0].urlParaDifuminar).toBeNull();
+  });
+
+  it('una vez difuminada, la ONG ve la version publicable y ya no el original', async () => {
+    const r = await gastos.registrar(
+      operadorId,
+      await datosGasto({ monto: 29, contienePersonas: true }),
+      {},
+    );
+    const evidencia = await prisma.evidencia.findFirstOrThrow({ where: { gastoId: r.id } });
+    await gastos.anonimizar(
+      evidencia.id,
+      operadorId,
+      { regiones: [{ x: 10, y: 10, ancho: 50, alto: 50 }] },
+      {},
+    );
+    const actualizada = await prisma.evidencia.findUniqueOrThrow({ where: { id: evidencia.id } });
+    objetos.push(actualizada.archivoAnonimizadoUrl!);
+
+    const comoOng = await gastos.detalle(r.id, operadorId, false);
+
+    expect(comoOng.evidencias[0].urlParaDifuminar).toBeNull();
+    expect(comoOng.evidencias[0].url).toContain('-anonimizada');
+  });
+
+  it('la ONG ve su propio comprobante; el registro no lo oculta a quien lo subio', async () => {
+    const r = await gastos.registrar(operadorId, await datosGasto({ monto: 31 }), {});
+
+    const comoOng = await gastos.detalle(r.id, operadorId, false);
+
+    expect(comoOng.comprobante?.url).toContain('token=');
+    expect(comoOng.comprobante?.mime).toMatch(/^image\//);
   });
 });

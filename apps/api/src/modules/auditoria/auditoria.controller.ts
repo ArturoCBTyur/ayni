@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { BitacoraService } from '../../comun/bitacora/bitacora.service';
 import { ZodPipe } from '../../comun/validacion/zod.pipe';
 import { Roles, UsuarioActual } from '../identidad/decoradores';
+import type { CargaAcceso } from '../identidad/servicios/tokens.service';
 import { AlertasService } from './alertas.service';
 import { AuditoriaService } from './auditoria.service';
 import {
@@ -61,6 +62,16 @@ export class AuditoriaController {
   }
 
   @Roles('AUDITOR', 'ADMIN')
+  @Get('auditoria/auditores')
+  @ApiOperation({ summary: 'CU15 · Auditores sin conflicto a quienes reasignar un caso' })
+  async auditores(
+    @UsuarioActual('sub') auditorId: string,
+    @Query('gastoId', new ParseUUIDPipe({ optional: true })) gastoId?: string,
+  ) {
+    return this.auditoria.auditoresDisponibles(auditorId, gastoId);
+  }
+
+  @Roles('AUDITOR', 'ADMIN')
   @Post('auditoria/gastos/:id/reasignar')
   @ApiOperation({ summary: 'CU15 · Reasignar un caso por conflicto de interes' })
   async reasignar(
@@ -84,8 +95,11 @@ export class AuditoriaController {
 
   @Get('ongs/:id/alertas')
   @ApiOperation({ summary: 'Observaciones abiertas de la organizacion' })
-  async alertasDeOng(@Param('id', ParseUUIDPipe) ongId: string) {
-    return this.alertas.listarPorOng(ongId);
+  async alertasDeOng(
+    @Param('id', ParseUUIDPipe) ongId: string,
+    @UsuarioActual() usuario: CargaAcceso,
+  ) {
+    return this.alertas.listarPorOng(ongId, usuario);
   }
 
   @Post('alertas/:id/subsanar')

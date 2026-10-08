@@ -12,6 +12,8 @@ import { BitacoraService, type ContextoPeticion } from '../../comun/bitacora/bit
 import { PrismaService } from '../../comun/prisma/prisma.service';
 import { soles } from '../../comun/dinero';
 import { LibroService } from '../contable/libro.service';
+import { urlPublicable } from '../gastos/evidencia-publica';
+import { ALMACENAMIENTO, type AlmacenamientoArchivos } from '../gastos/puertos/almacenamiento.port';
 import type { CambiarSuscripcion, Donar, EventoWebhookEntrada, Suscribir } from './esquemas';
 import { PASARELA_PAGO, type PasarelaPago } from './puertos/pasarela-pago.port';
 
@@ -24,6 +26,7 @@ export class DonacionesService {
     private readonly libro: LibroService,
     private readonly bitacora: BitacoraService,
     @Inject(PASARELA_PAGO) private readonly pasarela: PasarelaPago,
+    @Inject(ALMACENAMIENTO) private readonly almacen: AlmacenamientoArchivos,
   ) {}
 
   /**
@@ -46,6 +49,7 @@ export class DonacionesService {
     });
 
     this.exigirFondoDisponible(fondo);
+    await this.exigirSinConflictoDeInteres(usuarioId, fondo!.campana.ongId);
 
     const usuario = await this.prisma.usuario.findUniqueOrThrow({ where: { id: usuarioId } });
 
@@ -246,6 +250,7 @@ export class DonacionesService {
       include: { campana: { include: { ong: true } } },
     });
     this.exigirFondoDisponible(fondo);
+    await this.exigirSinConflictoDeInteres(usuarioId, fondo!.campana.ongId);
 
     const activa = await this.prisma.suscripcion.findFirst({
       where: { donanteId: donante.id, fondoId: datos.fondoId, estado: 'ACTIVA' },
@@ -392,6 +397,74 @@ export class DonacionesService {
     };
   }
 
+  /**
+   * RF-13 · Un aporte por dentro: en que gastos se uso, cuanto de el en cada
+   * uno, y la evidencia de cada gasto.
+   *
+   * El historial dice "financio 2 gastos"; esto dice cuales. Las fotos son
+   * siempre la version publicable, y del comprobante va su identificacion,
+   * no el archivo: es un documento de la ONG.
+   */
+  async detalle(donacionId: string, usuarioId: string) {
+    const donacion = await this.prisma.donacion.findUnique({
+      where: { id: donacionId },
+      include: {
+        donante: true,
+        pago: true,
+        fondo: { include: { campana: { include: { ong: true } } } },
+        aplicaciones: {
+          orderBy: { creadoEn: 'asc' },
+          include: { gasto: { include: { comprobante: true, evidencias: true } } },
+        },
+      },
+    });
+
+    // Un aporte ajeno se responde igual que uno inexistente: no se confirma
+    // que exista.
+    if (!donacion || donacion.donante.usuarioId !== usuarioId) {
+      throw new NotFoundException('No encontramos ese aporte.');
+    }
+
+    const aplicado = donacion.aplicaciones.reduce(
+      (suma, a) => suma.plus(a.monto),
+      new Prisma.Decimal(0),
+    );
+    const verificados = donacion.aplicaciones.filter((a) => a.gasto.estado === 'APROBADO').length;
+
+    return {
+      id: donacion.id,
+      fecha: donacion.creadoEn,
+      monto: soles(donacion.monto),
+      montoNeto: soles(donacion.montoNeto),
+      comision: donacion.pago ? soles(donacion.pago.comision) : '0.00',
+      anonima: donacion.anonima,
+      estado: this.estadoParaDonante(donacion.estado, aplicado, donacion.montoNeto, verificados),
+      fondo: { id: donacion.fondo.id, nombre: donacion.fondo.nombre },
+      campana: { titulo: donacion.fondo.campana.titulo, slug: donacion.fondo.campana.slug },
+      ong: donacion.fondo.campana.ong.nombreComercial ?? donacion.fondo.campana.ong.razonSocial,
+      montoAplicado: soles(aplicado),
+      montoEsperandoEvidencia: soles(donacion.montoNeto.minus(aplicado)),
+      aplicaciones: donacion.aplicaciones.map((a) => ({
+        monto: soles(a.monto),
+        aplicadoEn: a.creadoEn,
+        gasto: {
+          id: a.gasto.id,
+          concepto: a.gasto.concepto,
+          proveedor: a.gasto.proveedorNombre,
+          fechaGasto: a.gasto.fechaGasto,
+          estado: a.gasto.estado,
+          total: soles(a.gasto.montoAprobado ?? a.gasto.montoDeclarado),
+          comprobante: a.gasto.comprobante
+            ? `${a.gasto.comprobante.tipo} ${a.gasto.comprobante.serie}-${a.gasto.comprobante.numero}`
+            : null,
+          evidencias: a.gasto.evidencias
+            .map((e) => urlPublicable(this.almacen, e))
+            .filter((url): url is string => url !== null),
+        },
+      })),
+    };
+  }
+
   async misSuscripciones(usuarioId: string) {
     const donante = await this.prisma.donante.findUnique({ where: { usuarioId } });
     if (!donante) return [];
@@ -479,6 +552,27 @@ export class DonacionesService {
     }
     if (fondo.estado !== 'ACTIVO') {
       throw new BadRequestException('Ese fondo esta cerrado. Elija otro destino de la campaña.');
+    }
+  }
+
+  /**
+   * Quien trabaja en una ONG no dona a esa misma ONG.
+   *
+   * No es una regla de cortesia: el que registra los gastos de un fondo y a
+   * la vez lo financia puede inflar la recaudacion de su propia campaña, y
+   * su aporte se mezcla en el FIFO con el de donantes que no la conocen por
+   * dentro. A otras organizaciones si puede donar, si tiene rol de donante.
+   */
+  private async exigirSinConflictoDeInteres(usuarioId: string, ongId: string): Promise<void> {
+    const miembro = await this.prisma.ongMiembro.findFirst({
+      where: { usuarioId, ongId, activo: true },
+      select: { id: true },
+    });
+    if (miembro) {
+      throw new ForbiddenException(
+        'No puede donar a una organizacion de la que es miembro. Puede aportar a las causas ' +
+          'de otras organizaciones.',
+      );
     }
   }
 

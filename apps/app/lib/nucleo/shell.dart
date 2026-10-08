@@ -3,14 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../funciones/admin/pantalla_tablero.dart';
 import '../funciones/admin/pantalla_usuarios.dart';
-import '../funciones/auditor/pantalla_bandeja.dart';
+import '../funciones/auditor/pantalla_verificacion_ong.dart';
 import '../funciones/cumplimiento/pantalla_arco_bandeja.dart';
 import '../funciones/cumplimiento/pantalla_privacidad.dart';
 import '../funciones/donante/pantalla_causas.dart';
 import '../funciones/donante/pantalla_historial.dart';
 import '../funciones/donante/pantalla_notificaciones.dart';
+import '../funciones/inicio/pantalla_inicio.dart';
+import '../funciones/ong/pantalla_campanas.dart';
+import '../funciones/ong/pantalla_equipo.dart';
 import '../funciones/ong/pantalla_fondos.dart';
 import '../funciones/ong/pantalla_gastos.dart';
+import '../funciones/ong/pantalla_registrar_ong.dart';
+import '../funciones/salud/pantalla_salud.dart';
+import 'navegacion.dart';
 import 'sesion.dart';
 
 /// Destino de navegacion, con el rol que lo habilita.
@@ -33,12 +39,24 @@ class _Destino {
 }
 
 const _destinos = <_Destino>[
+  // El inicio es de todos, y distinto para cada uno: cada rol ve ahi lo que
+  // tiene pendiente.
+  _Destino(
+    etiqueta: 'Inicio',
+    icono: Icons.home_outlined,
+    iconoActivo: Icons.home,
+    pantalla: PantallaInicio(),
+    roles: [],
+  ),
+  // Causas es la vitrina del donante. Los demas roles la consultan desde el
+  // menu de cuenta: como pestaña, y primera, ponia a un operador o a un
+  // auditor frente a botones de "Donar" que no le corresponden.
   _Destino(
     etiqueta: 'Causas',
     icono: Icons.explore_outlined,
     iconoActivo: Icons.explore,
     pantalla: PantallaCausas(),
-    roles: [],
+    roles: ['DONANTE'],
   ),
   _Destino(
     etiqueta: 'Mis aportes',
@@ -68,11 +86,20 @@ const _destinos = <_Destino>[
     pantalla: PantallaGastos(),
     roles: ['ONG_ADMIN', 'ONG_OPERADOR'],
   ),
+  // Solo el administrador de ONG la tiene como pestaña: es quien crea y
+  // publica causas. El operador las ve en Fondos, que es lo que necesita.
+  _Destino(
+    etiqueta: 'Campañas',
+    icono: Icons.campaign_outlined,
+    iconoActivo: Icons.campaign,
+    pantalla: PantallaCampanas(),
+    roles: ['ONG_ADMIN'],
+  ),
   _Destino(
     etiqueta: 'Auditoría',
     icono: Icons.fact_check_outlined,
     iconoActivo: Icons.fact_check,
-    pantalla: PantallaBandeja(),
+    pantalla: PantallaAuditoria(),
     roles: ['AUDITOR', 'ADMIN'],
   ),
   _Destino(
@@ -80,7 +107,9 @@ const _destinos = <_Destino>[
     icono: Icons.insights_outlined,
     iconoActivo: Icons.insights,
     pantalla: PantallaTablero(),
-    roles: ['ADMIN', 'AUDITOR'],
+    // La conciliacion y los indicadores de la Tabla 3 son del administrador.
+    // El auditor tiene su cola y sus cifras en el Inicio.
+    roles: ['ADMIN'],
   ),
   _Destino(
     etiqueta: 'Solicitudes',
@@ -98,6 +127,33 @@ const _destinos = <_Destino>[
   ),
 ];
 
+/// Destinos que ve un usuario: el inicio, y despues los de su rol principal.
+///
+/// Quien es donante y a la vez opera una ONG entra a sus tareas de la ONG,
+/// no al catalogo: el orden lo decide [UsuarioSesion.rolPrincipal]. Dentro de
+/// cada grupo se respeta el orden de [_destinos].
+List<_Destino> _destinosPara(UsuarioSesion? usuario) {
+  if (usuario == null) return const [];
+
+  final propios = _destinos.where((d) => d.roles.any(usuario.tieneRol)).toList();
+  final principal = usuario.rolPrincipal;
+
+  return [
+    ..._destinos.where((d) => d.roles.isEmpty),
+    ...propios.where((d) => d.roles.contains(principal)),
+    ...propios.where((d) => !d.roles.contains(principal)),
+  ];
+}
+
+/// Pestañas que caben en la barra inferior del celular. Con mas, las ultimas
+/// pasan a "Más": siete iconos en 360 px no se pueden tocar con un dedo.
+const maximoEnBarra = 5;
+
+/// Etiquetas de la navegacion de un usuario, en orden. Solo para pruebas.
+@visibleForTesting
+List<String> etiquetasDeNavegacion(UsuarioSesion usuario) =>
+    _destinosPara(usuario).map((d) => d.etiqueta).toList();
+
 /// Contenedor principal con navegacion segun rol.
 ///
 /// Se adapta al ancho: rail lateral en escritorio y barra inferior en movil.
@@ -112,20 +168,47 @@ class Shell extends ConsumerStatefulWidget {
 }
 
 class _ShellState extends ConsumerState<Shell> {
-  int _indice = 0;
+  void _ir(String etiqueta) => ref.read(navegacionProvider.notifier).ir(etiqueta);
+
+  /// Las pestañas que no caben en la barra, en una hoja.
+  Future<void> _mostrarMas(List<_Destino> resto, int indice, List<_Destino> visibles) async {
+    final elegido = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final d in resto)
+              ListTile(
+                leading: Icon(visibles[indice] == d ? d.iconoActivo : d.icono),
+                title: Text(d.etiqueta),
+                selected: visibles[indice] == d,
+                onTap: () => Navigator.of(context).pop(d.etiqueta),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (elegido != null) _ir(elegido);
+  }
 
   @override
   Widget build(BuildContext context) {
     final sesion = ref.watch(sesionProvider);
     final usuario = sesion.usuario;
 
-    final visibles = _destinos
-        .where((d) => d.roles.isEmpty || d.roles.any((r) => usuario?.tieneRol(r) ?? false))
-        .toList();
+    final visibles = _destinosPara(usuario);
+    if (visibles.isEmpty) return const SizedBox.shrink();
 
-    // Si el rol cambia y el indice queda fuera de rango, se vuelve al inicio.
-    final indice = _indice.clamp(0, visibles.length - 1);
+    // Si la pestaña elegida no existe para estos roles, se vuelve al inicio.
+    final elegida = ref.watch(navegacionProvider);
+    final indice =
+        visibles.indexWhere((d) => d.etiqueta == elegida).clamp(0, visibles.length - 1);
     final esAncho = MediaQuery.sizeOf(context).width >= 840;
+
+    final conMas = visibles.length > maximoEnBarra;
+    final enBarra = conMas ? visibles.sublist(0, maximoEnBarra - 1) : visibles;
+    final resto = conMas ? visibles.sublist(maximoEnBarra - 1) : const <_Destino>[];
 
     return Scaffold(
       appBar: AppBar(
@@ -156,6 +239,28 @@ class _ShellState extends ConsumerState<Shell> {
                   ),
                 ),
                 const PopupMenuDivider(),
+                if (!usuario.tieneRol('DONANTE'))
+                  const PopupMenuItem(
+                    value: 'causas',
+                    child: Text('Causas publicadas'),
+                  ),
+                if (usuario.tieneRol('ONG_ADMIN'))
+                  const PopupMenuItem(
+                    value: 'equipo',
+                    child: Text('Equipo de la organización'),
+                  ),
+                // Quien audita o administra la plataforma no registra una ONG:
+                // seria juez y parte de su propia verificacion.
+                if (!usuario.tieneRol('AUDITOR') && !usuario.tieneRol('ADMIN'))
+                  const PopupMenuItem(
+                    value: 'registrarOng',
+                    child: Text('Registrar una organización'),
+                  ),
+                if (usuario.tieneRol('ADMIN'))
+                  const PopupMenuItem(
+                    value: 'salud',
+                    child: Text('Estado del sistema'),
+                  ),
                 const PopupMenuItem(
                   value: 'privacidad',
                   child: Text('Mis datos y privacidad'),
@@ -163,12 +268,23 @@ class _ShellState extends ConsumerState<Shell> {
                 const PopupMenuItem(value: 'salir', child: Text('Cerrar sesión')),
               ],
               onSelected: (valor) {
+                final pantalla = switch (valor) {
+                  'privacidad' => const PantallaPrivacidad(),
+                  'salud' => const PantallaSalud(),
+                  'equipo' => const PantallaEquipo(),
+                  'registrarOng' => const PantallaRegistrarOng(),
+                  // Sin rol de donante, la ficha de cada causa se ve sin el
+                  // boton de donar: es una consulta, no una vitrina.
+                  'causas' => Scaffold(
+                      appBar: AppBar(title: const Text('Causas publicadas')),
+                      body: const PantallaCausas(),
+                    ),
+                  _ => null,
+                };
                 if (valor == 'salir') {
                   ref.read(sesionProvider.notifier).cerrarSesion();
-                } else if (valor == 'privacidad') {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(builder: (_) => const PantallaPrivacidad()),
-                  );
+                } else if (pantalla != null) {
+                  Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => pantalla));
                 }
               },
             ),
@@ -180,7 +296,7 @@ class _ShellState extends ConsumerState<Shell> {
           if (esAncho && visibles.length > 1)
             NavigationRail(
               selectedIndex: indice,
-              onDestinationSelected: (i) => setState(() => _indice = i),
+              onDestinationSelected: (i) => _ir(visibles[i].etiqueta),
               labelType: NavigationRailLabelType.all,
               destinations: [
                 for (final d in visibles)
@@ -196,14 +312,21 @@ class _ShellState extends ConsumerState<Shell> {
       ),
       bottomNavigationBar: (!esAncho && visibles.length > 1)
           ? NavigationBar(
-              selectedIndex: indice,
-              onDestinationSelected: (i) => setState(() => _indice = i),
+              selectedIndex: indice < enBarra.length ? indice : enBarra.length,
+              onDestinationSelected: (i) => i < enBarra.length
+                  ? _ir(enBarra[i].etiqueta)
+                  : _mostrarMas(resto, indice, visibles),
               destinations: [
-                for (final d in visibles)
+                for (final d in enBarra)
                   NavigationDestination(
                     icon: Icon(d.icono),
                     selectedIcon: Icon(d.iconoActivo),
                     label: d.etiqueta,
+                  ),
+                if (conMas)
+                  const NavigationDestination(
+                    icon: Icon(Icons.more_horiz),
+                    label: 'Más',
                   ),
               ],
             )

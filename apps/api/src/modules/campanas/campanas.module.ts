@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { GastosModule } from '../gastos/gastos.module';
 import { CampanasController } from './campanas.controller';
 import { CampanasService } from './campanas.service';
 import { OngsService } from './ongs.service';
@@ -12,6 +13,8 @@ import { OngsService } from './ongs.service';
  * decide si esa campaña llega siquiera al buscador.
  */
 @Module({
+  // Para firmar las evidencias publicables de los gastos verificados.
+  imports: [GastosModule],
   controllers: [CampanasController],
   providers: [CampanasService, OngsService],
   exports: [CampanasService, OngsService],

@@ -23,6 +23,7 @@ import {
   NITIDEZ_MINIMA,
   UMBRAL_DUPLICADO_PERCEPTUAL,
 } from './imagen';
+import { urlPublicable } from './evidencia-publica';
 import { ALMACENAMIENTO, type AlmacenamientoArchivos } from './puertos/almacenamiento.port';
 
 @Injectable()
@@ -35,11 +36,17 @@ export class GastosService {
     @Inject(ALMACENAMIENTO) private readonly almacen: AlmacenamientoArchivos,
   ) {}
 
-  /** Emite una URL firmada para subir un archivo antes de registrar el gasto. */
+  /**
+   * Emite una URL firmada para subir un archivo: el comprobante y la foto de
+   * un gasto, o la imagen de una campaña. Subir no asocia el archivo a nada;
+   * eso lo decide despues la ruta que lo usa, con sus propios permisos.
+   */
   async urlDeSubida(usuarioId: string, datos: UrlSubidaEntrada) {
     await this.exigirOperador(usuarioId);
     return this.almacen.emitirUrlSubida({
-      carpeta: datos.tipo === 'comprobante' ? 'comprobantes' : 'evidencias',
+      carpeta: { comprobante: 'comprobantes', evidencia: 'evidencias', campana: 'campanas' }[
+        datos.tipo
+      ],
       extension: datos.extension,
       mime: datos.extension === 'pdf' ? 'application/pdf' : `image/${datos.extension}`,
     });
@@ -226,6 +233,7 @@ export class GastosService {
       capturadoEn: gasto.capturadoEn,
       fondo: { id: gasto.fondo.id, nombre: gasto.fondo.nombre },
       campana: gasto.fondo.campana.titulo,
+      ongId: gasto.ongId,
       comprobante: gasto.comprobante
         ? {
             tipo: gasto.comprobante.tipo,
@@ -235,10 +243,12 @@ export class GastosService {
             fechaEmision: gasto.comprobante.fechaEmision,
             total: soles(gasto.comprobante.total),
             validezCpe: gasto.comprobante.validezCpe,
-            // Solo el auditor recibe URL del archivo original.
-            url: esAuditor
-              ? this.almacen.emitirUrlDescarga(gasto.comprobante.archivoUrl).url
-              : null,
+            // Aqui solo llegan el auditor y los miembros de la ONG que lo
+            // subio. El comprobante es un documento de la propia ONG, y lo
+            // necesita a la vista para responder una observacion; al donante
+            // y al publico no se les entrega nunca.
+            url: this.almacen.emitirUrlDescarga(gasto.comprobante.archivoUrl).url,
+            mime: gasto.comprobante.archivoMime,
           }
         : null,
       evidencias: gasto.evidencias.map((e) => ({
@@ -249,6 +259,13 @@ export class GastosService {
         nitidez: e.nitidez ? Number(e.nitidez) : null,
         // El auditor ve el original; cualquier otro rol, solo la anonimizada.
         url: this.urlDeEvidencia(e, esAuditor),
+        // RF-DE-04 · Para difuminar hay que ver los rostros. La ONG recibe el
+        // original solo mientras esa foto espera ser difuminada, y por este
+        // campo aparte: `url` sigue siendo siempre lo publicable.
+        urlParaDifuminar:
+          !esAuditor && e.contienePersonas && !e.anonimizada
+            ? this.almacen.emitirUrlDescarga(e.archivoUrl).url
+            : null,
       })),
       analisis: analisis
         ? {
@@ -265,6 +282,16 @@ export class GastosService {
           }
         : null,
       alertasAbiertas: gasto.alertas.length,
+      // Las abiertas, para que el auditor las vea donde decide y pueda
+      // descartar la que no corresponde.
+      alertas: gasto.alertas.map((a) => ({
+        id: a.id,
+        titulo: a.titulo,
+        descripcion: a.descripcion,
+        severidad: a.severidad,
+        estado: a.estado,
+        plazoSubsanacion: a.plazoSubsanacion,
+      })),
     };
   }
 
@@ -279,6 +306,7 @@ export class GastosService {
       include: {
         fondo: true,
         analisis: { orderBy: { creadoEn: 'desc' }, take: 1 },
+        evidencias: { select: { contienePersonas: true, anonimizada: true } },
       },
     });
 
@@ -298,6 +326,8 @@ export class GastosService {
         fondo: g.fondo.nombre,
         nivel: analisis?.nivel ?? null,
         scoreFinal: analisis ? Number(analisis.scoreFinal) : null,
+        // Fotos con personas que el donante no vera hasta que se difuminen.
+        fotosPorDifuminar: g.evidencias.filter((e) => e.contienePersonas && !e.anonimizada).length,
 
         // La explicacion tambien va a la ONG, no solo al auditor.
         //
@@ -456,11 +486,7 @@ export class GastosService {
     esAuditor: boolean,
   ): string | null {
     if (esAuditor) return this.almacen.emitirUrlDescarga(evidencia.archivoUrl).url;
-    if (evidencia.archivoAnonimizadoUrl) {
-      return this.almacen.emitirUrlDescarga(evidencia.archivoAnonimizadoUrl).url;
-    }
-    // Sin personas, el original ya es la version publicable.
-    return evidencia.anonimizada ? this.almacen.emitirUrlDescarga(evidencia.archivoUrl).url : null;
+    return urlPublicable(this.almacen, evidencia);
   }
 
   private async exigirMiembroDe(ongId: string, usuarioId: string) {

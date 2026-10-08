@@ -59,7 +59,17 @@ export const esquemaBandeja = z.object({
   /** Ordena por antiguedad o por monto, como pide CU15. */
   orden: z.enum(['antiguedad', 'monto']).default('antiguedad'),
   /** Incluye tambien los casos de muestreo de nivel ALTO (RN-08). */
-  incluirMuestreo: z.coerce.boolean().default(true),
+  // Antes era z.coerce.boolean(), que convierte el texto "false" de la URL
+  // en true: no habia forma de excluir el muestreo desde la consulta.
+  incluirMuestreo: z.union([z.boolean(), z.enum(['true', 'false'])]).default(true),
+  /**
+   * Nivel del motor. Filtra por cualquier analisis del gasto con ese nivel:
+   * un gasto subsanado puede tener uno anterior distinto, y para elegir por
+   * donde empezar alcanza.
+   */
+  nivel: z.enum(['ALTO', 'MEDIO', 'BAJO']).optional(),
+  /** Solo los casos de una organizacion. */
+  ongId: z.string().uuid().optional(),
   pagina: z.coerce.number().int().min(1).default(1),
   porPagina: z.coerce.number().int().min(1).max(50).default(20),
 });
