@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 
 import { soles } from '../../comun/dinero';
 import { PrismaService } from '../../comun/prisma/prisma.service';
+import { clasificarSaldos, sumasDesdeGrupos } from '../contable/clasificacion';
 import { LibroService } from '../contable/libro.service';
 
 export type SeveridadDescuadre = 'CRITICO' | 'ADVERTENCIA';
@@ -169,19 +170,15 @@ export class ConciliacionService {
       this.prisma.aplicacionDonacion.aggregate({ _sum: { monto: true } }),
     ]);
 
-    const porTipo = (tipo: string) =>
-      movimientos.find((m) => m.tipo === tipo)?._sum.monto ?? new Prisma.Decimal(0);
-
-    const retencion = porTipo('RETENCION');
-    const ejecucion = porTipo('EJECUCION');
+    const libro = clasificarSaldos(sumasDesdeGrupos(movimientos));
 
     return {
       pagosAprobados: soles(pagos._sum.monto ?? 0),
       comisionesPagos: soles(pagos._sum.comision ?? 0),
-      ingresosLibro: soles(porTipo('INGRESO')),
-      comisionesLibro: soles(porTipo('COMISION')),
-      retenido: soles(retencion.minus(ejecucion)),
-      ejecutado: soles(ejecucion),
+      ingresosLibro: soles(libro.recaudadoBruto),
+      comisionesLibro: soles(libro.comisiones),
+      retenido: soles(libro.conRestriccion),
+      ejecutado: soles(libro.liberados),
       aplicado: soles(aplicaciones._sum.monto ?? 0),
     };
   }
@@ -209,48 +206,50 @@ export class ConciliacionService {
     });
   }
 
-  /** Los saldos del fondo frente a la suma de su propio libro. */
+  /**
+   * Los saldos del fondo frente a la suma de su propio libro.
+   *
+   * Los saldos los mantiene el trigger fn_movimiento_aplicar_saldos; la suma
+   * del libro sale de clasificarSaldos, escrita aparte. Antes esta suma solo
+   * miraba RETENCION y EJECUCION, y el primer REVERSO o REASIGNACION que se
+   * asentara habria aparecido como un descuadre que no existe.
+   */
   private async compararSaldosDeFondos(descuadres: Descuadre[]): Promise<void> {
-    const filas = await this.prisma.$queryRaw<
-      {
-        id: string;
-        nombre: string;
-        saldo_retenido: Prisma.Decimal;
-        saldo_ejecutado: Prisma.Decimal;
-        retenido_libro: Prisma.Decimal;
-        ejecutado_libro: Prisma.Decimal;
-      }[]
-    >`
-      SELECT f.id, f.nombre, f.saldo_retenido, f.saldo_ejecutado,
-             COALESCE(SUM(m.monto) FILTER (WHERE m.tipo = 'RETENCION'), 0)
-               - COALESCE(SUM(m.monto) FILTER (WHERE m.tipo = 'EJECUCION'), 0) AS retenido_libro,
-             COALESCE(SUM(m.monto) FILTER (WHERE m.tipo = 'EJECUCION'), 0)     AS ejecutado_libro
-        FROM fondos f
-        LEFT JOIN movimientos_contables m ON m.fondo_id = f.id
-       GROUP BY f.id
-    `;
+    const [fondos, grupos] = await Promise.all([
+      this.prisma.fondo.findMany({
+        select: { id: true, nombre: true, saldoRetenido: true, saldoEjecutado: true },
+      }),
+      this.prisma.movimientoContable.groupBy({ by: ['fondoId', 'tipo'], _sum: { monto: true } }),
+    ]);
 
-    for (const fila of filas) {
-      if (!fila.saldo_retenido.equals(fila.retenido_libro)) {
+    const gruposPorFondo = new Map<string, typeof grupos>();
+    for (const g of grupos) {
+      gruposPorFondo.set(g.fondoId, [...(gruposPorFondo.get(g.fondoId) ?? []), g]);
+    }
+
+    for (const fondo of fondos) {
+      const libro = clasificarSaldos(sumasDesdeGrupos(gruposPorFondo.get(fondo.id) ?? []));
+
+      if (!fondo.saldoRetenido.equals(libro.conRestriccion)) {
         descuadres.push({
           comprobacion: 'saldo_retenido_vs_libro',
           severidad: 'CRITICO',
-          descripcion: `El saldo retenido del fondo "${fila.nombre}" no coincide con su libro.`,
-          esperado: soles(fila.retenido_libro),
-          encontrado: soles(fila.saldo_retenido),
-          diferencia: soles(fila.retenido_libro.minus(fila.saldo_retenido)),
-          entidadId: fila.id,
+          descripcion: `El saldo retenido del fondo "${fondo.nombre}" no coincide con su libro.`,
+          esperado: soles(libro.conRestriccion),
+          encontrado: soles(fondo.saldoRetenido),
+          diferencia: soles(libro.conRestriccion.minus(fondo.saldoRetenido)),
+          entidadId: fondo.id,
         });
       }
-      if (!fila.saldo_ejecutado.equals(fila.ejecutado_libro)) {
+      if (!fondo.saldoEjecutado.equals(libro.liberados)) {
         descuadres.push({
           comprobacion: 'saldo_ejecutado_vs_libro',
           severidad: 'CRITICO',
-          descripcion: `El saldo ejecutado del fondo "${fila.nombre}" no coincide con su libro.`,
-          esperado: soles(fila.ejecutado_libro),
-          encontrado: soles(fila.saldo_ejecutado),
-          diferencia: soles(fila.ejecutado_libro.minus(fila.saldo_ejecutado)),
-          entidadId: fila.id,
+          descripcion: `El saldo ejecutado del fondo "${fondo.nombre}" no coincide con su libro.`,
+          esperado: soles(libro.liberados),
+          encontrado: soles(fondo.saldoEjecutado),
+          diferencia: soles(libro.liberados.minus(fondo.saldoEjecutado)),
+          entidadId: fondo.id,
         });
       }
     }

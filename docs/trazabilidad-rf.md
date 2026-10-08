@@ -37,7 +37,7 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 | RNF-16 | Operación con conectividad limitada | 🟡 | El backend conserva la hora original de captura al sincronizar | `gastos.spec.ts`. Falta la cola offline en Flutter |
 | RNF-17 | Multiplataforma real | 🟡 | Flutter web + Android + iOS habilitados | `flutter build web` en CI |
 | RNF-18 | Escalabilidad sin rediseño | 🟡 | Servicios sin estado; cola desacoplada; las transacciones contables reintentan ante conflicto de serialización, que es lo que exige SERIALIZABLE bajo concurrencia real | `donaciones.spec.ts` · tres donaciones confirmadas a la vez sobre un mismo fondo, y el mismo webhook entregado dos veces en paralelo |
-| RNF-19 | Cobertura ≥ 70 % en contable y gastos | ✅ | Umbral activo en `jest.config.js` y cumplido: `contable` 93.4 % de sentencias y 66.7 % de ramas; `gastos` 93.6 % y 64.0 % | `npm run test:cov`. Medirla encontró un defecto real: el controlador de gastos estaba en 0 % y su ruta de subida nunca había funcionado |
+| RNF-19 | Cobertura ≥ 70 % en contable y gastos | ✅ | Umbral activo en `jest.config.js` y cumplido: `contable` 97.1 % de sentencias y 72.7 % de ramas; `gastos` 91.5 % y 62.2 % | `npm run test:cov`. Medirla encontró un defecto real: el controlador de gastos estaba en 0 % y su ruta de subida nunca había funcionado |
 | RNF-20 | Español peruano y soles | ✅ | `Formato.soles` entrega "S/ 1,234.50", el formato real del país; fechas en español | `formato_test.dart` · 8 casos |
 | RNF-21 | Narrativas veraces | ✅ | Un Proxy hace fallar cualquier plantilla que referencie un dato no verificado; el filtro de lenguaje corre sobre toda la biblioteca en las pruebas | `retorno.spec.ts` · 5 casos |
 
@@ -87,8 +87,8 @@ Vienen del [plan de trabajo](plan-transdisciplinario.md) y se registran **antes*
 
 | ID | Requerimiento | Tarea | Depende de | Criterio de aceptación | Estado |
 |---|---|---|---|---|---|
-| RF-CF-05 | Correspondencia de las cuentas internas con el PCGE al exportar | T1.1 | D1 | Cada tipo de movimiento tiene asiento PCGE; exportado, el debe iguala al haber por asiento y en total; ningún asiento se reescribe | ⬜ Pendiente |
-| RF-CF-06 | Saldos del fondo con restricción y liberados | T1.2 | D1 | La clasificación de cada fondo suma lo recaudado bruto y coincide con los saldos que mantiene la base | ⬜ Pendiente |
+| RF-CF-05 | Correspondencia de las cuentas internas con el PCGE al exportar | T1.1 | D1 | Cada tipo de movimiento tiene asiento PCGE; exportado, el debe iguala al haber por asiento y en total; ningún asiento se reescribe | ✅ Sobre la **propuesta** de D1: `contable/pcge.ts` y `GET /analitica/exportar/diario/:fondoId` (`base-contable.spec.ts` · 9 casos) |
+| RF-CF-06 | Saldos del fondo con restricción y liberados | T1.2 | D1 | La clasificación de cada fondo suma lo recaudado bruto y coincide con los saldos que mantiene la base | ✅ Sobre la **propuesta** de D1: `contable/clasificacion.ts` y `LibroService.saldosClasificados` (`base-contable.spec.ts` · 6 casos) |
 | RF-CF-07 | Estado de actividades y situación del fondo por período | T2.1 | D1 | Los totales del período son la suma de sus movimientos; el retenido final es el inicial más la variación y coincide con el saldo del fondo; la conciliación no reporta descuadre | ⬜ Pendiente |
 | RF-CF-08 | Estados mensuales en JSON, Excel y PDF | T2.2, T2.5 | D5 | Los ven el administrador, el auditor y los miembros de la ONG dueña; un miembro de otra ONG y un donante reciben 403 (prueba HTTP); se descargan desde la app | ⬜ Pendiente |
 | RF-CF-09 | Cierre mensual inmutable | T2.3 | D1 | Un cierre por fondo y mes, con el hash SHA-256 de su contenido; la base rechaza modificarlo o borrarlo y rechaza un hash que no corresponda al contenido; la ONG recibe aviso | ⬜ Pendiente |
@@ -127,8 +127,9 @@ Vienen del [plan de trabajo](plan-transdisciplinario.md) y se registran **antes*
 | Frontend Flutter | ✅ Sesión con segundo factor, causas, donación, historial, narrativas, panel de ONG, bandeja de auditoría, tablero de indicadores y derechos ARCO. Desde octubre de 2026, además, un inicio por rol, fotos y comprobantes según el rol, gestión de campañas y fondos, registro y verificación de ONG con su equipo, donación mensual y herramientas del auditor (ver más abajo) |
 | 10 y 11 | ⬜ Planificadas |
 | Plan transdisciplinario · Fase 0 | 🟡 Decisiones D1–D6 propuestas en [ADR-0007](adr/0007-decisiones-transdisciplinarias.md), **sin firmar**; RF nuevos registrados arriba como pendientes |
+| Plan transdisciplinario · Fase 1 | ✅ Base contable sobre la propuesta de D1: el libro se exporta en cuentas del PCGE sin reescribir un asiento, y los saldos de cada fondo se clasifican en con restricción y liberados. **Corrige un defecto latente de la conciliación**: calculaba los saldos del libro solo con RETENCION y EJECUCION, así que el primer REVERSO o REASIGNACION habría aparecido como un descuadre crítico que no existe. Ningún flujo los asentaba todavía; la Fase 3 los va a usar |
 
-**Pruebas hoy:** 397 en el API (3 omitidas) y 78 en Flutter. El detalle por suite está en la salida de `npm test`. Las del API se corrieron sobre PostgreSQL 18.6 y con el cifrado en reposo activo, igual que en CI.
+**Pruebas hoy:** 416 en el API y 78 en Flutter. El detalle por suite está en la salida de `npm test`. Las del API se corrieron sobre PostgreSQL 18.6 y con el cifrado en reposo activo, igual que en CI.
 
 **CI estaba en rojo** en `main` sin que la tabla lo dijera: el job del API aplicaba las migraciones pero no la semilla, y 12 de las 17 suites fallaban al buscar los roles del catálogo. Ahora corre `npm run seed` antes de las pruebas.
 

@@ -3,6 +3,12 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../comun/prisma/prisma.service';
 import { soles } from '../../comun/dinero';
+import {
+  clasificarSaldos,
+  sumasDesdeGrupos,
+  type SaldosClasificados,
+  type SumasPorTipo,
+} from './clasificacion';
 import { ASIENTOS } from './cuentas';
 
 type Tx = Prisma.TransactionClient;
@@ -189,6 +195,29 @@ export class LibroService {
       hashPrevio: m.hashPrevio,
       hashActual: m.hashActual,
     }));
+  }
+
+  /**
+   * Suma de los movimientos de un fondo por tipo.
+   *
+   * El rango es semiabierto, [desde, hasta), para que dos periodos contiguos
+   * no cuenten dos veces el movimiento que cae justo en el limite.
+   */
+  async sumasPorTipo(
+    fondoId: string,
+    rango: { desde?: Date; hasta?: Date },
+  ): Promise<SumasPorTipo> {
+    const grupos = await this.prisma.movimientoContable.groupBy({
+      by: ['tipo'],
+      where: { fondoId, creadoEn: { gte: rango.desde, lt: rango.hasta } },
+      _sum: { monto: true },
+    });
+    return sumasDesdeGrupos(grupos);
+  }
+
+  /** RF-CF-06 · Saldos con restriccion y liberados, leidos del libro. */
+  async saldosClasificados(fondoId: string, hasta?: Date): Promise<SaldosClasificados> {
+    return clasificarSaldos(await this.sumasPorTipo(fondoId, { hasta }));
   }
 
   /**

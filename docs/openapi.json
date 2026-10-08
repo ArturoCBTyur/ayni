@@ -1479,6 +1479,30 @@
         ]
       }
     },
+    "/api/v1/analitica/exportar/diario/{fondoId}": {
+      "get": {
+        "operationId": "AnaliticaController_exportarDiario",
+        "parameters": [
+          {
+            "name": "fondoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-05 · Libro diario de un fondo en cuentas del PCGE",
+        "tags": [
+          "analitica"
+        ]
+      }
+    },
     "/api/v1/analitica/exportar/gastos/{ongId}": {
       "get": {
         "operationId": "AnaliticaController_exportarGastos",
