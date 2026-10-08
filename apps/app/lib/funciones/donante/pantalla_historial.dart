@@ -6,7 +6,7 @@ import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
 import '../../nucleo/tema.dart';
 
-final historialProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final historialProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   return ref.read(clienteApiProvider).obtener('/donaciones/historial');
 });
 

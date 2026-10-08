@@ -9,11 +9,11 @@ import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
 import '../../nucleo/tema.dart';
 
-final consentimientosProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final consentimientosProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
   return ref.read(clienteApiProvider).obtenerLista('/cumplimiento/consentimientos');
 });
 
-final misSolicitudesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final misSolicitudesProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
   return ref.read(clienteApiProvider).obtenerLista('/cumplimiento/arco');
 });
 

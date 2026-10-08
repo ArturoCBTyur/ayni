@@ -8,7 +8,7 @@ import '../../nucleo/tema.dart';
 import 'hoja_donar.dart';
 
 final campanaProvider =
-    FutureProvider.family<Map<String, dynamic>, String>((ref, slug) async {
+    FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, slug) async {
   return ref.read(clienteApiProvider).obtener('/causas/$slug');
 });
 

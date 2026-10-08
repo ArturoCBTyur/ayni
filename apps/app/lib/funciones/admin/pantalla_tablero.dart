@@ -8,11 +8,11 @@ import '../../nucleo/formato.dart';
 import '../../nucleo/sesion.dart';
 import '../../nucleo/tema.dart';
 
-final tableroProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final tableroProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   return ref.read(clienteApiProvider).obtener('/analitica/tablero');
 });
 
-final conciliacionProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final conciliacionProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   return ref.read(clienteApiProvider).obtener('/analitica/conciliacion');
 });
 

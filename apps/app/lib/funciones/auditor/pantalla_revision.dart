@@ -7,7 +7,7 @@ import '../../nucleo/formato.dart';
 import '../../nucleo/tema.dart';
 
 final gastoProvider =
-    FutureProvider.family<Map<String, dynamic>, String>((ref, gastoId) async {
+    FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, gastoId) async {
   return ref.read(clienteApiProvider).obtener('/gastos/$gastoId');
 });
 

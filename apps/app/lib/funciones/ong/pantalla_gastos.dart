@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,9 +11,23 @@ import 'pantalla_fondos.dart';
 import 'pantalla_registrar_gasto.dart';
 
 final gastosOngProvider =
-    FutureProvider.family<List<Map<String, dynamic>>, String>((ref, ongId) async {
-  return ref.read(clienteApiProvider).obtenerLista('/ongs/$ongId/gastos');
+    FutureProvider.autoDispose.family<List<Map<String, dynamic>>, String>((ref, ongId) async {
+  final gastos = await ref.read(clienteApiProvider).obtenerLista('/ongs/$ongId/gastos');
+
+  // El analisis corre en segundo plano y termina en segundos. Sin volver a
+  // consultar, la tarjeta se quedaria en "En análisis" hasta que alguien
+  // recargue, y en la demo eso se lee como que el motor se colgo. Se vuelve
+  // a pedir solo mientras quede algo pendiente, y se deja de hacer al salir.
+  if (gastos.any((g) => g['estado'] == 'EN_ANALISIS')) {
+    final temporizador = Timer(_intervaloAnalisis, ref.invalidateSelf);
+    ref.onDispose(temporizador.cancel);
+  }
+  return gastos;
 });
+
+/// El trabajador de la cola revisa cada 5 s; con 4 s el resultado se ve en la
+/// vuelta siguiente sin consultar a la API mas de lo que sirve.
+const _intervaloAnalisis = Duration(seconds: 4);
 
 /// Gastos registrados por la ONG, con el resultado de su verificacion.
 class PantallaGastos extends ConsumerWidget {

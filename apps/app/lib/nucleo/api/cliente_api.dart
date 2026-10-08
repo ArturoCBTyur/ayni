@@ -26,7 +26,8 @@ class ErrorApi implements Exception {
 /// httpOnly emitida por el backend (RNF-02), no en almacenamiento del
 /// navegador, que en web no es seguro.
 class ClienteApi {
-  ClienteApi() : _dio = Dio(BaseOptions(baseUrl: Config.apiBaseUrl)) {
+  /// `urlBase` solo existe para las pruebas; la aplicacion usa la de [Config].
+  ClienteApi({String? urlBase}) : _dio = Dio(BaseOptions(baseUrl: urlBase ?? Config.apiBaseUrl)) {
     _dio.options
       ..connectTimeout = const Duration(seconds: 10)
       ..receiveTimeout = const Duration(seconds: 30)
@@ -62,7 +63,7 @@ class ClienteApi {
   void establecerToken(String? token) => _tokenAcceso = token;
 
   Future<Map<String, dynamic>> obtener(String ruta, {Map<String, dynamic>? consulta}) async {
-    final r = await _dio.get<dynamic>(ruta, queryParameters: consulta);
+    final r = await _llamar(() => _dio.get<dynamic>(ruta, queryParameters: consulta));
     return _comoMapa(r.data);
   }
 
@@ -71,17 +72,17 @@ class ClienteApi {
     String ruta, {
     Map<String, dynamic>? consulta,
   }) async {
-    final r = await _dio.get<dynamic>(ruta, queryParameters: consulta);
+    final r = await _llamar(() => _dio.get<dynamic>(ruta, queryParameters: consulta));
     return _comoLista(r.data);
   }
 
   Future<Map<String, dynamic>> enviar(String ruta, {Object? cuerpo}) async {
-    final r = await _dio.post<dynamic>(ruta, data: cuerpo);
+    final r = await _llamar(() => _dio.post<dynamic>(ruta, data: cuerpo));
     return _comoMapa(r.data);
   }
 
   Future<Map<String, dynamic>> actualizar(String ruta, {Object? cuerpo}) async {
-    final r = await _dio.patch<dynamic>(ruta, data: cuerpo);
+    final r = await _llamar(() => _dio.patch<dynamic>(ruta, data: cuerpo));
     return _comoMapa(r.data);
   }
 
@@ -89,13 +90,30 @@ class ClienteApi {
   Future<void> subirArchivo(String urlFirmada, List<int> bytes, String mime) async {
     // La URL firmada ya trae su token; el prefijo de la API no se repite.
     final ruta = urlFirmada.replaceFirst(RegExp(r'^/api/v\d+'), '');
-    await _dio.put<dynamic>(
-      ruta,
-      data: Stream.fromIterable([bytes]),
-      options: Options(
-        headers: {'Content-Type': mime, 'Content-Length': bytes.length},
+    await _llamar(
+      () => _dio.put<dynamic>(
+        ruta,
+        data: Stream.fromIterable([bytes]),
+        options: Options(
+          headers: {'Content-Type': mime, 'Content-Length': bytes.length},
+        ),
       ),
     );
+  }
+
+  /// Hace la peticion y, si falla, lanza el [ErrorApi] y no la DioException.
+  ///
+  /// El interceptor traduce el error, pero Dio lo entrega envuelto: lo que
+  /// sale de `_dio.get` es una DioException con el ErrorApi en `.error`. Sin
+  /// desenvolverlo aqui, todo `on ErrorApi catch` de las pantallas es codigo
+  /// muerto, y el error escapa sin atrapar hasta la consola del navegador.
+  Future<Response<dynamic>> _llamar(Future<Response<dynamic>> Function() peticion) async {
+    try {
+      return await peticion();
+    } on DioException catch (e) {
+      final error = e.error;
+      throw error is ErrorApi ? error : _traducir(e);
+    }
   }
 
   Map<String, dynamic> _comoMapa(dynamic datos) {

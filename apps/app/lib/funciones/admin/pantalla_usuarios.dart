@@ -50,17 +50,17 @@ class FiltrosUsuariosNotifier extends Notifier<FiltrosUsuarios> {
 final filtrosUsuariosProvider =
     NotifierProvider<FiltrosUsuariosNotifier, FiltrosUsuarios>(FiltrosUsuariosNotifier.new);
 
-final usuariosProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final usuariosProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final filtros = ref.watch(filtrosUsuariosProvider);
   return ref.read(clienteApiProvider).obtener('/identidad/usuarios', consulta: filtros.consulta);
 });
 
-final catalogoRolesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final catalogoRolesProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
   return ref.read(clienteApiProvider).obtenerLista('/identidad/usuarios/roles');
 });
 
 final fichaUsuarioProvider =
-    FutureProvider.family<Map<String, dynamic>, String>((ref, id) async {
+    FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, id) async {
   return ref.read(clienteApiProvider).obtener('/identidad/usuarios/$id');
 });
 

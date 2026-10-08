@@ -7,7 +7,7 @@ import '../../nucleo/formato.dart';
 import '../../nucleo/tema.dart';
 
 /// ONG a las que pertenece el usuario en sesion.
-final misOngsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final misOngsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
   return ref.read(clienteApiProvider).obtenerLista('/ongs/mias/listado');
 });
 
@@ -22,12 +22,12 @@ class OngActivaNotifier extends Notifier<String?> {
 final ongActivaProvider = NotifierProvider<OngActivaNotifier, String?>(OngActivaNotifier.new);
 
 final estadoFondosProvider =
-    FutureProvider.family<List<Map<String, dynamic>>, String>((ref, ongId) async {
+    FutureProvider.autoDispose.family<List<Map<String, dynamic>>, String>((ref, ongId) async {
   return ref.read(clienteApiProvider).obtenerLista('/ongs/$ongId/fondos');
 });
 
 final alertasOngProvider =
-    FutureProvider.family<List<Map<String, dynamic>>, String>((ref, ongId) async {
+    FutureProvider.autoDispose.family<List<Map<String, dynamic>>, String>((ref, ongId) async {
   return ref.read(clienteApiProvider).obtenerLista('/ongs/$ongId/alertas');
 });
 

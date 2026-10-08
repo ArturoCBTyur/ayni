@@ -31,7 +31,7 @@ class FiltrosCausasNotifier extends Notifier<FiltrosCausas> {
 final filtrosCausasProvider =
     NotifierProvider<FiltrosCausasNotifier, FiltrosCausas>(FiltrosCausasNotifier.new);
 
-final causasProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final causasProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final filtros = ref.watch(filtrosCausasProvider);
   return ref.read(clienteApiProvider).obtener('/causas', consulta: {
     if (filtros.texto.trim().isNotEmpty) 'q': filtros.texto.trim(),

@@ -10,7 +10,7 @@ import '../../nucleo/sesion.dart';
 import '../../nucleo/tema.dart';
 
 /// Datos de enrolamiento que entrega el backend.
-final enrolamientoMfaProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final enrolamientoMfaProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   return ref.read(clienteApiProvider).enviar('/identidad/mfa/iniciar');
 });
 

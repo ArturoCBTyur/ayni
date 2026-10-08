@@ -6,7 +6,7 @@ import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
 import '../../nucleo/tema.dart';
 
-final notificacionesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final notificacionesProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
   return ref.read(clienteApiProvider).obtenerLista('/notificaciones');
 });
 
@@ -159,10 +159,17 @@ class _TarjetaImpacto extends ConsumerWidget {
                 if (!leida)
                   TextButton(
                     onPressed: () async {
-                      await ref
-                          .read(clienteApiProvider)
-                          .enviar('/notificaciones/${notificacion['id']}/leida');
-                      ref.invalidate(notificacionesProvider);
+                      try {
+                        await ref
+                            .read(clienteApiProvider)
+                            .enviar('/notificaciones/${notificacion['id']}/leida');
+                        ref.invalidate(notificacionesProvider);
+                      } on ErrorApi catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(SnackBar(content: Text(e.mensaje)));
+                        }
+                      }
                     },
                     child: const Text('Marcar leída'),
                   ),

@@ -5,7 +5,7 @@ import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/tema.dart';
 
 /// Consulta el estado del backend y de PostgreSQL.
-final saludProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final saludProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   return ref.read(clienteApiProvider).obtener('/salud');
 });
 

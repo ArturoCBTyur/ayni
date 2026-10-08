@@ -17,7 +17,7 @@ class SoloPendientesNotifier extends Notifier<bool> {
 final soloPendientesProvider =
     NotifierProvider<SoloPendientesNotifier, bool>(SoloPendientesNotifier.new);
 
-final bandejaArcoProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final bandejaArcoProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
   final soloPendientes = ref.watch(soloPendientesProvider);
   return ref.read(clienteApiProvider).obtenerLista(
         '/cumplimiento/arco/bandeja',

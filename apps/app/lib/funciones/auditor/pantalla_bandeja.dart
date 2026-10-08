@@ -17,7 +17,7 @@ class OrdenBandejaNotifier extends Notifier<String> {
 final ordenBandejaProvider =
     NotifierProvider<OrdenBandejaNotifier, String>(OrdenBandejaNotifier.new);
 
-final bandejaProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final bandejaProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final orden = ref.watch(ordenBandejaProvider);
   return ref.read(clienteApiProvider).obtener('/auditoria/bandeja', consulta: {
     'orden': orden,
