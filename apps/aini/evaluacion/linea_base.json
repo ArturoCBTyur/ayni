@@ -1,12 +1,12 @@
 {
-  "generadaEn": "2026-10-09T04:49:55+00:00",
+  "generadaEn": "2026-10-09T05:00:35+00:00",
   "identidad": {
     "versionMotor": "aini-0.1-sklearn",
     "modeloAnomaliaSha256": "e5d956552202",
     "descripcionesCategoriaSha256": "5cc7f0fba0d9",
     "umbrales": {
-      "coherencia": 0.51,
-      "coherenciaDudosa": 0.61,
+      "coherencia": 0.1,
+      "coherenciaDudosa": 0.2,
       "confianzaOcr": 0.7
     },
     "modeloLenguaje": "es_core_news_md@3.8.0",
@@ -28,26 +28,26 @@
       "noMediblesPorCategoria": {
         "OTROS": 20
       },
-      "rechazaCorrectos": 0.2921,
-      "advierteCorrectos": 0.4208,
+      "rechazaCorrectos": 0.2376,
+      "advierteCorrectos": 0.3861,
       "rechazaCorrectosPorOrigen": {
-        "control-agregacion": 0.2857,
-        "control-diccionario": 0.381,
+        "control-agregacion": 0.1429,
+        "control-diccionario": 0.2857,
         "documental": 0.0,
         "ejemplos": 0.0,
         "probar": 0.0,
-        "probar.limites": 0.125,
-        "redactado": 0.3077,
+        "probar.limites": 0.25,
+        "redactado": 0.2587,
         "seed-demo": 0.0
       },
-      "aceptaEquivocados": 0.1139,
-      "pasaSinAdvertirEquivocados": 0.0222,
+      "aceptaEquivocados": 0.1086,
+      "pasaSinAdvertirEquivocados": 0.0245,
       "aciertaCategoriaTop1": 0.7525,
       "similitud": {
-        "propiosMediana": 0.553,
-        "propiosP5": 0.344,
-        "ajenosMediana": 0.382,
-        "ajenosP95": 0.555
+        "propiosMediana": 0.177,
+        "propiosP5": 0.006,
+        "ajenosMediana": -0.005,
+        "ajenosP95": 0.148
       },
       "paresAjenosMedidos": 1308,
       "paresAjenosNoMedibles": 0,

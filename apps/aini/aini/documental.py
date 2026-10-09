@@ -81,36 +81,26 @@ DESCRIPCION_CATEGORIA: dict[str, str] = {
     "ADMINISTRATIVO": "oficina alquiler luz agua electricidad papeleria tramite recibo",
 }
 
-#: Umbrales de la señal, derivados de medir 25 conceptos reales contra su
-#: propia categoria y contra las otras siete (175 pares ajenos):
+#: Umbrales de la señal, sobre la similitud **relativa** de `_similitud_relativa`:
+#: cuanto mas se parece el concepto a su categoria que a la categoria media. No
+#: es una similitud coseno, y por eso los valores son bajos: 0 es "se parece a
+#: esta tanto como a cualquiera".
 #:
-#:   propios   mediana 0.70   p5 0.46
-#:   ajenos    mediana 0.40   p95 0.54
+#: Medido con `python -m evaluacion` (222 conceptos, 1308 pares ajenos), con
+#: los umbrales puestos para aceptar la misma proporcion de desvios que antes:
 #:
-#: **Las clases se solapan**, asi que ningun umbral las separa limpio. En 0.50
-#: la señal rechaza cerca del 15 % de los conceptos correctos y acepta cerca
-#: del 13 % de los equivocados; subirlo mejora poco lo segundo y empeora mucho
-#: lo primero.
+#:                                 coseno (0.51/0.61)   relativa (0.10/0.20)
+#:   rechaza correctos                  29,2 %                23,8 %
+#:   advierte a correctos               42,1 %                38,6 %
+#:   acepta equivocados                 11,4 %                10,9 %
+#:   pasa sin advertir equivocados       2,2 %                 2,4 %
 #:
-#: Se acepta ese 13 % a sabiendas, y por eso esta señal **resta 30 puntos en
-#: vez de bloquear**: su trabajo es derivar a una persona, no decidir. Un
-#: bloqueo con una de cada ocho equivocaciones seria inaceptable; una derivacion
-#: a revision con esa tasa es util.
-#:
-#: Sobre el banco de `evaluacion/` (180 conceptos, 1070 pares ajenos) las
-#: cifras son peores que las de arriba: rechaza el 31 % de los correctos. Al
-#: hacer las palabras indiferentes a la tilde (`_vector`) todas las similitudes
-#: suben un poco, y el umbral subio de 0.50 a 0.51 para no aceptar mas desvios:
-#:
-#:                     rechaza correctos   acepta equivocados
-#:   antes, en 0.50          33,1 %              10,6 %
-#:   despues, en 0.50        29,4 %              13,1 %
-#:   despues, en 0.51        30,6 %              11,6 %
-#:   despues, en 0.52        38,1 %               9,3 %
-#:
-#: El salto entre 0.51 y 0.52 dice que el banco aun es chico para afinar mas.
-UMBRAL_COHERENCIA = 0.51
-UMBRAL_COHERENCIA_DUDOSA = 0.61
+#: **Las clases siguen solapandose**, asi que ningun umbral las separa limpio.
+#: Esta señal **resta 30 puntos en vez de bloquear**: su trabajo es derivar a
+#: una persona, no decidir. Un bloqueo con una de cada nueve equivocaciones
+#: seria inaceptable; una derivacion a revision con esa tasa es util.
+UMBRAL_COHERENCIA = 0.10
+UMBRAL_COHERENCIA_DUDOSA = 0.20
 
 
 #: La misma vocal con tilde. Una palabra en español lleva a lo sumo una.
@@ -273,27 +263,77 @@ def _palabras_con_carga(texto: str) -> list[np.ndarray]:
 MEJORES_COINCIDENCIAS = 3
 
 
-def _similitud(concepto: list[np.ndarray], categoria: list[np.ndarray]) -> float:
-    """Media de las mejores coincidencias palabra a palabra.
+_vectores_por_categoria: dict[str, np.ndarray] = {}
 
-    NO se promedian los vectores en un centroide por cada lado, que es lo
-    primero que uno intenta. El centroide se diluye con el relleno: medido,
-    "esterilizacion de 20 gatos" puntuaba 0.592 contra su categoria y la misma
-    frase con "en la jornada del sabado" caia a 0.439, por debajo del umbral.
-    Tres palabras sin carga tumbaban un gasto legitimo.
 
-    Emparejando cada palabra del concepto con la que mejor le calce en la
-    categoria, y promediando solo las mejores, el relleno deja de pesar: una
-    palabra que no se parece a nada simplemente no entra en el promedio. La
-    misma frase sube a 0.609.
+def _categorias() -> dict[str, np.ndarray]:
+    """Vectores de las palabras de cada descripcion. Se calculan una vez."""
+    if not _vectores_por_categoria:
+        for nombre, descripcion in DESCRIPCION_CATEGORIA.items():
+            palabras = _palabras_con_carga(descripcion)
+            if palabras:
+                _vectores_por_categoria[nombre] = np.array(palabras)
+    return _vectores_por_categoria
 
-    Comparadas a igual tasa de falsas alarmas sobre 25 conceptos reales y 175
-    pares ajenos, esta medida acepta la mitad de categorizaciones erroneas que
-    el centroide (16.6 % contra 33.1 % cuando ambas rechazan el 8 % de los
-    conceptos correctos).
+
+def _similitud_relativa(concepto: list[np.ndarray], categoria: str) -> float:
+    """Cuanto mas se parece el concepto a su categoria que a la categoria media.
+
+    Cada palabra del concepto se empareja con la que mejor le calce en cada
+    categoria. A su parecido con la categoria del fondo se le resta su parecido
+    medio con todas, y se promedian las MEJORES_COINCIDENCIAS palabras.
+
+    Por que restar. Antes se promediaban los parecidos tal cual, y las palabras
+    que estan en conceptos de todas las categorias --"perros", "gatos"--
+    pesaban igual que la que define el gasto. Restando el parecido medio, una
+    palabra que se parece a todas por igual queda cerca de 0 y deja de tirar
+    hacia abajo; una que se parece a una sola categoria conserva su peso.
+    "gasolina para ir a recoger perros a Tingo Maria" (TRANSPORTE) se
+    rechazaba con el promedio simple y ahora corresponde.
+
+    Lo que no arregla, y no debe: una palabra que apunta a OTRA categoria sigue
+    restando, porque eso es justamente un desvio. "bravecto para 6 perros del
+    albergue" sigue por debajo del umbral (0.053) porque "albergue" esta en la
+    descripcion de INFRAESTRUCTURA. Y "almuerzo del equipo de rescate" en un
+    fondo de ALIMENTOS, que antes se rechazaba, queda en 0.111: advierte en vez
+    de rechazar.
+
+    Y lo que empeora: una palabra que comparten dos categorias que se solapan
+    a proposito pierde peso, porque su parecido medio sube. "vacunas
+    antirrabicas" en un fondo de MEDICAMENTOS pasaba (0.541) y ahora se rechaza
+    (0.085): "vacuna" esta tan cerca de MEDICAMENTOS como de
+    ATENCION_VETERINARIA, que nombra la vacunacion. Va a revision, no se
+    bloquea, pero es un costo real de este esquema.
+
+    Se compararon cinco maneras de combinar las palabras sobre el banco de
+    evaluacion, con 21 conceptos de control escritos antes de probar ninguna:
+
+                                AUC banco   AUC control   rechaza control*
+      promedio de las 3 mejores   0.861        0.853          28,6 %
+      promedio de las 2 mejores   0.859        0.847          28,6 %
+      pesar por especificidad     0.848        0.764          52,4 %
+      margen contra la mejor otra 0.916        0.914          19,0 %
+      relativa (esta)             0.905        0.942          14,3 %
+
+      * con el umbral que acepta el mismo 11,4 % de desvios
+
+    El margen contra la mejor categoria distinta separa algo mejor en el banco
+    completo, pero castiga a las categorias que se solapan a proposito: un
+    gasto de esterilizacion cargado al fondo veterinario se parece mas a
+    ESTERILIZACION y saldria rechazado. Restar la media no tiene ese problema.
+
+    Lo que se conserva de antes: emparejar palabra a palabra en vez de
+    promediar vectores en un centroide, que se diluia con el relleno ("en la
+    jornada del sabado" tumbaba un gasto legitimo), y promediar solo las
+    mejores, para que una palabra que no se parece a nada no entre.
     """
-    mejores = [max(float(np.dot(palabra, otra)) for otra in categoria) for palabra in concepto]
-    mejores.sort(reverse=True)
+    categorias = _categorias()
+    nombres = list(categorias)
+    parecidos = np.array(
+        [[float((categorias[c] @ palabra).max()) for c in nombres] for palabra in concepto]
+    )
+    relativos = parecidos[:, nombres.index(categoria)] - parecidos.mean(axis=1)
+    mejores = sorted(relativos, reverse=True)
     return float(np.mean(mejores[:MEJORES_COINCIDENCIAS]))
 
 
@@ -318,32 +358,27 @@ def _similitud(concepto: list[np.ndarray], categoria: list[np.ndarray]) -> float
 # de la categoria. Cuando aparezca un termino nuevo, `python -m evaluacion
 # --detalle` lo lista.
 #
-# Lo que el diccionario deja al descubierto, medido: el termino se traduce bien
-# pero el promedio de las MEJORES_COINCIDENCIAS lo diluye con palabras que
-# estan en conceptos de todas las categorias. "bravecto para 6 perros del
-# albergue" queda en 0.468 aunque "antiparasitario" calza 1.0 con su
-# categoria, porque "perros" (0.25) y "albergue" (0.15) entran en el promedio.
-# El arreglo no es el diccionario sino como se combinan las palabras: pesar
-# menos las que no distinguen categorias, o decidir comparando contra las demas
-# categorias en vez de contra un umbral fijo.
+# Lo que el diccionario dejo al descubierto --el termino se traducia bien pero
+# el promedio lo diluia con "perros" o "albergue"-- lo atiende
+# `_similitud_relativa`, que resta el parecido medio de cada palabra con todas
+# las categorias. No lo resuelve del todo, y su docstring dice donde no.
 
 def coherencia_concepto_categoria(concepto: str, categoria: str) -> float | None:
-    """Similitud coseno entre el concepto y la descripcion de su categoria.
+    """Similitud relativa entre el concepto y la descripcion de su categoria.
 
     Devuelve None cuando no se puede medir: categoria desconocida, o un
     concepto sin ninguna palabra de contenido reconocible. No se inventa un
-    valor neutro, porque un 0.5 fabricado se confundiria con una medicion.
+    valor neutro, porque un 0 fabricado se confundiria con una medicion.
     """
-    descripcion = DESCRIPCION_CATEGORIA.get(categoria.upper())
-    if descripcion is None:
+    categoria = categoria.upper()
+    if categoria not in _categorias():
         return None
 
     palabras_concepto = _palabras_con_carga(concepto)
-    palabras_categoria = _palabras_con_carga(descripcion)
-    if not palabras_concepto or not palabras_categoria:
+    if not palabras_concepto:
         return None
 
-    return _similitud(palabras_concepto, palabras_categoria)
+    return _similitud_relativa(palabras_concepto, categoria)
 
 
 # --------------------------------------------------------------------------
