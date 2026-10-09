@@ -157,6 +157,12 @@ def evaluar(banco: list[Concepto]) -> tuple[dict, dict]:
     sims_ajenos = [s for _, _, s in ajenos if s is not None]
 
     rechazados = [(c.concepto, c.categoria, s) for c, s in propios if s < umbral]
+
+    # Por origen, para medir aparte lo que no motivo un cambio: los conceptos
+    # "control-*" se escriben antes del cambio que van a evaluar.
+    por_origen: dict[str, list[bool]] = {}
+    for c, s in propios:
+        por_origen.setdefault(c.origen, []).append(s < umbral)
     advertidos = [(c.concepto, c.categoria, s) for c, s in propios if umbral <= s < dudoso]
     aceptados = [(con, cat, s) for con, cat, s in ajenos if s is None or s >= umbral]
     limpios = [(con, cat, s) for con, cat, s in ajenos if s is not None and s >= dudoso]
@@ -178,6 +184,9 @@ def evaluar(banco: list[Concepto]) -> tuple[dict, dict]:
         "noMediblesPorCategoria": dict(sorted(no_medibles.items())),
         "rechazaCorrectos": _fraccion(len(rechazados), len(propios)),
         "advierteCorrectos": _fraccion(len(advertidos), len(propios)),
+        "rechazaCorrectosPorOrigen": {
+            origen: _fraccion(sum(v), len(v)) for origen, v in sorted(por_origen.items())
+        },
         "aceptaEquivocados": _fraccion(len(aceptados), len(ajenos)),
         "pasaSinAdvertirEquivocados": _fraccion(len(limpios), len(ajenos)),
         "aciertaCategoriaTop1": _fraccion(top1_aciertos, top1_total),

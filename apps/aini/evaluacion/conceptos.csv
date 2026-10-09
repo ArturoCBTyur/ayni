@@ -193,3 +193,24 @@ remodelación de la casa del presidente,INFRAESTRUCTURA,no,,redactado
 alquiler de oficina,ESTERILIZACION,no,,redactado
 gasolina del auto particular del tesorero,ATENCION_VETERINARIA,no,,redactado
 compra de laptop para la oficina,MEDICAMENTOS,no,,redactado
+bravecto para 6 perros del albergue,MEDICAMENTOS,si,,control-diccionario
+pipetas frontline para gatos,MEDICAMENTOS,si,,control-diccionario
+simparica para perros con garrapatas,MEDICAMENTOS,si,,control-diccionario
+drontal plus para desparasitar cachorros,MEDICAMENTOS,si,ATENCION_VETERINARIA,control-diccionario
+enrofloxacino inyectable,MEDICAMENTOS,si,,control-diccionario
+carprofeno para el dolor articular,MEDICAMENTOS,si,,control-diccionario
+pulguicida en spray,MEDICAMENTOS,si,INSUMOS,control-diccionario
+vacuna nobivac para cachorros,MEDICAMENTOS,si,ATENCION_VETERINARIA,control-diccionario
+xilacina para sedar a un perro agresivo,MEDICAMENTOS,si,ATENCION_VETERINARIA,control-diccionario
+pipeta revolution para gato,MEDICAMENTOS,si,,control-diccionario
+advocate para perros con sarna,MEDICAMENTOS,si,ATENCION_VETERINARIA,control-diccionario
+3 sacos de mimaskot adulto,ALIMENTOS,si,,control-diccionario
+pro plan para cachorros convalecientes,ALIMENTOS,si,,control-diccionario
+royal canin renal para gato enfermo,ALIMENTOS,si,MEDICAMENTOS,control-diccionario
+cat chow para los gatos rescatados,ALIMENTOS,si,,control-diccionario
+supercan 15 kg,ALIMENTOS,si,,control-diccionario
+ovh de 4 perras callejeras,ESTERILIZACION,si,ATENCION_VETERINARIA,control-diccionario
+jornada de ovh en el mercado,ESTERILIZACION,si,ATENCION_VETERINARIA,control-diccionario
+cirugía de otohematoma en perro pastor,ATENCION_VETERINARIA,si,,control-diccionario
+tratamiento de demodicosis en cachorro,ATENCION_VETERINARIA,si,MEDICAMENTOS,control-diccionario
+servicio de gasfitería en los caniles,INFRAESTRUCTURA,si,,control-diccionario
