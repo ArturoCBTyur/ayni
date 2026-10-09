@@ -125,6 +125,9 @@ def imprimir_conceptos(m: dict, detalle: dict, ver_detalle: bool) -> None:
         ))
     print(f"  rechaza correctos               {_pct(m['rechazaCorrectos'])}")
     print(f"  advierte correctos              {_pct(m['advierteCorrectos'])}")
+    print(f"    {GRIS}rechaza por origen: " + ", ".join(
+        f"{o} {_pct(v).strip()}" for o, v in m["rechazaCorrectosPorOrigen"].items()
+    ) + FIN)
     print(f"  acepta equivocados              {_pct(m['aceptaEquivocados'])}")
     print(f"  pasa sin advertir equivocados   {_pct(m['pasaSinAdvertirEquivocados'])}")
     print(f"  acierta la categoria (top-1)    {_pct(m['aciertaCategoriaTop1'])}")

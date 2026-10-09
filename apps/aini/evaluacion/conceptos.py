@@ -77,18 +77,20 @@ def categorias_del_backend() -> list[str] | None:
 
 
 def _palabras_sin_vector(texto: str) -> list[str]:
-    """Palabras de contenido que el modelo de lenguaje no conoce.
+    """Palabras de contenido que el modelo de lenguaje no conoce en ninguna forma.
 
     Son las que `documental` descarta en silencio, y cuando la que falta es la
-    que define el gasto, la similitud se calcula con lo que sobra.
+    que define el gasto, la similitud se calcula con lo que sobra. Se pregunta
+    a `documental._vector`, que prueba la palabra con y sin tilde: si no, una
+    palabra que el motor si usa apareceria aqui como desconocida.
     """
     return [
         token.text
-        for token in documental.nlp()(texto.lower())
+        for token in documental.nlp()(documental._con_terminos_del_dominio(texto))
         if token.pos_ in ("NOUN", "VERB", "ADJ", "PROPN")
         and not token.is_stop
         and not token.is_digit
-        and not token.has_vector
+        and documental._vector(token.text) is None
     ]
 
 
@@ -155,6 +157,12 @@ def evaluar(banco: list[Concepto]) -> tuple[dict, dict]:
     sims_ajenos = [s for _, _, s in ajenos if s is not None]
 
     rechazados = [(c.concepto, c.categoria, s) for c, s in propios if s < umbral]
+
+    # Por origen, para medir aparte lo que no motivo un cambio: los conceptos
+    # "control-*" se escriben antes del cambio que van a evaluar.
+    por_origen: dict[str, list[bool]] = {}
+    for c, s in propios:
+        por_origen.setdefault(c.origen, []).append(s < umbral)
     advertidos = [(c.concepto, c.categoria, s) for c, s in propios if umbral <= s < dudoso]
     aceptados = [(con, cat, s) for con, cat, s in ajenos if s is None or s >= umbral]
     limpios = [(con, cat, s) for con, cat, s in ajenos if s is not None and s >= dudoso]
@@ -176,6 +184,9 @@ def evaluar(banco: list[Concepto]) -> tuple[dict, dict]:
         "noMediblesPorCategoria": dict(sorted(no_medibles.items())),
         "rechazaCorrectos": _fraccion(len(rechazados), len(propios)),
         "advierteCorrectos": _fraccion(len(advertidos), len(propios)),
+        "rechazaCorrectosPorOrigen": {
+            origen: _fraccion(sum(v), len(v)) for origen, v in sorted(por_origen.items())
+        },
         "aceptaEquivocados": _fraccion(len(aceptados), len(ajenos)),
         "pasaSinAdvertirEquivocados": _fraccion(len(limpios), len(ajenos)),
         "aciertaCategoriaTop1": _fraccion(top1_aciertos, top1_total),

@@ -198,6 +198,97 @@ class TestCoherenciaSemantica:
         assert falla(r, "nlp.coherencia_categoria")
 
 
+class TestTildes:
+    """El veredicto no puede depender de la ortografia del operador.
+
+    Medido antes del arreglo: 21 de 85 conceptos escritos con tilde cambiaban
+    de veredicto al quitarselas, porque para el modelo "esterilizacion" y
+    "esterilización" eran palabras distintas (similitud 0,30).
+    """
+
+    @pytest.mark.parametrize(
+        "con_tilde,sin_tilde,categoria",
+        [
+            ("esterilización de gatas en la jornada", "esterilizacion de gatas en la jornada",
+             "ESTERILIZACION"),
+            ("atención de urgencia y curación", "atencion de urgencia y curacion",
+             "ATENCION_VETERINARIA"),
+            ("castración de perros machos", "castracion de perros machos", "ESTERILIZACION"),
+        ],
+    )
+    def test_con_tilde_o_sin_ella_da_lo_mismo(self, con_tilde, sin_tilde, categoria):
+        a = documental.coherencia_concepto_categoria(con_tilde, categoria)
+        b = documental.coherencia_concepto_categoria(sin_tilde, categoria)
+        assert a is not None and a == pytest.approx(b)
+
+    def test_la_desparasitacion_ya_no_se_rechaza(self):
+        """Era el caso documentado: sin tilde, "desparasitacion" no tenia vector
+        y el gasto veterinario se rechazaba (0.418)."""
+        sim = documental.coherencia_concepto_categoria(
+            "desparasitacion de ocho perros rescatados", "ATENCION_VETERINARIA"
+        )
+        assert sim >= documental.UMBRAL_COHERENCIA
+
+    def test_la_enie_no_es_una_tilde(self):
+        """"campaña" y "campana" son palabras distintas: la ñ se conserva."""
+        assert documental._sin_tilde("Campaña de Esterilización") == "Campaña de Esterilizacion"
+
+
+class TestTerminosDelDominio:
+    """Marcas y terminos que el modelo no conoce, llevados a uno que si."""
+
+    @pytest.mark.parametrize(
+        "texto,esperado",
+        [
+            ("Bravecto para 6 perros", "antiparasitario para 6 perros"),
+            ("DOG  CHOW adulto", "alimento adulto"),
+            ("ovariohisterectomía de perras", "esterilizacion de perras"),
+            ("Ovariohisterectomia de perras", "esterilizacion de perras"),
+        ],
+    )
+    def test_se_traducen_con_tilde_mayusculas_y_espacios(self, texto, esperado):
+        assert documental._con_terminos_del_dominio(texto) == esperado
+
+    def test_solo_terminos_completos(self):
+        """"chow chow" es una raza, no la marca: solo "dog chow" y "cat chow"."""
+        assert documental._con_terminos_del_dominio("chow chow") == "chow chow"
+
+    def test_una_marca_de_alimento_corresponde_a_alimentos(self):
+        """Sin el diccionario, "mimaskot" no tenia vector y el concepto quedaba
+        con "sacos" y "adulto" como unicas palabras."""
+        sim = documental.coherencia_concepto_categoria("3 sacos de mimaskot adulto", "ALIMENTOS")
+        assert sim >= documental.UMBRAL_COHERENCIA
+
+    def test_todos_los_destinos_tienen_vector(self):
+        """Un destino sin vector haria desaparecer el termino en vez de traducirlo."""
+        for destino in set(documental.TERMINOS_DEL_DOMINIO.values()):
+            assert documental._vector(destino) is not None, destino
+
+
+class TestSimilitudRelativa:
+    """Las palabras que estan en todas las categorias no deciden."""
+
+    def test_una_palabra_generica_no_tumba_un_gasto_legitimo(self):
+        """Con el promedio simple, "perros" y "Tingo Maria" arrastraban este
+        gasto de transporte por debajo del umbral (0.461 con umbral 0.51)."""
+        sim = documental.coherencia_concepto_categoria(
+            "gasolina para ir a recoger perros a Tingo María", "TRANSPORTE"
+        )
+        assert sim >= documental.UMBRAL_COHERENCIA
+
+    def test_un_concepto_generico_en_el_fondo_equivocado_se_detecta(self):
+        """El acto 5 de `probar.py demo` lo mostraba como el error del modelo:
+        "compra de alimento" en el fondo veterinario solo advertia (0.543)."""
+        sim = documental.coherencia_concepto_categoria("compra de alimento", "ATENCION_VETERINARIA")
+        assert sim < documental.UMBRAL_COHERENCIA
+
+    def test_el_fondo_propio_puntua_mas_que_uno_ajeno(self):
+        concepto = "esterilizacion de 20 gatos"
+        propia = documental.coherencia_concepto_categoria(concepto, "ESTERILIZACION")
+        ajena = documental.coherencia_concepto_categoria(concepto, "TRANSPORTE")
+        assert propia > ajena
+
+
 class TestSeñalDocumental:
     def test_ruc_con_digito_verificador_equivocado(self, detector):
         r = motor.analizar(entrada(comprobante={"rucEmisor": "20553456575"}), detector)
