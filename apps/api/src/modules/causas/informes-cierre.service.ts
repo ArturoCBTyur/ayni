@@ -16,10 +16,11 @@ import { enSoles } from '../analitica/estados.render';
 import { clasificacionCuadra, clasificarSaldos } from '../contable/clasificacion';
 import { LibroService } from '../contable/libro.service';
 import { objetoPublicable } from '../gastos/evidencia-publica';
+import { calcularImpacto, type Impacto } from '../gastos/impacto';
 import { ALMACENAMIENTO, type AlmacenamientoArchivos } from '../gastos/puertos/almacenamiento.port';
 import { DESTINO_POR_DEFECTO, DIAS_ELECCION, DIAS_JUSTIFICACION } from './politica';
 
-export const VERSION_INFORME = 1;
+export const VERSION_INFORME = 2;
 
 /** Fotos que entran al PDF: una por gasto, hasta este total, para que pese poco. */
 const FOTOS_MAXIMAS = 12;
@@ -63,12 +64,15 @@ export interface InformeContenido {
     particionCuadra: boolean;
   };
   balanceComprobacion: EstadoMensual['balanceComprobacion'];
+  /** RF-SO-09 · Costo por unidad de impacto, si la categoria del fondo la mide (D4). */
+  impacto: Impacto | null;
   gastos: Array<{
     id: string;
     fecha: string;
     concepto: string;
     proveedor: string;
     monto: string;
+    unidadesImpacto: number | null;
     comprobante: { tipo: string; serie: string; numero: string; rucEmisor: string | null } | null;
     /** El SHA-256 del archivo que se publica, para que nadie lo cambie despues. */
     evidencias: Array<{ id: string; sha256: string | null }>;
@@ -267,6 +271,14 @@ export class InformesCierreService {
         particionCuadra: clasificacionCuadra(saldos),
       },
       balanceComprobacion: balanceComprobacion(sumas),
+      impacto:
+        calcularImpacto(
+          gastos.map((g) => ({
+            categoria: fondo.categoriaGasto,
+            monto: g.montoAprobado ?? g.montoDeclarado,
+            unidades: g.unidadesImpacto,
+          })),
+        )[0] ?? null,
       gastos: await Promise.all(
         gastos.map(async (g) => ({
           id: g.id,
@@ -274,6 +286,7 @@ export class InformesCierreService {
           concepto: g.concepto,
           proveedor: proveedorPublico(g.comprobante?.tipo, g.proveedorNombre),
           monto: soles(g.montoAprobado ?? g.montoDeclarado),
+          unidadesImpacto: g.unidadesImpacto,
           comprobante: g.comprobante
             ? {
                 tipo: g.comprobante.tipo,
@@ -401,6 +414,15 @@ export class InformesCierreService {
     fila('Devuelto a sus donantes', c.resumen.devuelto);
     fila('Trasladado a otras causas', c.resumen.trasladado);
     fila('Pendiente de justificar', c.resumen.conRestriccion);
+    if (c.impacto?.costoPorUnidad) {
+      pdf.espacio(4);
+      fila(`Costo por unidad de impacto (${c.impacto.unidad})`, c.impacto.costoPorUnidad, true);
+      pdf.linea(
+        `${c.impacto.unidades} ${c.impacto.unidad}, declarados en ${c.impacto.gastosConUnidades} ` +
+          `de ${c.impacto.gastosAprobados} gastos aprobados.`,
+        { tamano: 8, gris: true },
+      );
+    }
     pdf.espacio(10);
 
     pdf.linea('Remanente y su destino', { tamano: 13, negrita: true });

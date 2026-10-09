@@ -24,6 +24,7 @@ import {
   UMBRAL_DUPLICADO_PERCEPTUAL,
 } from './imagen';
 import { urlPublicable } from './evidencia-publica';
+import { unidadDe } from './impacto';
 import { ALMACENAMIENTO, type AlmacenamientoArchivos } from './puertos/almacenamiento.port';
 
 @Injectable()
@@ -83,6 +84,14 @@ export class GastosService {
       );
     }
 
+    // D4 · Una categoria sin unidad no mide impacto: aceptar un numero ahi
+    // seria publicar un costo por unidad de algo que nadie definio.
+    if (datos.unidadesImpacto !== undefined && !unidadDe(fondo.categoriaGasto)) {
+      throw new BadRequestException(
+        'Los gastos de esta categoria no declaran unidades de impacto. Deje el campo vacio.',
+      );
+    }
+
     if (new Prisma.Decimal(datos.montoDeclarado).greaterThan(fondo.saldoRetenido)) {
       throw new BadRequestException(
         `El fondo solo tiene S/ ${soles(fondo.saldoRetenido)} retenidos y el gasto declara ` +
@@ -109,6 +118,7 @@ export class GastosService {
           sincronizadoEn: new Date(),
           latitud: datos.latitud,
           longitud: datos.longitud,
+          unidadesImpacto: datos.unidadesImpacto,
           estado: 'EN_ANALISIS',
           comprobante: { create: comprobante },
           evidencias: { create: evidencias },

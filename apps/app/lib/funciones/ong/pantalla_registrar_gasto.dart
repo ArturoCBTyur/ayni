@@ -49,6 +49,8 @@ class _PantallaRegistrarGastoState extends ConsumerState<PantallaRegistrarGasto>
   final _monto = TextEditingController();
   final _concepto = TextEditingController();
   final _proveedor = TextEditingController();
+  /// D4 · Unidades de impacto, solo si la categoria del fondo las mide.
+  final _unidades = TextEditingController();
   final _ruc = TextEditingController();
   final _serie = TextEditingController(text: 'B001');
   final _numero = TextEditingController();
@@ -76,6 +78,7 @@ class _PantallaRegistrarGastoState extends ConsumerState<PantallaRegistrarGasto>
     _monto.dispose();
     _concepto.dispose();
     _proveedor.dispose();
+    _unidades.dispose();
     _ruc.dispose();
     _serie.dispose();
     _numero.dispose();
@@ -166,6 +169,8 @@ class _PantallaRegistrarGastoState extends ConsumerState<PantallaRegistrarGasto>
         'montoDeclarado': monto,
         'concepto': _concepto.text.trim(),
         'proveedorNombre': _proveedor.text.trim(),
+        if (int.tryParse(_unidades.text.trim()) case final unidades? when unidades > 0)
+          'unidadesImpacto': unidades,
         'fechaGasto': ahora.toIso8601String(),
         if (_capturadoEn != null) 'capturadoEn': _capturadoEn!.toIso8601String(),
         'comprobante': {
@@ -239,7 +244,12 @@ class _PantallaRegistrarGastoState extends ConsumerState<PantallaRegistrarGasto>
                     monto: _monto,
                     concepto: _concepto,
                     proveedor: _proveedor,
-                    onFondo: (v) => setState(() => _fondoId = v),
+                    unidades: _unidades,
+                    // Otro fondo puede medir otra unidad, o ninguna.
+                    onFondo: (v) => setState(() {
+                      _fondoId = v;
+                      _unidades.clear();
+                    }),
                     onCambio: () => setState(() {}),
                   ),
                 _ => _PasoComprobante(
@@ -455,6 +465,7 @@ class _PasoDatos extends ConsumerWidget {
     required this.monto,
     required this.concepto,
     required this.proveedor,
+    required this.unidades,
     required this.onFondo,
     required this.onCambio,
   });
@@ -464,6 +475,7 @@ class _PasoDatos extends ConsumerWidget {
   final TextEditingController monto;
   final TextEditingController concepto;
   final TextEditingController proveedor;
+  final TextEditingController unidades;
   final ValueChanged<String?> onFondo;
   final VoidCallback onCambio;
 
@@ -527,8 +539,31 @@ class _PasoDatos extends ConsumerWidget {
           decoration: const InputDecoration(labelText: 'Proveedor'),
           onChanged: (_) => onCambio(),
         ),
+        // RF-SO-08 · Opcional, y solo si la categoria del fondo mide impacto.
+        if (_unidadDelFondo(campanas.value ?? const [], fondoId) case final unidad?) ...[
+          const SizedBox(height: 16),
+          TextField(
+            controller: unidades,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: '¿Cuántos $unidad? (opcional)',
+              helperText: 'Con esto se calcula el costo por unidad de la causa. Si no aplica, '
+                  'déjelo vacío.',
+            ),
+            onChanged: (_) => onCambio(),
+          ),
+        ],
       ],
     );
+  }
+
+  static String? _unidadDelFondo(List<Map<String, dynamic>> campanas, String? fondoId) {
+    for (final c in campanas) {
+      for (final f in (c['fondos'] as List<dynamic>).cast<Map<String, dynamic>>()) {
+        if (f['id'] == fondoId) return f['unidadImpacto'] as String?;
+      }
+    }
+    return null;
   }
 }
 

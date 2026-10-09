@@ -134,6 +134,8 @@ beforeAll(async () => {
   await origen.donar(100, 4.44, undefined, segundoDonante.donanteId);
   // El FIFO toma 150 del primero: le quedan 42.12; al segundo, 95.56.
   gastoAprobado = await origen.gastoAprobado(150);
+  // D4 · 30 animales atendidos con esos 150: S/ 5.00 por animal.
+  await prisma.gasto.update({ where: { id: gastoAprobado }, data: { unidadesImpacto: 30 } });
 
   // Una foto publicable del gasto, para el informe.
   const jpeg = await sharp({
@@ -427,6 +429,11 @@ describe('RF-CF-11 · Resolucion', () => {
         monto: '42.12',
       },
     ]);
+    expect(contenido.impacto).toMatchObject({
+      unidad: 'animales atendidos',
+      unidades: 30,
+      costoPorUnidad: '5.00',
+    });
     expect(fila.contenido).not.toContain('Marisol');
     expect(fila.contenido).not.toContain(segundoDonante.correo);
   });

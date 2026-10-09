@@ -738,6 +738,9 @@ model Gasto {
   sincronizadoEn  DateTime?   @map("sincronizado_en") @db.Timestamptz(6)
   latitud         Decimal?    @db.Decimal(10, 7)
   longitud        Decimal?    @db.Decimal(10, 7)
+  /// D4 · Cuantas unidades de impacto produjo (animales atendidos, raciones...),
+  /// segun la categoria del fondo. Opcional. RF-SO-08.
+  unidadesImpacto Int?        @map("unidades_impacto")
   aprobadoEn      DateTime?   @map("aprobado_en") @db.Timestamptz(6)
   creadoEn        DateTime    @default(now()) @map("creado_en") @db.Timestamptz(6)
   actualizadoEn   DateTime    @updatedAt @map("actualizado_en") @db.Timestamptz(6)
