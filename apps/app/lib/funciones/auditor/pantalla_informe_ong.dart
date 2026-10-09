@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../comun/descarga.dart';
+import '../../comun/estados_mensuales.dart';
 import '../../comun/widgets.dart';
 import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
@@ -127,15 +128,30 @@ class _Informe extends ConsumerWidget {
                   ),
                   trailing: f['id'] == null
                       ? null
-                      : IconButton(
-                          tooltip: 'Exportar el libro del fondo en CSV',
-                          icon: const Icon(Icons.download_outlined),
-                          onPressed: () => descargarCsv(
-                            context,
-                            ref,
-                            ruta: '/analitica/exportar/libro/${f['id']}',
-                            nombre: 'libro-${f['id']}.csv',
-                          ),
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: 'Estados mensuales del fondo',
+                              icon: const Icon(Icons.calendar_month_outlined),
+                              onPressed: () => mostrarEstadosMensuales(
+                                context,
+                                fondoId: f['id'] as String,
+                                nombreFondo: f['nombre'] as String,
+                                conDiario: true,
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Exportar el libro del fondo en CSV',
+                              icon: const Icon(Icons.download_outlined),
+                              onPressed: () => descargarCsv(
+                                context,
+                                ref,
+                                ruta: '/analitica/exportar/libro/${f['id']}',
+                                nombre: 'libro-${f['id']}.csv',
+                              ),
+                            ),
+                          ],
                         ),
                 ),
               ),

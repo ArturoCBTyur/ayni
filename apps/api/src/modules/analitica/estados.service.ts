@@ -190,7 +190,13 @@ export class EstadosService {
     }
 
     return {
-      fondo: { id: fondo.id, nombre: fondo.nombre, ong: fondo.campana.ong.razonSocial },
+      fondo: {
+        id: fondo.id,
+        nombre: fondo.nombre,
+        // El PLE es por ONG: la aplicacion lo pide con esto.
+        ongId: fondo.campana.ongId,
+        ong: fondo.campana.ong.razonSocial,
+      },
       periodos: lista.reverse(),
     };
   }

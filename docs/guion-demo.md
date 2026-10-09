@@ -105,10 +105,11 @@ Cada uno se muestra en menos de un minuto:
 - **Donante** → al donar, **«Cada mes»**: la confirmación dice la fecha exacta del primer cobro. En **Mis aportes**, cada aporte se abre y muestra en qué gasto se usó, con su foto; la donación mensual se pausa o cancela en un toque.
 - **Auditor** → **Auditoría**, pestaña **Organizaciones**: el expediente completo de una ONG que pidió verificación, y la decisión con motivo. En la revisión de un gasto, el ícono de informe abre el **informe de auditoría de la ONG**, con la integridad del libro de cada fondo y su extracto en CSV.
 - **Operador u otro rol que no dona** → el botón «Donar» no aparece: la ficha de la causa se ve en modo consulta y lo dice.
+- **Cualquier miembro de la ONG** → **Fondos**, **Estados mensuales** en un fondo: cada mes con su estado de actividades y la situación del fondo, en Excel o PDF. El mes en curso dice que sus cifras todavía pueden cambiar; un mes cerrado lleva el hash de su cierre. El auditor lo abre desde el informe de la ONG, con el libro diario en cuentas del PCGE. Los datos de la demo son del mes en curso, así que el primer cierre aparece el día 1 del mes siguiente.
 
 ## Si sobra tiempo: intentar romperlo
 
-Lo más convincente de la demostración no es lo que funciona, sino lo que se defiende. Los cuatro fallan:
+Lo más convincente de la demostración no es lo que funciona, sino lo que se defiende. Los cinco fallan:
 
 | Intento | Qué pasa |
 |---|---|
@@ -116,6 +117,7 @@ Lo más convincente de la demostración no es lo que funciona, sino lo que se de
 | Registrar dos veces el mismo comprobante | Restricción única sobre RUC, tipo, serie y número |
 | Aprobar un gasto mayor al saldo retenido | «No se puede gastar lo que aún no se ha recaudado» |
 | Notificar una evidencia sin anonimizar | Un trigger lo impide, no una validación de la aplicación |
+| `UPDATE` sobre `cierres_mensuales`, o un cierre con un hash que no es el de su contenido | La base rechaza las dos cosas: un mes cerrado no se reescribe |
 
 Y la prueba que más impresiona a un auditor. Desde la aplicación, en el informe de la ONG o en el tablero; o desde la terminal:
 

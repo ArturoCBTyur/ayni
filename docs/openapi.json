@@ -1541,6 +1541,95 @@
           "analitica"
         ]
       }
+    },
+    "/api/v1/analitica/estados/fondos/{id}/periodos": {
+      "get": {
+        "operationId": "EstadosController_periodos",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-07 · Meses de vida de un fondo, con su cierre si lo tienen",
+        "tags": [
+          "analitica"
+        ]
+      }
+    },
+    "/api/v1/analitica/estados/fondos/{id}": {
+      "get": {
+        "description": "formato=json (por defecto), xlsx o pdf. Si el mes esta cerrado se entrega el cierre guardado, con su hash, y se indica si el libro lo sigue sosteniendo.",
+        "operationId": "EstadosController_estado",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-07, RF-CF-08 · Estado de actividades y situacion de un fondo en un mes",
+        "tags": [
+          "analitica"
+        ]
+      }
+    },
+    "/api/v1/analitica/estados/cierres/ejecutar": {
+      "post": {
+        "operationId": "EstadosController_ejecutarCierre",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-09 · Forzar el cierre mensual fuera de su horario",
+        "tags": [
+          "analitica"
+        ]
+      }
+    },
+    "/api/v1/analitica/ple/ongs/{ongId}": {
+      "get": {
+        "description": "Estructura pendiente de validacion por un contador. Ver contable/ple.ts.",
+        "operationId": "EstadosController_borradorPle",
+        "parameters": [
+          {
+            "name": "ongId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-10 · BORRADOR del libro diario o mayor de una ONG en formato PLE",
+        "tags": [
+          "analitica"
+        ]
+      }
     }
   },
   "info": {

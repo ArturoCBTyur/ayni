@@ -240,7 +240,9 @@ describe('RF-CF-07 · Estado de actividades del mes', () => {
   });
 
   it('lista los meses de vida del fondo, del mas reciente al mas antiguo', async () => {
-    const { periodos } = await estados.periodos(e.fondoId, admin);
+    const { fondo, periodos } = await estados.periodos(e.fondoId, admin);
+
+    expect(fondo.ongId).toBe(e.ongId);
 
     expect(periodos[0]).toMatchObject({ codigo: enCurso.codigo, enCurso: true });
     expect(periodos[periodos.length - 1].codigo).toBe('2026-01');
