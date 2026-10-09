@@ -214,3 +214,24 @@ jornada de ovh en el mercado,ESTERILIZACION,si,ATENCION_VETERINARIA,control-dicc
 cirugía de otohematoma en perro pastor,ATENCION_VETERINARIA,si,,control-diccionario
 tratamiento de demodicosis en cachorro,ATENCION_VETERINARIA,si,MEDICAMENTOS,control-diccionario
 servicio de gasfitería en los caniles,INFRAESTRUCTURA,si,,control-diccionario
+compra de 4 sacos de croqueta para el albergue de Amarilis,ALIMENTOS,si,,control-agregacion
+alimento para los 35 perros del refugio en la semana 2,ALIMENTOS,si,,control-agregacion
+comida húmeda para los gatitos rescatados del mercado,ALIMENTOS,si,,control-agregacion
+consulta de emergencia del perro atropellado en la carretera central,ATENCION_VETERINARIA,si,,control-agregacion
+análisis de sangre para la perrita Canela,ATENCION_VETERINARIA,si,,control-agregacion
+curación y vendaje de la pata de un gato callejero,ATENCION_VETERINARIA,si,,control-agregacion
+antibióticos recetados para los cachorros del albergue,MEDICAMENTOS,si,ATENCION_VETERINARIA,control-agregacion
+pastillas antipulgas para todos los perros del refugio,MEDICAMENTOS,si,,control-agregacion
+jarabe y gotas para el gato con gripe,MEDICAMENTOS,si,,control-agregacion
+"guantes, jeringas y algodón para el tópico del albergue",INSUMOS,si,,control-agregacion
+correas y collares nuevos para los perros en adopción,INSUMOS,si,,control-agregacion
+jaulas plegables para el traslado de gatos,INSUMOS,si,TRANSPORTE,control-agregacion
+gasolina para ir a recoger perros a Tingo María,TRANSPORTE,si,,control-agregacion
+taxi del albergue a la veterinaria con la gata herida,TRANSPORTE,si,,control-agregacion
+pasaje de la voluntaria para la feria de adopción en Lima,TRANSPORTE,si,,control-agregacion
+arreglo del techo de los caniles después de la lluvia,INFRAESTRUCTURA,si,,control-agregacion
+cemento y arena para el piso del gatario nuevo,INFRAESTRUCTURA,si,,control-agregacion
+instalación de puertas en el área de cuarentena,INFRAESTRUCTURA,si,,control-agregacion
+esterilización de 6 gatas del mercado de Paucarbamba,ESTERILIZACION,si,ATENCION_VETERINARIA,control-agregacion
+castración de los perros machos del albergue,ESTERILIZACION,si,ATENCION_VETERINARIA,control-agregacion
+campaña de esterilización gratuita en el barrio,ESTERILIZACION,si,ATENCION_VETERINARIA,control-agregacion

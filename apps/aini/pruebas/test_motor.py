@@ -265,6 +265,30 @@ class TestTerminosDelDominio:
             assert documental._vector(destino) is not None, destino
 
 
+class TestSimilitudRelativa:
+    """Las palabras que estan en todas las categorias no deciden."""
+
+    def test_una_palabra_generica_no_tumba_un_gasto_legitimo(self):
+        """Con el promedio simple, "perros" y "Tingo Maria" arrastraban este
+        gasto de transporte por debajo del umbral (0.461 con umbral 0.51)."""
+        sim = documental.coherencia_concepto_categoria(
+            "gasolina para ir a recoger perros a Tingo María", "TRANSPORTE"
+        )
+        assert sim >= documental.UMBRAL_COHERENCIA
+
+    def test_un_concepto_generico_en_el_fondo_equivocado_se_detecta(self):
+        """El acto 5 de `probar.py demo` lo mostraba como el error del modelo:
+        "compra de alimento" en el fondo veterinario solo advertia (0.543)."""
+        sim = documental.coherencia_concepto_categoria("compra de alimento", "ATENCION_VETERINARIA")
+        assert sim < documental.UMBRAL_COHERENCIA
+
+    def test_el_fondo_propio_puntua_mas_que_uno_ajeno(self):
+        concepto = "esterilizacion de 20 gatos"
+        propia = documental.coherencia_concepto_categoria(concepto, "ESTERILIZACION")
+        ajena = documental.coherencia_concepto_categoria(concepto, "TRANSPORTE")
+        assert propia > ajena
+
+
 class TestSeñalDocumental:
     def test_ruc_con_digito_verificador_equivocado(self, detector):
         r = motor.analizar(entrada(comprobante={"rucEmisor": "20553456575"}), detector)
