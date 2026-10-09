@@ -40,6 +40,7 @@ CREATE TEMP TABLE _usuarios_prueba ON COMMIT DROP AS
 
 -- El libro es de solo insercion por diseño; se abre solo para esta limpieza.
 ALTER TABLE movimientos_contables DISABLE TRIGGER tg_movimientos_no_delete;
+ALTER TABLE cierres_mensuales DISABLE TRIGGER tg_cierres_no_delete;
 
 -- De adentro hacia afuera, respetando las claves foraneas.
 DELETE FROM notificaciones     WHERE gasto_id IN (SELECT id FROM gastos WHERE fondo_id IN (SELECT id FROM _fondos_prueba))
@@ -53,6 +54,7 @@ DELETE FROM evidencias         WHERE gasto_id IN (SELECT id FROM gastos WHERE fo
 DELETE FROM comprobantes       WHERE gasto_id IN (SELECT id FROM gastos WHERE fondo_id IN (SELECT id FROM _fondos_prueba));
 DELETE FROM aplicaciones_donacion WHERE gasto_id IN (SELECT id FROM gastos WHERE fondo_id IN (SELECT id FROM _fondos_prueba));
 DELETE FROM trabajos_verificacion WHERE gasto_id IN (SELECT id FROM gastos WHERE fondo_id IN (SELECT id FROM _fondos_prueba));
+DELETE FROM cierres_mensuales     WHERE fondo_id IN (SELECT id FROM _fondos_prueba);
 DELETE FROM movimientos_contables WHERE fondo_id IN (SELECT id FROM _fondos_prueba);
 DELETE FROM gastos             WHERE fondo_id IN (SELECT id FROM _fondos_prueba);
 DELETE FROM pagos              WHERE donacion_id IN (SELECT id FROM donaciones WHERE fondo_id IN (SELECT id FROM _fondos_prueba));
@@ -78,6 +80,7 @@ DELETE FROM usuario_roles      WHERE usuario_id IN (SELECT id FROM _usuarios_pru
 DELETE FROM usuarios           WHERE id IN (SELECT id FROM _usuarios_prueba);
 
 ALTER TABLE movimientos_contables ENABLE TRIGGER tg_movimientos_no_delete;
+ALTER TABLE cierres_mensuales ENABLE TRIGGER tg_cierres_no_delete;
 
 -- Los saldos de los fondos que quedan se recalculan desde el libro, que
 -- sigue siendo la unica fuente de verdad.

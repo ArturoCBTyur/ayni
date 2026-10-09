@@ -337,6 +337,7 @@ model Fondo {
   gastos        Gasto[]
   movimientos   MovimientoContable[]
   suscripciones Suscripcion[]
+  cierres       CierreMensual[]
 
   @@index([campanaId, estado])
   @@map("fondos")
@@ -387,6 +388,30 @@ model MovimientoContable {
   @@index([fondoId, creadoEn])
   @@index([gastoId])
   @@map("movimientos_contables")
+}
+
+/// Cierre mensual de un fondo: el estado del mes, congelado. RF-CF-09.
+/// La base lo hace inmutable, comprueba que hash_contenido sea el SHA-256 de
+/// contenido y que hash_anterior sea el del cierre previo del fondo, de modo
+/// que ni un error del backend pueda guardar un cierre que no se sostenga.
+/// Ver la migracion 20261008120000_cierres_mensuales.                [CYF INF]
+model CierreMensual {
+  id             String   @id @default(uuid()) @db.Uuid
+  fondoId        String   @map("fondo_id") @db.Uuid
+  /// AAAA-MM, en hora de Lima.
+  periodo        String   @db.Char(7)
+  /// JSON canonico del estado: el texto exacto sobre el que se calcula el hash.
+  contenido      String
+  hashContenido  String   @map("hash_contenido") @db.Char(64)
+  /// Hash del cierre anterior del mismo fondo; null en el primero.
+  hashAnterior   String?  @map("hash_anterior") @db.Char(64)
+  versionFormato Int      @default(1) @map("version_formato")
+  creadoEn       DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  fondo Fondo @relation(fields: [fondoId], references: [id], onDelete: Restrict)
+
+  @@unique([fondoId, periodo])
+  @@map("cierres_mensuales")
 }
 
 // ===========================================================================

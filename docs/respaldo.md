@@ -15,7 +15,7 @@ Dos scripts en [`apps/api/scripts/respaldo/`](../apps/api/scripts/respaldo):
 
 1. **El respaldo no cambió desde que se hizo.** `SHA256SUMS`, antes de tocar nada.
 2. **La misma versión del esquema.** La última migración aplicada coincide.
-3. **El libro sigue siendo de solo inserción.** Los tres triggers de `movimientos_contables` existen y están activos. Un respaldo que vuelve sin ellos devuelve los datos sin la garantía que el proyecto promete.
+3. **El libro sigue siendo de solo inserción.** Los tres triggers de `movimientos_contables` existen y están activos. Un respaldo que vuelve sin ellos devuelve los datos sin la garantía que el proyecto promete. Lo mismo con los tres de `cierres_mensuales`, si el respaldo es posterior a esa tabla: un cierre restaurado que se pudiera editar ya no probaría lo que decía ese mes.
 4. **Cada cadena de hashes está íntegra.** `fn_verificar_cadena` la recalcula, fondo por fondo, dentro de la base restaurada.
 5. **Es el mismo libro.** Cada cabeza registrada al respaldar —último movimiento de cada fondo, con su secuencia y su hash— existe en lo restaurado. Una cadena íntegra pero distinta pasa el punto 4 y no este.
 6. **Volvieron todos los archivos**, y cuántos necesitan la clave de cifrado para leerse.

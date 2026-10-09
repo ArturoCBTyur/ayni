@@ -9,8 +9,8 @@
  * encadenamiento corre igual: la secuencia y los hashes los sigue poniendo la
  * base.
  *
- * Fuera de dist/ por tsconfig.build.json: limpiar() apaga el trigger que
- * impide borrar movimientos del libro.
+ * Fuera de dist/ por tsconfig.build.json: limpiar() apaga los triggers que
+ * impiden borrar movimientos del libro y cierres mensuales.
  */
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
@@ -267,6 +267,13 @@ export async function crearEscenarioContable(
       await prisma.analisisAini.deleteMany({ where: enElFondo });
       await prisma.aplicacionDonacion.deleteMany({ where: enElFondo });
       await prisma.trabajoVerificacion.deleteMany({ where: enElFondo });
+
+      await prisma.$executeRaw`ALTER TABLE cierres_mensuales DISABLE TRIGGER tg_cierres_no_delete`;
+      try {
+        await prisma.$executeRaw`DELETE FROM cierres_mensuales WHERE fondo_id = ${fondo.id}::uuid`;
+      } finally {
+        await prisma.$executeRaw`ALTER TABLE cierres_mensuales ENABLE TRIGGER tg_cierres_no_delete`;
+      }
 
       await prisma.$executeRaw`ALTER TABLE movimientos_contables DISABLE TRIGGER tg_movimientos_no_delete`;
       try {
