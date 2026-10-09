@@ -83,18 +83,27 @@ ALTER TABLE movimientos_contables ENABLE TRIGGER tg_movimientos_no_delete;
 ALTER TABLE cierres_mensuales ENABLE TRIGGER tg_cierres_no_delete;
 
 -- Los saldos de los fondos que quedan se recalculan desde el libro, que
--- sigue siendo la unica fuente de verdad.
+-- sigue siendo la unica fuente de verdad, con la misma aritmetica que
+-- fn_movimiento_aplicar_saldos.
+--
+-- Cada suma va con su COALESCE. Sin el, un fondo sin ninguna EJECUCION daba
+-- RETENCION - NULL = NULL, y el saldo retenido de un fondo de la demo que
+-- todavia no habia gastado nada quedaba en cero: correr esta limpieza
+-- descuadraba la base que debia dejar presentable.
 UPDATE fondos f SET
-  saldo_recaudado = COALESCE(m.recaudado, 0),
-  saldo_retenido  = COALESCE(m.retenido, 0),
-  saldo_ejecutado = COALESCE(m.ejecutado, 0)
+  saldo_recaudado = m.recaudado,
+  saldo_retenido  = m.retenido,
+  saldo_ejecutado = m.ejecutado
 FROM (
   SELECT fondo_id,
-         SUM(monto) FILTER (WHERE tipo = 'INGRESO')
-           - SUM(monto) FILTER (WHERE tipo = 'COMISION')        AS recaudado,
-         SUM(monto) FILTER (WHERE tipo = 'RETENCION')
-           - SUM(monto) FILTER (WHERE tipo = 'EJECUCION')       AS retenido,
-         SUM(monto) FILTER (WHERE tipo = 'EJECUCION')           AS ejecutado
+         COALESCE(SUM(monto) FILTER (WHERE tipo = 'INGRESO'), 0)
+           - COALESCE(SUM(monto) FILTER (WHERE tipo = 'COMISION'), 0)       AS recaudado,
+         COALESCE(SUM(monto) FILTER (WHERE tipo = 'RETENCION'), 0)
+           - COALESCE(SUM(monto) FILTER (WHERE tipo = 'EJECUCION'), 0)
+           + COALESCE(SUM(monto) FILTER (WHERE tipo = 'REVERSO'), 0)
+           - COALESCE(SUM(monto) FILTER (WHERE tipo = 'REASIGNACION'), 0)   AS retenido,
+         COALESCE(SUM(monto) FILTER (WHERE tipo = 'EJECUCION'), 0)
+           - COALESCE(SUM(monto) FILTER (WHERE tipo = 'REVERSO'), 0)        AS ejecutado
     FROM movimientos_contables GROUP BY fondo_id
 ) m
 WHERE m.fondo_id = f.id;

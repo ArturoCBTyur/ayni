@@ -301,8 +301,25 @@ describe('Configuracion del cifrado', () => {
   });
 
   it('en produccion arranca con una clave valida', () => {
-    process.env = { ...base, NODE_ENV: 'production', CIFRADO_CLAVE: nuevaClave() };
+    process.env = {
+      ...base,
+      NODE_ENV: 'production',
+      CIFRADO_CLAVE: nuevaClave(),
+      ENCUESTAS_CLAVE: 'e'.repeat(32),
+    };
     expect(cargarConfiguracion().CIFRADO_CLAVE).toBeDefined();
+  });
+
+  it('en produccion tampoco arranca sin la clave del seudonimo de las encuestas (D6)', () => {
+    process.env = { ...base, NODE_ENV: 'production', CIFRADO_CLAVE: nuevaClave() };
+    expect(() => cargarConfiguracion()).toThrow(/ENCUESTAS_CLAVE/);
+  });
+
+  it('fuera de produccion la clave de encuestas vacia cuenta como ausente', () => {
+    process.env = { ...base, NODE_ENV: 'development', ENCUESTAS_CLAVE: '' };
+    expect(() => cargarConfiguracion()).not.toThrow();
+    process.env = { ...base, NODE_ENV: 'development', ENCUESTAS_CLAVE: 'corta' };
+    expect(() => cargarConfiguracion()).toThrow(/ENCUESTAS_CLAVE/);
   });
 
   it('rechaza una clave mal formada aunque no sea produccion', () => {

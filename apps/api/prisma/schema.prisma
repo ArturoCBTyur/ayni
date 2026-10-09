@@ -105,6 +105,8 @@ enum FinalidadConsentimiento {
   TRATAMIENTO_DATOS
   COMUNICACIONES
   USO_IMAGEN
+  /// Usar las respuestas a las encuestas de SOC-1 y PSI-1 (D6, ADR-0007).
+  INVESTIGACION
 }
 
 /// Consentimiento por finalidad, con version de politica y revocacion.
@@ -412,6 +414,60 @@ model CierreMensual {
 
   @@unique([fondoId, periodo])
   @@map("cierres_mensuales")
+}
+
+enum MomentoEncuesta {
+  /// SOC-1: antes de la primera notificacion de impacto.
+  LINEA_BASE
+  /// SOC-1: despues del primer impacto (D3).
+  SEGUIMIENTO
+  /// PSI-1: una sola aplicacion, al terminar una tarea real.
+  UNICA
+}
+
+/// Instrumento de medicion versionado: items, escala e instrucciones. RF-SO-05.
+/// contenido es el JSON canonico de la version; la base comprueba su hash y no
+/// deja cambiarlo despues de publicado: un instrumento que cambia a mitad de
+/// la medicion mide otra cosa. Solo `activo` se puede mover.          [SOC PSI]
+model InstrumentoEncuesta {
+  id            String   @id @default(uuid()) @db.Uuid
+  codigo        String
+  version       Int
+  /// Indicador de la Tabla 3 que alimenta: SOC-1 o PSI-1.
+  indicador     String
+  contenido     String
+  hashContenido String   @map("hash_contenido") @db.Char(64)
+  activo        Boolean  @default(true)
+  creadoEn      DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  respuestas RespuestaEncuesta[]
+
+  @@unique([codigo, version])
+  @@map("instrumentos_encuesta")
+}
+
+/// Respuesta a un instrumento. RF-SO-05, RF-DE-06.
+/// No guarda la cuenta de quien responde: guarda un seudonimo, el HMAC de su
+/// usuario con ENCUESTAS_CLAVE, que basta para emparejar la linea base con el
+/// seguimiento de la misma persona. Al revocar el consentimiento INVESTIGACION
+/// el seudonimo se reemplaza por uno aleatorio y la respuesta queda anonima.
+model RespuestaEncuesta {
+  id            String          @id @default(uuid()) @db.Uuid
+  instrumentoId String          @map("instrumento_id") @db.Uuid
+  momento       MomentoEncuesta
+  seudonimo     String          @db.Char(64)
+  /// Rol con que respondio: el SUS de un donante y el de un operador no miden lo mismo.
+  rol           String
+  valores       Json
+  /// Indice 0-100 de SOC-1 o puntaje SUS 0-100, calculado al guardar.
+  puntaje       Decimal         @db.Decimal(6, 2)
+  creadoEn      DateTime        @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  instrumento InstrumentoEncuesta @relation(fields: [instrumentoId], references: [id], onDelete: Restrict)
+
+  @@unique([instrumentoId, momento, seudonimo])
+  @@index([instrumentoId, momento])
+  @@map("respuestas_encuesta")
 }
 
 // ===========================================================================

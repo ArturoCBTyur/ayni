@@ -109,6 +109,7 @@ services:
       COOKIE_SECRET: ${COOKIE_SECRET:-local-solo-para-compose-cookie-000000}
       STORAGE_URL_SECRET: ${STORAGE_URL_SECRET:-local-solo-para-compose-storage-00000}
       PASARELA_WEBHOOK_SECRET: ${PASARELA_WEBHOOK_SECRET:-local-solo-para-compose-webhook-00000}
+      ENCUESTAS_CLAVE: ${ENCUESTAS_CLAVE:-local-solo-para-compose-encuestas-0000}
 
       CORS_ORIGENES: http://localhost:${WEB_PUERTO:-8080}
       STORAGE_DRIVER: disco

@@ -61,6 +61,18 @@ const esquema = z.object({
     .optional()
     .refine((v) => !v || sonClavesValidas(v), { message: MENSAJE_CLAVE }),
 
+  /**
+   * D6 · Clave del seudonimo de las encuestas: HMAC del usuario, para emparejar
+   * la linea base y el seguimiento de una persona sin guardar su cuenta.
+   * Obligatoria en produccion. Cambiarla rompe los pares ya registrados, asi
+   * que se custodia como la de cifrado y no se rota sin cerrar la medicion.
+   */
+  // Vacia cuenta como ausente: .env.example la trae asi.
+  ENCUESTAS_CLAVE: z
+    .string()
+    .optional()
+    .refine((v) => !v || v.length >= 24, { message: 'debe tener al menos 24 caracteres' }),
+
   PASARELA_DRIVER: z.enum(['fake', 'culqi']).default('fake'),
   PASARELA_COMISION_PORCENTAJE: z.coerce.number().min(0).default(3.44),
   PASARELA_COMISION_FIJA: z.coerce.number().min(0).default(1.0),
@@ -114,6 +126,15 @@ const esquemaValidado = esquema.superRefine((c, ctx) => {
       message:
         'es obligatoria en produccion: sin ella las evidencias de los beneficiarios y ' +
         'los secretos del segundo factor quedan en claro (RNF-01).',
+    });
+  }
+  if (c.NODE_ENV === 'production' && !c.ENCUESTAS_CLAVE) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['ENCUESTAS_CLAVE'],
+      message:
+        'es obligatoria en produccion: sin ella el seudonimo de las encuestas se calcula ' +
+        'con una clave conocida y cualquiera podria saber quien respondio (D6).',
     });
   }
 });

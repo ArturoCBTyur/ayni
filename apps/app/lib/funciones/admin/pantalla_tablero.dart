@@ -647,8 +647,11 @@ class _FilaIndicador extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(indicador['nombre'] as String, style: tema.textTheme.bodyMedium),
+                // T4.4: sobre cuantos casos. Un 100 % de dos gastos no dice lo
+                // mismo que uno de dos mil.
                 Text(
-                  'Meta: ${indicador['meta']}  ·  ${indicador['codigo']}',
+                  'Meta: ${indicador['meta']}  ·  ${indicador['codigo']}'
+                  '${indicador['n'] != null ? '  ·  n = ${indicador['n']}' : ''}',
                   style: tema.textTheme.labelSmall?.copyWith(
                     color: tema.colorScheme.onSurfaceVariant,
                   ),

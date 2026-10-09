@@ -1630,6 +1630,60 @@
           "analitica"
         ]
       }
+    },
+    "/api/v1/encuestas/pendientes": {
+      "get": {
+        "operationId": "EncuestasController_pendientes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-SO-05 · Encuestas que le corresponde responder hoy",
+        "tags": [
+          "encuestas"
+        ]
+      }
+    },
+    "/api/v1/encuestas/instrumentos/{codigo}": {
+      "get": {
+        "operationId": "EncuestasController_instrumento",
+        "parameters": [
+          {
+            "name": "codigo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-SO-05 · Version activa de un instrumento, con su hash",
+        "tags": [
+          "encuestas"
+        ]
+      }
+    },
+    "/api/v1/encuestas/respuestas": {
+      "post": {
+        "operationId": "EncuestasController_responder",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "RF-SO-05 · Responder; exige la finalidad INVESTIGACION (RF-DE-06)",
+        "tags": [
+          "encuestas"
+        ]
+      }
     }
   },
   "info": {

@@ -2,8 +2,9 @@
  * Seed base del sistema.
  *
  * Crea lo minimo para que la plataforma sea operable: roles, la regla de
- * umbrales vigente, el motor de verificacion registrado como version, y las
- * cinco cuentas de prueba de la Tabla 20 del Entregable 2.
+ * umbrales vigente, el motor de verificacion registrado como version, los
+ * instrumentos de SOC-1 y PSI-1, y las cinco cuentas de prueba de la Tabla 20
+ * del Entregable 2.
  *
  * Es idempotente: se puede correr varias veces sin duplicar nada.
  *
@@ -13,6 +14,7 @@
 import { hash } from '@node-rs/argon2';
 import { CategoriaGasto, PrismaClient } from '@prisma/client';
 
+import { publicarInstrumentos } from '../src/modules/encuestas/publicacion';
 import { calcularDigitoVerificadorRuc } from '../src/modules/verificacion/reglas/ruc';
 
 const prisma = new PrismaClient();
@@ -359,6 +361,11 @@ async function main() {
   await sembrarRoles();
   await sembrarReglaConfianza();
   await sembrarMotor();
+  // Fase 4: sin una version activa, nadie podria responder las encuestas.
+  const instrumentos = await publicarInstrumentos(prisma);
+  console.info(
+    `  instrumentos: ${instrumentos.length ? instrumentos.join(', ') : 'ya publicados'}`,
+  );
   await sembrarCuentas();
   await sembrarOngPiloto();
   console.info('Listo.');

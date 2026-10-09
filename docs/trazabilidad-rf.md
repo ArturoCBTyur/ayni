@@ -32,7 +32,7 @@ La honestidad de esta tabla es el punto: un requerimiento marcado como cumplido 
 | RNF-11 | Análisis en tiempo razonable | ✅ | El motor de reglas resuelve en milisegundos; `duracionMs` se persiste en cada análisis | `verificacion.spec.ts` |
 | RNF-12 | Disponibilidad 99,5 % | ⬜ Fase 11 | — | — |
 | RNF-13 | Respaldo y recuperación | ✅ | `scripts/respaldo/`: `pg_dump` + archivos + las cabezas de la cadena de cada fondo. Restaurar verifica la integridad del respaldo, los triggers de inmutabilidad, cada cadena y que cada cabeza registrada esté con el mismo hash ([respaldo.md](respaldo.md)) | Simulacro en CI (job `docker`): respalda, restaura en una base vacía y falla si algo no coincide |
-| RNF-14 | Experiencia de baja fricción | 🟡 | Registro de gasto en 3 pantallas; toque de 48 dp | Falta medición SUS de Fase 10 |
+| RNF-14 | Experiencia de baja fricción | 🟡 | Registro de gasto en 3 pantallas; toque de 48 dp; el SUS se responde en la app | Falta la sesión con usuarios reales ([protocolo-sus.md](protocolo-sus.md)) |
 | RNF-15 | Accesibilidad WCAG 2.1 AA | 🟡 | Contraste, toque de 48 dp y `Semantics` en los widgets compartidos. El gráfico del tablero repite sus cifras en texto y el QR de MFA ofrece la clave escrita, porque ni un lienzo ni un código QR dicen nada a un lector de pantalla | **Riesgo confirmado**: el canvas de Flutter Web no expone elementos al DOM. Ver la evidencia en [ADR-0001](adr/0001-frontend-flutter-web.md) |
 | RNF-16 | Operación con conectividad limitada | 🟡 | El backend conserva la hora original de captura al sincronizar | `gastos.spec.ts`. Falta la cola offline en Flutter |
 | RNF-17 | Multiplataforma real | 🟡 | Flutter web + Android + iOS habilitados | `flutter build web` en CI |
@@ -97,11 +97,11 @@ Vienen del [plan de trabajo](plan-transdisciplinario.md) y se registran **antes*
 | RF-CF-12 | Informe de cierre de causa | T3.2 | D2, D5 | PDF con resumen, estados acumulados, gastos con comprobante y fotos publicables, verificación de cadena y destino del remanente | ⬜ Pendiente |
 | RF-IN-05 | Verificación pública del informe de cierre | T3.3 | — | El QR del informe lleva a una página que muestra su hash y recalcula la cadena del fondo | ⬜ Pendiente |
 | RF-CO-03 | Aviso de cierre a cada donante | T3.4 | D2 | Cada donante recibe su parte y su destino, por plantilla y con el filtro de lenguaje ético | ⬜ Pendiente |
-| RF-SO-05 | Instrumentos de encuesta versionados | T4.1 | D3, D6 | Ítems, escala y versión inmutables una vez publicados; las respuestas no guardan la identidad de quien responde | ⬜ Pendiente |
-| RF-DE-06 | Consentimiento para investigación | T4.1 | D6 | Nadie responde una encuesta sin la finalidad otorgada; revocarla desvincula sus respuestas | ⬜ Pendiente |
-| RF-SO-06 | SOC-1 medido | T4.2 | D3 | La variación se calcula sobre pares línea base–seguimiento y reemplaza el «Sin medir» del tablero | ⬜ Pendiente |
-| RF-PS-06 | PSI-1 medido con el SUS | T4.3 | D3 | Puntaje SUS con la fórmula estándar; sesión con usuarios reales y su acta | ⬜ Pendiente |
-| RF-SO-07 | Umbral de publicación de agregados | T4.4 | D6 | Ningún indicador se publica con menos respuestas que el umbral; el tablero muestra el *n* | ⬜ Pendiente |
+| RF-SO-05 | Instrumentos de encuesta versionados | T4.1 | D3, D6 | Ítems, escala y versión inmutables una vez publicados; las respuestas no guardan la identidad de quien responde | ✅ Sobre la **propuesta** de D3: `encuestas/instrumentos.ts`; la base comprueba el hash de cada versión y no deja cambiarla ni borrarla; la respuesta guarda un seudónimo HMAC, no la cuenta (`encuestas.spec.ts` · 20 casos, `encuestas.http.spec.ts` · 5, `encuestas_test.dart` · 4) |
+| RF-DE-06 | Consentimiento para investigación | T4.1 | D6 | Nadie responde una encuesta sin la finalidad otorgada; revocarla desvincula sus respuestas | ✅ Finalidad `INVESTIGACION`; revocarla reemplaza el seudónimo por uno aleatorio en la misma transacción. La app la pide antes de la primera pregunta y la lista en Privacidad |
+| RF-SO-06 | SOC-1 medido | T4.2 | D3 | La variación se calcula sobre pares línea base–seguimiento y reemplaza el «Sin medir» del tablero | ✅ Pares de la misma persona; la línea base solo se ofrece antes del primer impacto y el seguimiento a los 30 días. La escala es una adaptación propia **pendiente de validación** |
+| RF-PS-06 | PSI-1 medido con el SUS | T4.3 | D3 | Puntaje SUS con la fórmula estándar; sesión con usuarios reales y su acta | 🟡 El SUS está en la app y PSI-1 se calcula. **Falta la sesión con usuarios reales**: protocolo y formato de acta en [protocolo-sus.md](protocolo-sus.md) |
+| RF-SO-07 | Umbral de publicación de agregados | T4.4 | D6 | Ningún indicador se publica con menos respuestas que el umbral; el tablero muestra el *n* | ✅ n ≥ 5 en los que salen de opiniones (SOC-1, PSI-1, COM-1); todos los indicadores llevan su *n* (`encuestas.spec.ts`, `tablero_test.dart`) |
 | RF-SO-08 | Unidades de impacto en el gasto | T5.1 | D4 | La ONG declara unidades al registrar el gasto, según su categoría | ⬜ Pendiente |
 | RF-SO-09 | Costo por unidad de impacto | T5.2 | D4 | Por fondo y por causa, incluido en el informe de cierre | ⬜ Pendiente |
 | RF-DE-07 | Constancia de donación | T6.1 | — | PDF para el donante; si la ONG es perceptora de donaciones, con lo que la norma exige, validado por un contador | ⬜ Pendiente |
@@ -129,8 +129,9 @@ Vienen del [plan de trabajo](plan-transdisciplinario.md) y se registran **antes*
 | Plan transdisciplinario · Fase 0 | 🟡 Decisiones D1–D6 propuestas en [ADR-0007](adr/0007-decisiones-transdisciplinarias.md), **sin firmar**; RF nuevos registrados arriba como pendientes |
 | Plan transdisciplinario · Fase 1 | ✅ Base contable sobre la propuesta de D1: el libro se exporta en cuentas del PCGE sin reescribir un asiento, y los saldos de cada fondo se clasifican en con restricción y liberados. **Corrige un defecto latente de la conciliación**: calculaba los saldos del libro solo con RETENCION y EJECUCION, así que el primer REVERSO o REASIGNACION habría aparecido como un descuadre crítico que no existe. Ningún flujo los asentaba todavía; la Fase 3 los va a usar |
 | Plan transdisciplinario · Fase 2 | ✅ Estados mensuales por fondo en JSON, Excel y PDF, cierre mensual inmutable y encadenado, aviso a la ONG y pantalla **Estados mensuales**. El PLE queda como borrador hasta que lo valide un contador |
+| Plan transdisciplinario · Fase 4 | ✅ Encuestas de SOC-1 y PSI-1 en la app, con consentimiento propio, respuestas sin la cuenta y umbral de publicación. Instrumentos y umbral sobre la **propuesta** de D3 y D6. Falta la sesión de usabilidad con usuarios reales. De paso, `limpiar-datos-de-prueba.sql` recalculaba los saldos con `RETENCION - EJECUCION` sin `COALESCE`: en un fondo sin gastos daba NULL y dejaba su saldo retenido en cero, descuadrando la base de la demo que debía limpiar |
 
-**Pruebas hoy:** 485 en el API y 87 en Flutter. El detalle por suite está en la salida de `npm test`. Las del API se corrieron sobre PostgreSQL 18.6 y con el cifrado en reposo activo, igual que en CI.
+**Pruebas hoy:** 512 en el API y 92 en Flutter. El detalle por suite está en la salida de `npm test`. Las del API se corrieron sobre PostgreSQL 18.6 y con el cifrado en reposo activo, igual que en CI.
 
 **CI estaba en rojo** en `main` sin que la tabla lo dijera: el job del API aplicaba las migraciones pero no la semilla, y 12 de las 17 suites fallaban al buscar los roles del catálogo. Ahora corre `npm run seed` antes de las pruebas.
 
@@ -169,7 +170,7 @@ Tres hallazgos de seguridad aparecieron en el camino y quedaron corregidos con s
 | RNF-03 · Revisión ASVS L2 por capítulo | ✅ [revision-asvs-l2.md](revision-asvs-l2.md). Cuatro hallazgos corregidos; el más grave era que el login admitía 7 200 intentos de contraseña por hora desde una IP, porque el límite de 120/min era global y se aplicaba igual a buscar campañas que a probar contraseñas |
 | RNF-03 · Prueba de penetración independiente | ⬜ No se ha hecho. La revisión la hizo quien escribió el código, y eso es una limitación real del entregable |
 | RNF-15 · WCAG 2.1 AA con NVDA | ⬜ Pendiente |
-| RNF-14 · Medición SUS con usuarios reales | ⬜ Pendiente |
+| RNF-14 · Medición SUS con usuarios reales | 🟡 El cuestionario está en la app; la sesión está planificada en [protocolo-sus.md](protocolo-sus.md) y sin realizar |
 | RNF-10 · p95 de la API | 🟡 Script listo y línea base local tomada (p95 ≤ 4.3 ms). Falta medir contra el despliegue |
 
 ### Fase 11 · Despliegue y entrega (preparada)
@@ -198,7 +199,7 @@ Tres hallazgos de seguridad aparecieron en el camino y quedaron corregidos con s
 | CU20 (interfaz) | Tablero de KPIs para el administrador | ✅ Estado de la conciliación primero, porque un tablero calculado sobre un libro descuadrado es una presentación y no una medición; después el movimiento del dinero con `fl_chart` y los indicadores por disciplina (`tablero_test.dart`, 4 casos) |
 | RF-01 (interfaz) | Enrolamiento del segundo factor | ✅ QR más la clave escrita, que es la vía accesible y no un extra. Antes de esto, ADMIN y AUDITOR no podían completar el ingreso desde la aplicación: el sistema les exigía un segundo factor que no tenían forma de configurar |
 
-Tres indicadores de la Tabla 3 quedan sin valor y así se muestran: SOC-1 y PSI-1 necesitan instrumentos externos (encuesta Likert y prueba de usabilidad), e INF-3 mide la exactitud de una extracción automática de campos que esta versión no hace — se podrá medir cuando AIni lea el comprobante y haya una lectura que contrastar.
+Tres indicadores de la Tabla 3 quedaban sin valor y así se mostraban. SOC-1 y PSI-1 se miden desde la Fase 4 del plan transdisciplinario, con las encuestas de la aplicación y el umbral de publicación de D6. INF-3 sigue sin valor: mide la exactitud de una extracción automática de campos, y es del frente de IA.
 
 ### Requerimientos funcionales cerrados en la Fase 8
 

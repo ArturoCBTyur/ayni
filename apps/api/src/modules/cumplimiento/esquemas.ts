@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const esquemaActualizarConsentimiento = z.object({
-  finalidad: z.enum(['TRATAMIENTO_DATOS', 'COMUNICACIONES', 'USO_IMAGEN']),
+  finalidad: z.enum(['TRATAMIENTO_DATOS', 'COMUNICACIONES', 'USO_IMAGEN', 'INVESTIGACION']),
   otorgado: z.boolean(),
   versionPolitica: z.string().default('1.0'),
 });

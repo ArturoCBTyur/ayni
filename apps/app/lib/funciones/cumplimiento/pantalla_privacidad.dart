@@ -44,6 +44,13 @@ const _finalidades = <({String codigo, String titulo, String detalle, bool esenc
         'sus aportes pasan a figurar como anónimos.',
     esencial: false,
   ),
+  (
+    codigo: 'INVESTIGACION',
+    titulo: 'Uso de mis respuestas en encuestas',
+    detalle: 'Permite usar, sin su nombre, lo que responda en las encuestas de confianza y '
+        'de facilidad de uso. Si lo revoca, lo que ya respondió queda desvinculado de usted.',
+    esencial: false,
+  ),
 ];
 
 /// CU21 · Mis datos y privacidad (RF-DE-01, RF-DE-02).

@@ -8,6 +8,7 @@ import '../../nucleo/navegacion.dart';
 import '../../nucleo/sesion.dart';
 import '../../nucleo/tema.dart';
 import '../donante/pantalla_campana.dart';
+import '../encuestas/pantalla_encuesta.dart';
 import '../ong/pantalla_equipo.dart';
 import '../ong/pantalla_fondos.dart';
 import '../ong/pantalla_gastos.dart';
@@ -65,7 +66,10 @@ class PantallaInicio extends ConsumerWidget {
         secciones.sort((a, b) => (a.$1 == principal ? 0 : 1).compareTo(b.$1 == principal ? 0 : 1));
 
         return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(panelProvider),
+          onRefresh: () async {
+            ref.invalidate(panelProvider);
+            ref.invalidate(encuestasPendientesProvider);
+          },
           child: Contenido(
             child: ListView(
               children: [
@@ -75,6 +79,8 @@ class PantallaInicio extends ConsumerWidget {
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                 const SizedBox(height: 16),
+                // RF-SO-05: solo aparece si a esta persona le toca responder hoy.
+                const InvitacionEncuesta(),
                 if (secciones.isEmpty)
                   const EstadoVacio(
                     icono: Icons.inbox_outlined,

@@ -1,8 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { EstadoArco, FinalidadConsentimiento } from '@prisma/client';
 
 import { BitacoraService, type ContextoPeticion } from '../../comun/bitacora/bitacora.service';
 import { PrismaService } from '../../comun/prisma/prisma.service';
+import { seudonimoDe } from '../../comun/seudonimo';
+import type { Configuracion } from '../../config/configuracion';
+import { EncuestasService } from '../encuestas/encuestas.service';
 import type { ActualizarConsentimiento, CrearArco, ResponderArco } from './esquemas';
 import { calcularPlazoArco, DIAS_HABILES_ARCO } from './plazos';
 
@@ -18,6 +22,7 @@ export class CumplimientoService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly bitacora: BitacoraService,
+    private readonly config: ConfigService<Configuracion, true>,
   ) {}
 
   /** Consentimientos vigentes del usuario, uno por finalidad. */
@@ -70,7 +75,7 @@ export class CumplimientoService {
       return { finalidad: datos.finalidad, otorgado: datos.otorgado, sinCambios: true };
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    const desvinculadas = await this.prisma.$transaction(async (tx) => {
       if (anterior) {
         await tx.consentimiento.update({
           where: { id: anterior.id },
@@ -87,6 +92,16 @@ export class CumplimientoService {
           userAgent: contexto.userAgent,
         },
       });
+
+      // D6 · Revocar la investigacion desvincula lo que ya respondio, en la
+      // misma transaccion: no puede quedar un instante revocado y vinculado.
+      if (datos.finalidad === 'INVESTIGACION' && !datos.otorgado) {
+        return EncuestasService.desvincular(
+          tx,
+          seudonimoDe(usuarioId, this.config.get('ENCUESTAS_CLAVE', { infer: true })),
+        );
+      }
+      return 0;
     });
 
     await this.bitacora.registrar({
@@ -95,7 +110,11 @@ export class CumplimientoService {
       entidad: 'consentimientos',
       entidadId: usuarioId,
       valorAnterior: { finalidad: datos.finalidad, otorgado: anterior?.otorgado ?? null },
-      valorNuevo: { finalidad: datos.finalidad, otorgado: datos.otorgado },
+      valorNuevo: {
+        finalidad: datos.finalidad,
+        otorgado: datos.otorgado,
+        ...(desvinculadas > 0 ? { respuestasDesvinculadas: desvinculadas } : {}),
+      },
       ...contexto,
     });
 
