@@ -42,7 +42,7 @@ Comprobar que está arriba, y que el lector de comprobantes está encendido:
 curl http://127.0.0.1:8000/salud
 ```
 
-Debe decir `"lectorComprobantes":{"activo":true}`. Si dice `false`, el OCR está apagado por la variable `AINI_OCR` y todos los gastos saldrán con «no se pudo leer el comprobante».
+Debe decir `"lectorComprobantes":{"activo":true}`. Si dice `false`, el OCR está apagado por la variable `AINI_OCR` y todos los gastos saldrán con «no se pudo leer el comprobante» y ninguno se aprobará solo.
 
 **Para que la API use AIni y no el motor de reglas**, en `apps/api/.env`: `VERIFICACION_DRIVER=aini`. Si AIni no responde, la API **no** se queda sin verificar: cae al motor de reglas y lo anota en el análisis.
 
@@ -133,7 +133,7 @@ Escribe en el Escritorio, en `boletas-ayni`, tres boletas y tres evidencias. **A
 |---|---|---|---|
 | `1-boleta-de-78.jpg` | S/ 78.00 | **78** | El lector confirma los cuatro campos |
 | `2-boleta-de-78-pero-declare-140.jpg` | S/ 78.00 | **140** | **El que importa.** El lector detecta el monto |
-| `3-boleta-ilegible.jpg` | — | 78 | No pudo leer: lo declara y **no** penaliza |
+| `3-boleta-ilegible.jpg` | — | 78 | No pudo leer: **no** penaliza, pero sin verificar el papel no se aprueba solo (MEDIO, a revisión) |
 
 Usa una evidencia distinta por gasto: dos iguales se bloquean por reutilizadas, que es correcto pero no es lo que quieres mostrar ahí.
 

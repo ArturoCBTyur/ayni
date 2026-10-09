@@ -82,10 +82,11 @@ Dos principios gobiernan el cotejo, y los dos están puestos a propósito:
 
 - **Una discrepancia no es un fraude.** Lo más probable es que el operador se equivocara al teclear. Los mensajes lo tratan así, la penalización deriva a revisión humana en vez de bloquear, y hay una prueba que falla si el texto de la alerta acusa.
 - **No leer un campo no es una discrepancia.** Un comprobante borroso del que no se pudo sacar el total no dice que el total esté mal: dice que no se pudo verificar. Se declara como tal y **no se penaliza**, porque castigar una foto mala castigaría al operador por su cámara y no por su gasto.
+- **Pero sin leer el papel nada se aprueba solo.** El nivel ALTO aprueba el gasto sin que lo mire nadie, y eso exige haber cotejado al menos el total o el RUC contra el comprobante. Si no se pudo, el puntaje no cambia pero el nivel queda en MEDIO, y el gasto pasa a una persona con el motivo `ocr.sin_cotejo`. Antes, una boleta ilegible con todo lo demás en orden se aprobaba sola con 90 puntos: nada de lo verificado venía del papel.
 
 Cuando el lector consigue leer, `datos_extraidos.fuente` pasa a `"ocr"` y **se reportan los valores del papel, no los declarados**, aunque difieran. Si se devolvieran los declarados, el campo diría `"ocr"` sobre datos que nadie verificó contra el documento, que es peor que no leerlo. La discrepancia no se pierde: viaja como motivo, con los dos valores, y abre una alerta `DECLARACION_NO_COINCIDE`.
 
-Se puede apagar con `AINI_OCR=0`. El `/salud` reporta si está activo, porque apagado no falla: devuelve «no se pudo leer» como si todas las fotos fueran malas.
+Se puede apagar con `AINI_OCR=0`. El `/salud` reporta si está activo, porque apagado no falla: devuelve «no se pudo leer» como si todas las fotos fueran malas, y ningún gasto llega a ALTO.
 
 ### Visual — ¿la evidencia sirve y es nueva?
 

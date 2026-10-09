@@ -63,6 +63,22 @@ _DISCREPANCIAS = {
 }
 
 
+#: Reglas que solo se anotan si se leyo un campo del papel y se comparo con lo
+#: declarado, coincida o no. Basta una para decir que el comprobante se
+#: verifico contra el documento.
+_COTEJADOS = {"ocr.total_coincide", "ocr.total_discrepa", "ocr.ruc_coincide", "ocr.ruc_discrepa"}
+
+SIN_COTEJO = (
+    "No se pudo verificar el comprobante contra el papel, asi que el gasto pasa a "
+    "revision en vez de aprobarse solo. Una foto mas nitida del comprobante permite "
+    "verificarlo."
+)
+
+
+def _verificado_contra_el_papel(motivos: list[MotivoAnalisis]) -> bool:
+    return any(m.regla in _COTEJADOS for m in motivos)
+
+
 def _alerta_de_cotejo(motivos: list[MotivoAnalisis]) -> AlertaAnalisis | None:
     """Una sola alerta para todo lo que no coincide con el documento.
 
@@ -257,6 +273,28 @@ def analizar(entrada: EntradaAnalisis, detector: anomalia.DetectorAnomalias) -> 
             )
         )
 
+    # ALTO aprueba el gasto sin que lo mire nadie, y eso exige haber comprobado
+    # el comprobante contra el papel. Sin esa lectura, todo lo demas razona
+    # sobre lo que el operador tecleo: un gasto se aprobaba solo con 90 puntos
+    # aunque el lector no hubiera podido leer nada, porque no leer no resta.
+    #
+    # Sigue sin restar: el puntaje no se toca, porque una foto mala no dice que
+    # el gasto este mal. Lo que cambia es quien decide: pasa a una persona en
+    # vez de aprobarse solo. Con el lector apagado (AINI_OCR=0) ningun gasto
+    # llega a ALTO, que es lo coherente: nadie verifico el papel.
+    sin_cotejo = nivel == "ALTO" and not _verificado_contra_el_papel(motivos_cotejo)
+    if sin_cotejo:
+        nivel = "MEDIO"
+        motivos.append(
+            MotivoAnalisis(
+                regla="ocr.sin_cotejo",
+                senal="documental",
+                resultado="advertencia",
+                mensaje=SIN_COTEJO,
+                penalizacion=0,
+            )
+        )
+
     return ResultadoAnalisis(
         score_documental=round(score_doc, 2),
         score_visual=round(score_vis, 2),
@@ -264,7 +302,9 @@ def analizar(entrada: EntradaAnalisis, detector: anomalia.DetectorAnomalias) -> 
         score_final=round(final, 2),
         nivel=nivel,
         datos_extraidos=_datos_extraidos(entrada, leido),
-        explicacion=Explicacion(motivos=motivos, resumen=_resumen(nivel, motivos)),
+        explicacion=Explicacion(
+            motivos=motivos, resumen=SIN_COTEJO if sin_cotejo else _resumen(nivel, motivos)
+        ),
         alertas=_alertas(motivos, bloqueo),
         narrativa_borrador=narrativa.redactar_borrador(entrada, motivos, bloqueo),
         version_modelo=VERSION,
