@@ -10,7 +10,9 @@ Dos clases de pares:
   rechaza (cae bajo `UMBRAL_COHERENCIA` y resta puntos a un gasto legitimo).
 - **Ajenos**: cada concepto contra las demas categorias, mas los pares que el
   banco marca explicitamente con `corresponde=no`. Lo que importa es cuantos
-  acepta (no llegan a "falla", asi que el desvio pasa sin penalizacion).
+  acepta (no llegan a "falla", asi que el desvio pasa sin penalizacion). Un
+  par contra una categoria que AIni no sabe medir **cuenta como aceptado**,
+  porque eso es lo que pasa en produccion: "no se pudo evaluar" no resta.
 
 Se excluyen como ajenas las categorias de `alternativas` --un gasto de
 esterilizacion cargado al fondo veterinario no es un desvio-- y la categoria
@@ -112,7 +114,7 @@ def evaluar(banco: list[Concepto]) -> tuple[dict, dict]:
 
     propios: list[tuple[Concepto, float]] = []
     no_medibles: Counter[str] = Counter()
-    ajenos: list[tuple[str, str, float]] = []
+    ajenos: list[tuple[str, str, float | None]] = []
     top1_aciertos = 0
     top1_total = 0
 
@@ -125,13 +127,13 @@ def evaluar(banco: list[Concepto]) -> tuple[dict, dict]:
             propios.append((c, sim))
 
         # Contra las demas categorias, que es lo que pasaria si el gasto se
-        # cargara a otro fondo.
+        # cargara a otro fondo. Tambien contra las que AIni no sabe medir: si
+        # se dejaran fuera, un desvio hacia ellas no contaria en ningun lado.
         por_categoria: dict[str, float] = {}
-        for otra in medibles:
+        for otra in categorias:
             s = documental.coherencia_concepto_categoria(c.concepto, otra)
-            if s is None:
-                continue
-            por_categoria[otra] = s
+            if s is not None:
+                por_categoria[otra] = s
             if otra != c.categoria and otra not in c.alternativas and otra != COMODIN:
                 ajenos.append((c.concepto, otra, s))
 
@@ -146,17 +148,16 @@ def evaluar(banco: list[Concepto]) -> tuple[dict, dict]:
     for c in banco:
         if c.corresponde:
             continue
-        s = documental.coherencia_concepto_categoria(c.concepto, c.categoria)
-        if s is not None:
-            ajenos.append((c.concepto, c.categoria, s))
+        sim = documental.coherencia_concepto_categoria(c.concepto, c.categoria)
+        ajenos.append((c.concepto, c.categoria, sim))
 
     sims_propios = [s for _, s in propios]
-    sims_ajenos = [s for _, _, s in ajenos]
+    sims_ajenos = [s for _, _, s in ajenos if s is not None]
 
     rechazados = [(c.concepto, c.categoria, s) for c, s in propios if s < umbral]
     advertidos = [(c.concepto, c.categoria, s) for c, s in propios if umbral <= s < dudoso]
-    aceptados = [(con, cat, s) for con, cat, s in ajenos if s >= umbral]
-    limpios = [(con, cat, s) for con, cat, s in ajenos if s >= dudoso]
+    aceptados = [(con, cat, s) for con, cat, s in ajenos if s is None or s >= umbral]
+    limpios = [(con, cat, s) for con, cat, s in ajenos if s is not None and s >= dudoso]
 
     sin_vector: Counter[str] = Counter()
     for c in positivos:
@@ -184,7 +185,8 @@ def evaluar(banco: list[Concepto]) -> tuple[dict, dict]:
             "ajenosMediana": _percentil(sims_ajenos, 50),
             "ajenosP95": _percentil(sims_ajenos, 95),
         },
-        "paresAjenosMedidos": len(ajenos),
+        "paresAjenosMedidos": len(sims_ajenos),
+        "paresAjenosNoMedibles": len(ajenos) - len(sims_ajenos),
         "palabrasSinVectorDistintas": len(sin_vector),
         "categorias": {
             "delBackendSinDescripcion": sorted(set(backend) - descritas) if backend else None,
@@ -194,7 +196,8 @@ def evaluar(banco: list[Concepto]) -> tuple[dict, dict]:
 
     detalle = {
         "rechazados": sorted(rechazados, key=lambda t: t[2]),
-        "aceptados": sorted(aceptados, key=lambda t: -t[2]),
+        # Los no medibles al final: son muchos y todos iguales.
+        "aceptados": sorted(aceptados, key=lambda t: -(t[2] if t[2] is not None else -1)),
         "sinVector": sin_vector.most_common(),
         "descripcionesSinVector": {
             cat: _palabras_sin_vector(desc) for cat, desc in documental.DESCRIPCION_CATEGORIA.items()

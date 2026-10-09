@@ -115,7 +115,8 @@ def imprimir_conceptos(m: dict, detalle: dict, ver_detalle: bool) -> None:
     n = m["n"]
     print(
         f"\nCoherencia concepto / categoria  "
-        f"{GRIS}({n['conceptos']} conceptos, {m['paresAjenosMedidos']} pares ajenos){FIN}"
+        f"{GRIS}({n['conceptos']} conceptos, {m['paresAjenosMedidos'] + m['paresAjenosNoMedibles']} "
+        f"pares ajenos, {m['paresAjenosNoMedibles']} sin medir){FIN}"
     )
     print(f"  cobertura (se pudo medir)       {_pct(m['cobertura'])}")
     if m["noMediblesPorCategoria"]:
@@ -159,7 +160,8 @@ def imprimir_conceptos(m: dict, detalle: dict, ver_detalle: bool) -> None:
             print(f"    {sim:.3f}  {concepto}  {GRIS}[{categoria}]{FIN}")
         print(f"\n  {ROJO}Equivocados aceptados{FIN} {GRIS}(los 25 mas parecidos){FIN}")
         for concepto, categoria, sim in detalle["aceptados"][:25]:
-            print(f"    {sim:.3f}  {concepto}  {GRIS}-> {categoria}{FIN}")
+            valor = "  —  " if sim is None else f"{sim:.3f}"
+            print(f"    {valor}  {concepto}  {GRIS}-> {categoria}{FIN}")
 
 
 def imprimir_ocr(titulo: str, m: dict, resultados, ver_detalle: bool) -> None:

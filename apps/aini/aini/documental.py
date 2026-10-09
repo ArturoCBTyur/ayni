@@ -63,6 +63,20 @@ DESCRIPCION_CATEGORIA: dict[str, str] = {
     "INSUMOS": "insumo jeringa guante gasa collar correa jaula material descartable",
     "TRANSPORTE": "transporte traslado combustible pasaje flete vehiculo",
     "INFRAESTRUCTURA": "construccion reparacion obra techo pared albergue instalacion",
+    # Sin esta entrada, todo gasto de un fondo de esterilizacion --categoria que
+    # el backend si envia-- recibia "no se pudo evaluar" y pasaba sin restar.
+    # Medido con `python -m evaluacion`: los desvios aceptados bajan de 23,0 %
+    # a 10,7 % y la cobertura sube de 77 % a 89 %. "castración" lleva tilde
+    # porque sin ella no tiene vector. Se solapa con ATENCION_VETERINARIA, que
+    # tambien nombra la esterilizacion: un concepto de una suele pasar en la
+    # otra, y el banco lo admite como alternativa.
+    #
+    # Medido y pendiente: para el modelo la tilde cambia la palabra.
+    # "esterilización" y "esterilizacion" se parecen 0,30, y "esterilización"
+    # e "instalacion" 0,72, asi que un concepto escrito con tilde puede calzar
+    # mejor con INFRAESTRUCTURA. Escribir la descripcion con tildes no mejora
+    # el conjunto; el arreglo es normalizarlas en todas las categorias.
+    "ESTERILIZACION": "esterilizacion castración quirurgico anestesia hembra macho",
     "SERVICIOS": "servicio honorario asesoria mantenimiento profesional",
     "ADMINISTRATIVO": "oficina alquiler luz agua electricidad papeleria tramite recibo",
 }

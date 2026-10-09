@@ -86,7 +86,7 @@ Deja en `Escritorio\boletas-ayni` tres boletas y tres evidencias. **Abre la carp
 |---|---|---|---|
 | `1-boleta-de-78.jpg` | S/ 78.00 | **78** | El lector confirma los cuatro campos |
 | `2-boleta-de-78-pero-declare-140.jpg` | S/ 78.00 | **140** | **El acto principal.** El lector lo detecta |
-| `3-boleta-ilegible.jpg` | — | 78 | No pudo leer: lo declara y **no** penaliza |
+| `3-boleta-ilegible.jpg` | — | 78 | No pudo leer: **no** penaliza, pero sin verificar el papel no se aprueba solo (MEDIO, a revisión) |
 
 Una evidencia distinta por gasto: dos iguales se bloquean por reutilizadas, que es correcto pero no es lo que quieres mostrar ahí.
 
