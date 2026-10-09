@@ -1,5 +1,5 @@
 {
-  "generadaEn": "2026-10-09T04:43:49+00:00",
+  "generadaEn": "2026-10-09T04:49:55+00:00",
   "identidad": {
     "versionMotor": "aini-0.1-sklearn",
     "modeloAnomaliaSha256": "e5d956552202",
@@ -21,16 +21,17 @@
   "metricas": {
     "conceptos": {
       "n": {
-        "conceptos": 201,
+        "conceptos": 222,
         "paresAjenosExplicitos": 14
       },
-      "cobertura": 0.9005,
+      "cobertura": 0.9099,
       "noMediblesPorCategoria": {
         "OTROS": 20
       },
-      "rechazaCorrectos": 0.2928,
-      "advierteCorrectos": 0.4199,
+      "rechazaCorrectos": 0.2921,
+      "advierteCorrectos": 0.4208,
       "rechazaCorrectosPorOrigen": {
+        "control-agregacion": 0.2857,
         "control-diccionario": 0.381,
         "documental": 0.0,
         "ejemplos": 0.0,
@@ -39,18 +40,18 @@
         "redactado": 0.3077,
         "seed-demo": 0.0
       },
-      "aceptaEquivocados": 0.1129,
-      "pasaSinAdvertirEquivocados": 0.0211,
-      "aciertaCategoriaTop1": 0.7624,
+      "aceptaEquivocados": 0.1139,
+      "pasaSinAdvertirEquivocados": 0.0222,
+      "aciertaCategoriaTop1": 0.7525,
       "similitud": {
-        "propiosMediana": 0.552,
+        "propiosMediana": 0.553,
         "propiosP5": 0.344,
-        "ajenosMediana": 0.383,
+        "ajenosMediana": 0.382,
         "ajenosP95": 0.555
       },
-      "paresAjenosMedidos": 1187,
+      "paresAjenosMedidos": 1308,
       "paresAjenosNoMedibles": 0,
-      "palabrasSinVectorDistintas": 2,
+      "palabrasSinVectorDistintas": 3,
       "categorias": {
         "delBackendSinDescripcion": [
           "OTROS"
