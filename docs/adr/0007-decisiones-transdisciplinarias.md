@@ -164,7 +164,7 @@ CSV (RFC 4180, con BOM para Excel) para el libro, los gastos y la conciliación.
 | Excel (`.xlsx`) | Los estados mensuales que pide Contabilidad | Office Open XML generado en el servidor **sin dependencias**: una hoja, celdas numéricas, ZIP almacenado |
 | PDF | Los estados mensuales y, en la Fase 3, el informe de cierre | Generado en el servidor **sin dependencias**, solo texto con las fuentes estándar del PDF |
 | PLE (TXT de SUNAT) | Libro diario y mayor | **Borrador** hasta que un contador valide la estructura |
-| IATI | Datos abiertos | Se decide en la Fase 7 |
+| IATI 2.03 | Datos abiertos | Propuesto en la Fase 7: una actividad por campaña; las donaciones **sumadas por mes**, porque una por una con su fecha y su monto alcanzan para reconocer a un donante; sector CAD 31195; el remanente devuelto o trasladado como desembolso (3) |
 
 El PDF se genera en el servidor, a diferencia del informe de auditoría, porque el cierre mensual y el informe de cierre tienen que ser **el mismo documento cada vez** que se piden, con su hash. Un PDF impreso desde el navegador cambia con el navegador.
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../comun/descarga.dart';
 import '../../comun/widgets.dart';
 import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
@@ -39,13 +40,13 @@ class PantallaOng extends ConsumerWidget {
   }
 }
 
-class _Ficha extends StatelessWidget {
+class _Ficha extends ConsumerWidget {
   const _Ficha({required this.ong});
 
   final Map<String, dynamic> ong;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tema = Theme.of(context);
     final confianza = ong['confianza'] as Map<String, dynamic>?;
     final campanas = (ong['campanas'] as List<dynamic>).cast<Map<String, dynamic>>();
@@ -75,8 +76,24 @@ class _Ficha extends StatelessWidget {
                   ),
                 Text('RUC ${ong['ruc']}', style: tema.textTheme.bodySmall),
                 Text(ong['departamento'] as String, style: tema.textTheme.bodySmall),
+                if (ong['perceptoraDonaciones'] == true)
+                  Text('Perceptora de donaciones (SUNAT)', style: tema.textTheme.bodySmall),
               ],
             ),
+            // RF-IN-06: lo mismo que muestra esta ficha, en el estandar IATI.
+            if (verificada)
+              TextButton.icon(
+                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                icon: const Icon(Icons.dataset_outlined, size: 18),
+                label: const Text('Datos abiertos (IATI)'),
+                onPressed: () => descargarArchivo(
+                  context,
+                  ref,
+                  ruta: '/publico/iati/ongs/${ong['id']}',
+                  nombre: 'iati-PE-RUC-${ong['ruc']}.xml',
+                  tipo: 'application/xml',
+                ),
+              ),
             if (ong['descripcion'] != null) ...[
               const SizedBox(height: 16),
               Text(ong['descripcion'] as String, style: tema.textTheme.bodyLarge),

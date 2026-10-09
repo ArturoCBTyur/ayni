@@ -1873,6 +1873,30 @@
           "publico"
         ]
       }
+    },
+    "/api/v1/publico/iati/ongs/{ongId}": {
+      "get": {
+        "operationId": "DatosAbiertosController_iati",
+        "parameters": [
+          {
+            "name": "ongId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-IN-06 · Actividades de una ONG en el estandar IATI 2.03 (XML)",
+        "tags": [
+          "publico"
+        ]
+      }
     }
   },
   "info": {

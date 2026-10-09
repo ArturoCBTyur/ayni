@@ -18,6 +18,7 @@ import { AnaliticaModule } from './modules/analitica/analitica.module';
 import { VerificacionModule } from './modules/verificacion/verificacion.module';
 import { CumplimientoModule } from './modules/cumplimiento/cumplimiento.module';
 import { CausasModule } from './modules/causas/causas.module';
+import { DatosAbiertosModule } from './modules/datos-abiertos/datos-abiertos.module';
 import { EncuestasModule } from './modules/encuestas/encuestas.module';
 import { IdentidadModule } from './modules/identidad/identidad.module';
 
@@ -80,6 +81,9 @@ import { IdentidadModule } from './modules/identidad/identidad.module';
 
     // Fase 3 del plan transdisciplinario: cierre de causa y su informe.
     CausasModule,
+
+    // Fase 7 del plan transdisciplinario: datos abiertos en IATI.
+    DatosAbiertosModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
