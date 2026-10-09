@@ -33,6 +33,9 @@ export function enSoles(importe: string): string {
 
 function estadoDelCierre(r: ResultadoEstado): string {
   if (r.cierre) {
+    if (r.cierre.vigente === null) {
+      return 'Cerrado con una versión anterior del formato: se entrega tal como se guardó.';
+    }
     return r.cierre.vigente
       ? 'Cerrado. El libro sigue sosteniendo estas cifras.'
       : 'Cerrado, pero el libro ya no da estas cifras: se asentó en este mes después de cerrarlo.';

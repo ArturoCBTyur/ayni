@@ -130,7 +130,7 @@ Vienen del [plan de trabajo](plan-transdisciplinario.md) y se registran **antes*
 | Plan transdisciplinario · Fase 1 | ✅ Base contable sobre la propuesta de D1: el libro se exporta en cuentas del PCGE sin reescribir un asiento, y los saldos de cada fondo se clasifican en con restricción y liberados. **Corrige un defecto latente de la conciliación**: calculaba los saldos del libro solo con RETENCION y EJECUCION, así que el primer REVERSO o REASIGNACION habría aparecido como un descuadre crítico que no existe. Ningún flujo los asentaba todavía; la Fase 3 los va a usar |
 | Plan transdisciplinario · Fase 2 | ✅ Estados mensuales por fondo en JSON, Excel y PDF, cierre mensual inmutable y encadenado, aviso a la ONG y pantalla **Estados mensuales**. El PLE queda como borrador hasta que lo valide un contador |
 
-**Pruebas hoy:** 484 en el API y 87 en Flutter. El detalle por suite está en la salida de `npm test`. Las del API se corrieron sobre PostgreSQL 18.6 y con el cifrado en reposo activo, igual que en CI.
+**Pruebas hoy:** 485 en el API y 87 en Flutter. El detalle por suite está en la salida de `npm test`. Las del API se corrieron sobre PostgreSQL 18.6 y con el cifrado en reposo activo, igual que en CI.
 
 **CI estaba en rojo** en `main` sin que la tabla lo dijera: el job del API aplicaba las migraciones pero no la semilla, y 12 de las 17 suites fallaban al buscar los roles del catálogo. Ahora corre `npm run seed` antes de las pruebas.
 

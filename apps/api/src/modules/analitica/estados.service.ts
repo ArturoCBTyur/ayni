@@ -120,8 +120,10 @@ export interface ResultadoEstado {
     /**
      * Recalcular el mes desde el libro da el mismo hash. Si no, alguien
      * asento en ese mes despues de cerrarlo, y eso es lo que hay que mirar.
+     * null si el cierre se armo con otra version del formato: recalcularlo
+     * con la actual daria otro texto aunque el libro no hubiera cambiado.
      */
-    vigente: boolean;
+    vigente: boolean | null;
   } | null;
   /** Integridad de la cadena del fondo, comprobada al pedir el estado. */
   cadena: { integra: boolean; movimientos: number };
@@ -236,7 +238,11 @@ export class EstadosService {
 
     if (cierre) {
       const guardado = JSON.parse(cierre.contenido) as EstadoMensual;
-      const recalculado = await this.calcular(fondoId, p, guardado.cierreAnterior);
+      const vigente =
+        cierre.versionFormato === VERSION_ESTADO
+          ? sha256(jsonCanonico(await this.calcular(fondoId, p, guardado.cierreAnterior))) ===
+            cierre.hashContenido
+          : null;
       return {
         estado: guardado,
         cerrado: true,
@@ -245,7 +251,7 @@ export class EstadosService {
           hash: cierre.hashContenido,
           hashAnterior: cierre.hashAnterior,
           creadoEn: cierre.creadoEn,
-          vigente: sha256(jsonCanonico(recalculado)) === cierre.hashContenido,
+          vigente,
         },
         cadena: integridad,
       };

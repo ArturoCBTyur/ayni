@@ -519,6 +519,39 @@ describe('RF-CF-10 · Borrador del PLE', () => {
   });
 });
 
+describe('Un cierre de otra version del formato', () => {
+  it('se entrega como se guardo, sin declararlo vigente ni roto', async () => {
+    // Agosto, cerrado como si lo hubiera armado una version anterior.
+    const julioCerrado = await prisma.cierreMensual.findUniqueOrThrow({
+      where: { fondoId_periodo: { fondoId: e.fondoId, periodo: '2026-07' } },
+    });
+    const contenido = jsonCanonico(
+      await estados.calcular(e.fondoId, periodo('2026-08'), {
+        periodo: '2026-07',
+        hash: julioCerrado.hashContenido,
+      }),
+    );
+    await prisma.cierreMensual.create({
+      data: {
+        fondoId: e.fondoId,
+        periodo: '2026-08',
+        contenido,
+        hashContenido: createHash('sha256').update(contenido, 'utf8').digest('hex'),
+        hashAnterior: julioCerrado.hashContenido,
+        versionFormato: 0,
+      },
+    });
+
+    const r = await estados.consultar(e.fondoId, '2026-08', admin);
+
+    expect(r.cerrado).toBe(true);
+    expect(r.cierre?.vigente).toBeNull();
+    expect(estadoPdf(r).toString('latin1')).toContain(
+      'Cerrado con una versi\\363n anterior del formato',
+    );
+  });
+});
+
 describe('Un asiento posterior al cierre', () => {
   // Va al final: cambia el libro de julio.
   it('hace que el cierre de julio deje de estar vigente, sin cambiarlo', async () => {
