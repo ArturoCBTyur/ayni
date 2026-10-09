@@ -137,22 +137,37 @@ def evaluar(
         )
 
     # --- Total ---
+    # Si la linea del total no se leyo pero si el subtotal y el IGV, el total
+    # es su suma; el mensaje lo dice para no presentar como leida una cifra
+    # calculada.
+    if leido.total_deducido:
+        origen = "La suma del subtotal y el IGV impresos da"
+    elif leido.qr:
+        origen = "El codigo QR del comprobante dice"
+    else:
+        origen = "El comprobante dice"
     if leido.total is None:
         anotar("ocr.total_no_leido", "advertencia", "No se pudo leer el importe total.")
     elif abs(leido.total - comprobante.total) > TOLERANCIA_IMPORTE:
         anotar(
             "ocr.total_discrepa",
             "falla",
-            f"El comprobante dice S/ {leido.total:.2f} y se declaro "
-            f"S/ {comprobante.total:.2f}.",
+            f"{origen} S/ {leido.total:.2f} y se declaro S/ {comprobante.total:.2f}.",
             leido.total,
             35,
         )
     else:
+        if leido.total_deducido:
+            detalle = " (suma del subtotal y el IGV impresos)"
+        elif leido.qr:
+            detalle = " (segun su codigo QR)"
+        else:
+            detalle = ""
         anotar(
             "ocr.total_coincide",
             "ok",
-            f"El importe declarado coincide con el comprobante (S/ {leido.total:.2f}).",
+            f"El importe declarado coincide con el comprobante "
+            f"(S/ {leido.total:.2f}){detalle}.",
             leido.total,
         )
 

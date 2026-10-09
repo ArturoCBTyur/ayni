@@ -1,4 +1,5 @@
 {
+  "generadaEn": "2026-10-08T18:08:25+00:00",
   "generadaEn": "2026-10-08T17:53:59+00:00",
   "identidad": {
     "versionMotor": "aini-0.1-sklearn",
@@ -71,8 +72,8 @@
           "incorrecto": 0.0
         },
         "fecha_emision": {
-          "correcto": 0.8889,
-          "no_leido": 0.1111,
+          "correcto": 1.0,
+          "no_leido": 0.0,
           "incorrecto": 0.0
         },
         "subtotal": {
@@ -86,19 +87,19 @@
           "incorrecto": 0.0
         },
         "total": {
-          "correcto": 0.9444,
+          "correcto": 1.0,
           "no_leido": 0.0,
-          "incorrecto": 0.0556
+          "incorrecto": 0.0
         }
       },
-      "discrepanciasFalsas": 0.0556,
-      "detectaMontoAlterado": 0.9444,
+      "discrepanciasFalsas": 0.0,
+      "detectaMontoAlterado": 1.0,
       "totalCorrectoPorCondicion": {
         "baja_resolucion": 1.0,
         "borrosa": 1.0,
         "compresion": 1.0,
         "contraste_bajo": 1.0,
-        "etiquetas_alternativas": 0.5,
+        "etiquetas_alternativas": 1.0,
         "factura": 1.0,
         "fecha_iso": 1.0,
         "fecha_textual": 1.0,
@@ -112,12 +113,12 @@
         "sombra": 1.0
       },
       "segundos": {
-        "p50": 3.21,
-        "p95": 5.3
+        "p50": 2.16,
+        "p95": 2.81
       }
     },
     "ocrCampo": {
-      "n": 3,
+      "n": 4,
       "campos": {
         "ruc_emisor": {
           "correcto": 1.0,
@@ -125,52 +126,55 @@
           "incorrecto": 0.0
         },
         "serie": {
-          "correcto": 0.3333,
-          "no_leido": 0.6667,
+          "correcto": 0.75,
+          "no_leido": 0.25,
           "incorrecto": 0.0
         },
         "numero": {
-          "correcto": 0.3333,
-          "no_leido": 0.6667,
+          "correcto": 0.75,
+          "no_leido": 0.25,
           "incorrecto": 0.0
         },
         "fecha_emision": {
-          "correcto": 0.0,
-          "no_leido": 1.0,
+          "correcto": 0.75,
+          "no_leido": 0.25,
           "incorrecto": 0.0
         },
         "subtotal": {
-          "correcto": 0.0,
-          "no_leido": 1.0,
+          "correcto": 0.75,
+          "no_leido": 0.25,
           "incorrecto": 0.0
         },
         "igv": {
-          "correcto": 0.0,
-          "no_leido": 1.0,
+          "correcto": 0.75,
+          "no_leido": 0.25,
           "incorrecto": 0.0
         },
         "total": {
-          "correcto": 0.0,
-          "no_leido": 0.6667,
-          "incorrecto": 0.3333
+          "correcto": 0.75,
+          "no_leido": 0.25,
+          "incorrecto": 0.0
         }
       },
-      "discrepanciasFalsas": 0.3333,
-      "detectaMontoAlterado": 0.0,
+      "discrepanciasFalsas": 0.0,
+      "detectaMontoAlterado": 0.75,
       "totalCorrectoPorCondicion": {
-        "baja_resolucion": 0.0,
-        "coma_decimal": 0.0,
-        "doblado": 0.0,
+        "baja_resolucion": 1.0,
+        "coma_decimal": 1.0,
+        "doblado": 1.0,
         "escaneado": 0.0,
-        "fecha_iso": 0.0,
+        "fecha_iso": 1.0,
         "manuscrito": 0.0,
-        "sostenido_a_mano": 0.0,
+        "montos_a_la_derecha": 1.0,
+        "qr_legible": 1.0,
+        "sin_igv": 1.0,
+        "sostenido_a_mano": 1.0,
         "talonario": 0.0,
-        "termico": 0.0
+        "termico": 1.0
       },
       "segundos": {
-        "p50": 6.58,
-        "p95": 8.09
+        "p50": 7.73,
+        "p95": 9.28
       }
     }
   }
