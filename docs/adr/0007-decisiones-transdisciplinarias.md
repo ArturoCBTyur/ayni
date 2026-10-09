@@ -12,6 +12,21 @@ Cada decisión tiene la misma forma: qué hay hoy en el código, qué opciones e
 
 Las Fases 1 y 2 se construyeron sobre las propuestas de D1 y D5, porque el plan las pone antes que la firma y esperar habría bloqueado todo. Para que eso no se convierta en un hecho consumado, lo que depende de D1 vive en un solo archivo (`apps/api/src/modules/contable/pcge.ts`): si Contabilidad firma otra correspondencia, cambia esa tabla y sus pruebas, no los servicios.
 
+## Dónde vive cada propuesta en el código
+
+Las nueve fases del plan están construidas sobre estas propuestas. Cada una vive en un solo lugar, para que la decisión que se firme cambie ese archivo y sus pruebas:
+
+| Decisión | Archivo | Qué cambia si se firma otra cosa |
+|---|---|---|
+| D1 | `apps/api/src/modules/contable/pcge.ts`, `clasificacion.ts` | La correspondencia con el PCGE y la clasificación de saldos. Los cierres mensuales ya guardados conservan la suya: subir `VERSION_ESTADO` |
+| D2 | `apps/api/src/modules/causas/politica.ts` | Plazos y destino por defecto del remanente |
+| D3 | `apps/api/src/modules/encuestas/instrumentos.ts` | Ítems y escalas: se publica una versión nueva, las respuestas de la anterior no se mezclan |
+| D4 | `apps/api/src/modules/gastos/impacto.ts` | Unidad de impacto por categoría |
+| D5 | `apps/api/src/comun/formatos/`, `modules/contable/ple.ts`, `modules/datos-abiertos/iati.ts` | Formatos de salida, el PLE (borrador) y lo que se publica en IATI |
+| D6 | `instrumentos.ts` (`UMBRAL_PUBLICACION`), `comun/seudonimo.ts`, finalidad `INVESTIGACION` | Umbral de publicación y desvinculación al revocar |
+
+**Riesgo a tener en cuenta antes de desplegar:** el cron de cierre mensual congela cada mes con la correspondencia PCGE de D1. Si D1 se firma distinta después de que haya cierres en producción, esos meses quedan con la anterior para siempre. Lo prudente es firmar D1 antes de activar el despliegue, o subir `VERSION_ESTADO` al cambiarla para que los cierres viejos se lean como de otra versión.
+
 ## Firmas
 
 | ID | Decisión | Responsable | Estado | Firma y fecha |

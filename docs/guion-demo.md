@@ -91,7 +91,7 @@ Entra con `donante@demo.pe`. Cada cuenta entra a su **Inicio**: el del donante r
 18. Entra con `admin@demo.pe` → **Tablero**.
 19. Arriba: **«El libro contable cuadra»**, con las cadenas de hashes íntegras.
 20. El movimiento del dinero: cuánto entró, cuánto sigue retenido esperando evidencia y cuánto se ejecutó.
-21. Abajo, los indicadores de la Tabla 3 por disciplina. **Señala los que dicen «Sin medir» con su motivo**: tres necesitan una encuesta, una prueba de usabilidad con personas o una capacidad que esta versión no tiene.
+21. Abajo, los indicadores de la Tabla 3 por disciplina, cada uno con su *n*. **Señala los que dicen «Sin medir» con su motivo**: SOC-1 y PSI-1 ya se miden con las encuestas de la aplicación, pero no se publican con menos de cinco respuestas (en la demo dice cuántas faltan); INF-3 necesita una capacidad que esta versión no tiene.
 
 > **Vale la pena detenerse aquí.** Un tablero que solo muestra lo que sabe medir sugiere que eso era todo lo que había que medir. Declarar lo que falta, y por qué, es parte de la honestidad que el proyecto propone.
 
@@ -106,6 +106,8 @@ Cada uno se muestra en menos de un minuto:
 - **Auditor** → **Auditoría**, pestaña **Organizaciones**: el expediente completo de una ONG que pidió verificación, y la decisión con motivo. En la revisión de un gasto, el ícono de informe abre el **informe de auditoría de la ONG**, con la integridad del libro de cada fondo y su extracto en CSV.
 - **Operador u otro rol que no dona** → el botón «Donar» no aparece: la ficha de la causa se ve en modo consulta y lo dice.
 - **Cualquier miembro de la ONG** → **Fondos**, **Estados mensuales** en un fondo: cada mes con su estado de actividades y la situación del fondo, en Excel o PDF. El mes en curso dice que sus cifras todavía pueden cambiar; un mes cerrado lleva el hash de su cierre. El auditor lo abre desde el informe de la ONG, con el libro diario en cuentas del PCGE. Los datos de la demo son del mes en curso, así que el primer cierre aparece el día 1 del mes siguiente.
+- **Encuestas** → el donante ve en Inicio una invitación opcional al SUS («si quiere»). Antes de la primera pregunta, la aplicación pide autorizar el uso de sus respuestas para investigación y dice que se guardan sin su nombre. Desde **Mis aportes**, cada aporte confirmado descarga su **constancia de donación**.
+- **Datos abiertos** → en la ficha de una ONG verificada, **Datos abiertos (IATI)** descarga sus actividades en el estándar IATI 2.03.
 - **Cierre de una causa** → la administradora cierra un fondo con dinero retenido y el fondo muestra hasta cuándo puede justificarlo. Para recorrer el ciclo sin esperar 90 días hay que adelantar el reloj, como hace `causas.spec.ts`; resuelto, el **informe de cierre** se descarga desde Fondos y su QR abre la verificación pública, que recalcula el hash y la cadena en el momento.
 
 ## Si sobra tiempo: intentar romperlo

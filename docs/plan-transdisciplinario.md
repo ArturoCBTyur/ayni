@@ -4,6 +4,8 @@
 **Alcance:** libros y estados contables estandarizados, cierre de causa, encuestas e indicadores de la Tabla 3 que hoy dicen «Sin medir», impacto social, documentos legales y datos abiertos.
 **Fuera de alcance:** INF-3 (exactitud del lector de comprobantes) y todo lo de AIni, que lleva el frente de IA.
 
+> **Estado (octubre de 2026):** las nueve fases están implementadas sobre las **propuestas** de D1–D6, que siguen sin firma. Lo que falta, y de quién depende, está en la [matriz de trazabilidad](trazabilidad-rf.md#requerimientos-transdisciplinarios-plan-de-octubre-de-2026): la firma de cada decisión, la validación del PLE y de la constancia por un contador, y la sesión de usabilidad con usuarios reales.
+
 El proyecto ya demuestra la trazabilidad con hashes, conciliación y evidencia. Lo que falta es decirlo en el idioma de cada disciplina: un contador necesita estados estandarizados, un abogado una política de remanentes y una base legal para encuestar, un sociólogo una medición de confianza con línea base. Este plan convierte eso en tareas con su prueba.
 
 ---

@@ -25,7 +25,7 @@ import { DonacionesService } from '../donaciones/donaciones.service';
 import { DonacionesModule } from '../donaciones/donaciones.module';
 import { GastosModule } from '../gastos/gastos.module';
 import { CumplimientoService } from './cumplimiento.service';
-import { informeCumplimientoPdf, informeCumplimientoXlsx } from './informe';
+import { informeCumplimientoPdf, informeCumplimientoXlsx, periodoEnLima } from './informe';
 
 let prisma: PrismaService;
 let ongs: OngsService;
@@ -256,6 +256,13 @@ describe('RF-DE-08 · Informe de cumplimiento de la Ley N.o 29733', () => {
       vigentesAlCierre: 0,
     });
     expect(i.der1).toEqual({ notificacionesConEvidencia: 0, sinAnonimizar: 0, cumple: true });
+  });
+
+  it('el periodo que se pide son dias de Lima, con el ultimo entero', () => {
+    // Lo que manda la app para "este año": sin correrlo, empezaba el 31/12.
+    const p = periodoEnLima(new Date('2026-01-01'), new Date('2026-10-09'));
+    expect(p.desde.toISOString()).toBe('2026-01-01T05:00:00.000Z');
+    expect(p.hasta.toISOString()).toBe('2026-10-10T05:00:00.000Z');
   });
 
   it('se exporta en Excel y PDF, sin un solo dato personal', async () => {

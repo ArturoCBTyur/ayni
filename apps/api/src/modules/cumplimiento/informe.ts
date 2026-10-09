@@ -38,6 +38,22 @@ const FINALIDADES: Record<string, string> = {
   INVESTIGACION: 'Investigación (encuestas)',
 };
 
+const HORA_MS = 60 * 60 * 1000;
+
+/**
+ * El periodo que pide una persona, AAAA-MM-DD a AAAA-MM-DD, como dias de Lima.
+ *
+ * `2026-01-01` llega como la medianoche UTC, que en Lima todavia es el 31 de
+ * diciembre: sin correrlo cinco horas, el informe del año empezaba el dia
+ * anterior. El ultimo dia cuenta entero, hasta la medianoche siguiente.
+ */
+export function periodoEnLima(desde: Date, hasta: Date): { desde: Date; hasta: Date } {
+  return {
+    desde: new Date(desde.getTime() + 5 * HORA_MS),
+    hasta: new Date(hasta.getTime() + 29 * HORA_MS),
+  };
+}
+
 const rango = (i: InformeCumplimiento) =>
   `${fechaEnLima(i.periodo.desde)} al ${fechaEnLima(new Date(i.periodo.hasta.getTime() - 1))}`;
 
@@ -59,7 +75,7 @@ function filas(i: InformeCumplimiento): Celda[][] {
       { negrita: 'Consentimiento por finalidad' },
       { negrita: 'Otorgados' },
       { negrita: 'Revocados' },
-      { negrita: 'Vigentes al cierre' },
+      { negrita: 'Vigentes' },
     ],
     ...i.consentimientos.map((c): Celda[] => [
       FINALIDADES[c.finalidad] ?? c.finalidad,
@@ -110,7 +126,7 @@ export function informeCumplimientoPdf(i: InformeCumplimiento): Buffer {
       { texto: texto(primera), negrita },
       ...resto.map((c, k) => ({
         texto: texto(c),
-        x: derecha - (resto.length - 1 - k) * 80,
+        x: derecha - (resto.length - 1 - k) * 90,
         alineacion: 'derecha' as const,
         negrita,
       })),

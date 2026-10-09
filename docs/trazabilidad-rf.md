@@ -134,8 +134,9 @@ Vienen del [plan de trabajo](plan-transdisciplinario.md) y se registran **antes*
 | Plan transdisciplinario · Fase 5 | ✅ Unidades de impacto opcionales por gasto y costo por unidad, en la ficha pública y en el informe de cierre, sobre la **propuesta** de D4 |
 | Plan transdisciplinario · Fase 6 | 🟡 Constancia de donación y calificación de perceptora, e informe de cumplimiento de la Ley N.° 29733. Lo que la norma tributaria exige a una perceptora sigue pendiente de un contador. Al revisar el detalle del aporte apareció un defecto de la Fase 3: lo devuelto al cerrar una causa seguía figurando como «esperando evidencia», y un traslado se contaba dos veces como aportado. Corregido con su prueba |
 | Plan transdisciplinario · Fase 7 | ✅ Datos abiertos en IATI 2.03, validados contra el esquema oficial. Las decisiones de publicación (suma mensual de donaciones, sector 31195, remanente como desembolso) quedan propuestas en D5 |
+| Plan transdisciplinario · Fase 8 | ✅ Matriz, guion de demo, README e indicadores al día; `openapi.json` regenerado; suites del API, Flutter y AIni en verde, simulacro de respaldo y recorrido de la interfaz con Playwright. El recorrido encontró dos defectos del informe de la Ley N.° 29733: el período empezaba un día antes (se leía en UTC, no en Lima) y dos encabezados se montaban. Corregidos, el primero con su prueba |
 
-**Pruebas hoy:** 567 en el API (1 omitida sin el esquema IATI) y 103 en Flutter. El detalle por suite está en la salida de `npm test`. Las del API se corrieron sobre PostgreSQL 18.6 y con el cifrado en reposo activo, igual que en CI.
+**Pruebas hoy:** 568 en el API (1 omitida sin el esquema IATI), 103 en Flutter y 60 en AIni. El detalle por suite está en la salida de `npm test`. Las del API se corrieron sobre PostgreSQL 18.6 y con el cifrado en reposo activo, igual que en CI.
 
 **CI estaba en rojo** en `main` sin que la tabla lo dijera: el job del API aplicaba las migraciones pero no la semilla, y 12 de las 17 suites fallaban al buscar los roles del catálogo. Ahora corre `npm run seed` antes de las pruebas.
 

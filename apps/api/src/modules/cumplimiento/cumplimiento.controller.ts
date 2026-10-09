@@ -28,7 +28,7 @@ import {
   type InformeCumplimientoConsulta,
   type ResponderArco,
 } from './esquemas';
-import { informeCumplimientoPdf, informeCumplimientoXlsx } from './informe';
+import { informeCumplimientoPdf, informeCumplimientoXlsx, periodoEnLima } from './informe';
 
 @ApiTags('cumplimiento')
 @Controller('cumplimiento')
@@ -86,9 +86,8 @@ export class CumplimientoController {
     @Query(new ZodPipe(esquemaInformeCumplimiento)) consulta: InformeCumplimientoConsulta,
     @Res({ passthrough: true }) res: Response,
   ) {
-    // hasta es inclusivo para quien lo pide: se cuenta hasta el final de ese dia.
-    const hasta = new Date(consulta.hasta.getTime() + 24 * 60 * 60 * 1000);
-    const informe = await this.cumplimiento.informeCumplimiento(consulta.desde, hasta);
+    const { desde, hasta } = periodoEnLima(consulta.desde, consulta.hasta);
+    const informe = await this.cumplimiento.informeCumplimiento(desde, hasta);
     if (consulta.formato === 'json') return informe;
 
     const pdf = consulta.formato === 'pdf';
