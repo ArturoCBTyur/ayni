@@ -1,3 +1,4 @@
+import 'package:file_selector/file_selector.dart' show XTypeGroup, openFile;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -95,9 +96,44 @@ class _PantallaRegistrarGastoState extends ConsumerState<PantallaRegistrarGasto>
     );
     if (archivo == null) return;
 
-    final bytes = await archivo.readAsBytes();
     final extension = archivo.name.split('.').last.toLowerCase();
+    await _subir(
+      esComprobante: esComprobante,
+      bytes: await archivo.readAsBytes(),
+      extension: ['jpg', 'jpeg', 'png', 'webp'].contains(extension) ? extension : 'jpg',
+      mime: 'image/jpeg',
+    );
+  }
 
+  /// El comprobante que llega por correo es un PDF, no una foto.
+  ///
+  /// Imprimirlo para fotografiarlo empeoraba lo que AIni puede verificar: el
+  /// PDF trae el texto exacto y un QR nitido, y la foto de una impresion ya
+  /// depende del OCR.
+  Future<void> _elegirPdf() async {
+    const pdf = XTypeGroup(
+      label: 'PDF',
+      extensions: ['pdf'],
+      mimeTypes: ['application/pdf'],
+      uniformTypeIdentifiers: ['com.adobe.pdf'],
+    );
+    final archivo = await openFile(acceptedTypeGroups: [pdf]);
+    if (archivo == null) return;
+
+    await _subir(
+      esComprobante: true,
+      bytes: await archivo.readAsBytes(),
+      extension: 'pdf',
+      mime: 'application/pdf',
+    );
+  }
+
+  Future<void> _subir({
+    required bool esComprobante,
+    required List<int> bytes,
+    required String extension,
+    required String mime,
+  }) async {
     setState(() {
       _error = null;
       // Se registra la hora del dispositivo al capturar, no al subir: si no
@@ -109,15 +145,15 @@ class _PantallaRegistrarGastoState extends ConsumerState<PantallaRegistrarGasto>
       final api = ref.read(clienteApiProvider);
       final url = await api.enviar('/gastos/url-subida', cuerpo: {
         'tipo': esComprobante ? 'comprobante' : 'evidencia',
-        'extension': ['jpg', 'jpeg', 'png', 'webp'].contains(extension) ? extension : 'jpg',
+        'extension': extension,
       });
 
-      await api.subirArchivo(url['url'] as String, bytes, 'image/jpeg');
+      await api.subirArchivo(url['url'] as String, bytes, mime);
 
       final adjunto = _Adjunto(
         objeto: url['objeto'] as String,
         bytes: bytes,
-        mime: 'image/jpeg',
+        mime: mime,
       );
 
       setState(() {
@@ -232,6 +268,7 @@ class _PantallaRegistrarGastoState extends ConsumerState<PantallaRegistrarGasto>
                     comprobante: _comprobante,
                     evidencia: _evidencia,
                     onCapturar: _capturar,
+                    onPdf: _elegirPdf,
                   ),
                 1 => _PasoDatos(
                     ongId: widget.ongId,
@@ -319,6 +356,7 @@ class _PasoCaptura extends StatelessWidget {
     required this.comprobante,
     required this.evidencia,
     required this.onCapturar,
+    required this.onPdf,
   });
 
   final _Adjunto? comprobante;
@@ -327,6 +365,7 @@ class _PasoCaptura extends StatelessWidget {
     required bool esComprobante,
     required ImageSource origen,
   }) onCapturar;
+  final VoidCallback onPdf;
 
   @override
   Widget build(BuildContext context) {
@@ -344,10 +383,11 @@ class _PasoCaptura extends StatelessWidget {
         const SizedBox(height: 20),
         _Captura(
           titulo: 'Comprobante de pago',
-          descripcion: 'La boleta o factura, completa y legible.',
+          descripcion: 'La boleta o factura, completa y legible, o su PDF si llegó por correo.',
           icono: Icons.receipt_long,
           adjunto: comprobante,
           onCapturar: (origen) => onCapturar(esComprobante: true, origen: origen),
+          onPdf: onPdf,
         ),
         const SizedBox(height: 12),
         _Captura(
@@ -369,6 +409,7 @@ class _Captura extends StatelessWidget {
     required this.icono,
     required this.adjunto,
     required this.onCapturar,
+    this.onPdf,
   });
 
   final String titulo;
@@ -376,6 +417,9 @@ class _Captura extends StatelessWidget {
   final IconData icono;
   final _Adjunto? adjunto;
   final void Function(ImageSource origen) onCapturar;
+
+  /// Solo el comprobante: la evidencia es una foto de lo comprado.
+  final VoidCallback? onPdf;
 
   @override
   Widget build(BuildContext context) {
@@ -402,7 +446,11 @@ class _Captura extends StatelessWidget {
                     children: [
                       Text(titulo, style: tema.textTheme.titleSmall),
                       Text(
-                        listo ? 'Listo. Puede reemplazarlo.' : descripcion,
+                        !listo
+                            ? descripcion
+                            : adjunto!.mime == 'application/pdf'
+                                ? 'PDF adjunto. Puede reemplazarlo.'
+                                : 'Listo. Puede reemplazarlo.',
                         style: tema.textTheme.bodySmall?.copyWith(
                           color: tema.colorScheme.onSurfaceVariant,
                         ),
@@ -441,6 +489,15 @@ class _Captura extends StatelessWidget {
                 ),
               ],
             ),
+            if (onPdf != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: onPdf,
+                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                  label: const Text('Adjuntar PDF'),
+                ),
+              ),
           ],
         ),
       ),

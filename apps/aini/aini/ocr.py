@@ -1,4 +1,4 @@
-"""Lectura del comprobante: de la foto a los campos.
+"""Lectura del comprobante: de la foto o el PDF a los campos.
 
 Es la unica parte de AIni que mira el archivo y no los metadatos. Hasta aqui el
 sistema confiaba en lo que el operador tecleo; con esto puede **contrastarlo
@@ -22,6 +22,7 @@ confianza, se reporta como no leido en vez de adivinarlo.
 
 from __future__ import annotations
 
+import io
 import logging
 import math
 import os
@@ -29,6 +30,7 @@ import re
 import urllib.request
 from dataclasses import dataclass
 from datetime import date, datetime
+from pathlib import Path
 
 log = logging.getLogger("aini.ocr")
 
@@ -43,6 +45,19 @@ ACTIVO = os.environ.get("AINI_OCR", "1") not in ("0", "false", "no")
 #: equivocada ponga a descargar algo enorme dentro del analisis.
 MAXIMO_BYTES = 15 * 1024 * 1024
 SEGUNDOS_DESCARGA = 10
+
+#: Paginas de un PDF que se miran. Un comprobante ocupa una; la segunda cubre
+#: la factura con muchas lineas de detalle. Mas alla ya seria un anexo.
+PAGINAS_PDF = 2
+
+#: Lado mayor, en pixeles, de la pagina del PDF convertida en imagen. Deja
+#: varios pixeles por modulo al QR de una factura A4 y acota la memoria ante un
+#: PDF con una pagina de tamaño absurdo.
+LADO_PAGINA_PDF = 2400
+
+#: Menos caracteres que esto en la capa de texto es un PDF escaneado: la
+#: pagina es una foto y se lee como tal.
+TEXTO_MINIMO_PDF = 20
 
 _lector = None
 
@@ -470,13 +485,106 @@ def orden_de_lectura(resultado: list) -> list[tuple[str, float]]:
     ]
 
 
-def leer(imagen: bytes | str) -> CamposLeidos | None:
-    """Corre el OCR sobre una imagen, extrae los campos y los completa con el QR.
+def leer(archivo: bytes | str) -> CamposLeidos | None:
+    """Lee el comprobante, sea foto o PDF, y extrae sus campos.
 
-    Devuelve None si el OCR no pudo procesar el archivo. Que falle no puede
-    tumbar el analisis: el gasto se sigue evaluando con lo declarado, y el
-    motivo lo dice.
+    Recibe los bytes del archivo o su ruta. Devuelve None si no se pudo
+    procesar. Que falle no puede tumbar el analisis: el gasto se sigue
+    evaluando con lo declarado, y el motivo lo dice.
     """
+    if isinstance(archivo, str):
+        try:
+            archivo = Path(archivo).read_bytes()
+        except OSError as error:
+            log.warning("No se pudo abrir el comprobante: %s", error)
+            return None
+    if es_pdf(archivo):
+        return _leer_pdf(archivo)
+    return _leer_imagen(archivo)
+
+
+def es_pdf(datos: bytes) -> bool:
+    """Si el archivo es un PDF, por su contenido y no por su nombre.
+
+    La especificacion admite bytes antes de la cabecera, dentro del primer KB.
+    """
+    return b"%PDF-" in datos[:1024]
+
+
+def _texto_de_pagina(pagina) -> str:
+    """La capa de texto de una pagina, en el orden en que se lee en el papel.
+
+    El texto plano de un PDF sale en el orden en que el programa lo escribio,
+    que no siempre es el de lectura: un sistema de facturacion puede escribir
+    todas las etiquetas y despues todos los montos ("Sub-Total: Total Venta:
+    S/ 123.00 S/ 123.00"), y los importes se buscan tras su etiqueta. Por eso
+    se toman los trozos con su posicion y se ordenan igual que los del OCR.
+    """
+    textos = pagina.get_textpage()
+    _, alto = pagina.get_size()
+    cajas = []
+    for indice in range(textos.count_rects()):
+        izquierda, abajo, derecha, arriba = textos.get_rect(indice)
+        texto = textos.get_text_bounded(izquierda, abajo, derecha, arriba).strip()
+        if texto:
+            # El PDF mide la altura desde abajo; la imagen, desde arriba.
+            y0, y1 = alto - arriba, alto - abajo
+            caja = [[izquierda, y0], [derecha, y0], [derecha, y1], [izquierda, y1]]
+            cajas.append([caja, texto, 1.0])
+    return " ".join(texto for texto, _ in orden_de_lectura(cajas))
+
+
+def _leer_pdf(datos: bytes) -> CamposLeidos | None:
+    """Lee un comprobante en PDF.
+
+    El que emite un sistema de facturacion trae el texto dentro: se extrae tal
+    cual, sin OCR y sin su incertidumbre, y por eso la confianza es 1. Al que es
+    un escaneo no le queda texto que extraer, y su pagina se lee como una foto.
+    En los dos casos el QR se busca en la pagina convertida en imagen, porque
+    dentro del PDF el QR es un dibujo y no un dato.
+    """
+    try:
+        import pypdfium2 as pdfium
+
+        documento = pdfium.PdfDocument(datos)
+    except Exception as error:  # noqa: BLE001
+        log.warning("No se pudo abrir el PDF del comprobante: %s", error)
+        return None
+
+    textos: list[str] = []
+    paginas: list[bytes] = []
+    try:
+        for indice in range(min(len(documento), PAGINAS_PDF)):
+            pagina = documento[indice]
+            textos.append(_texto_de_pagina(pagina))
+            escala = min(4.0, LADO_PAGINA_PDF / max(*pagina.get_size(), 1.0))
+            imagen = pagina.render(scale=escala).to_pil()
+            salida = io.BytesIO()
+            imagen.save(salida, format="PNG")
+            paginas.append(salida.getvalue())
+    except Exception as error:  # noqa: BLE001
+        log.warning("No se pudo leer el PDF del comprobante: %s", error)
+        return None
+    finally:
+        documento.close()
+
+    texto = " ".join(t for t in textos if t)
+    if len(texto) < TEXTO_MINIMO_PDF:
+        return _leer_imagen(paginas[0]) if paginas else CamposLeidos()
+
+    campos = extraer(texto)
+    campos.confianza = 1.0
+    for pagina in paginas:
+        qr = decodificar_qr(pagina)
+        if qr:
+            aplicar_qr(campos, qr)
+        if campos.qr:
+            break
+    return campos
+
+
+def _leer_imagen(imagen: bytes) -> CamposLeidos | None:
+    """Corre el OCR sobre una imagen, extrae los campos y los completa con el QR."""
     try:
         resultado, _ = lector()(imagen)
     except Exception as error:  # noqa: BLE001

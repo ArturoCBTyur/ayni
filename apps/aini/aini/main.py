@@ -98,8 +98,18 @@ def salud() -> dict[str, object]:
         "lectorComprobantes": {
             "activo": ocr.ACTIVO,
             "confianzaMinima": ocr.CONFIANZA_MINIMA,
+            # Sin pypdfium2 los PDF no fallan: se reportan como no leidos.
+            "leePdf": _lee_pdf(),
         },
     }
+
+
+def _lee_pdf() -> bool:
+    try:
+        import pypdfium2  # noqa: F401
+    except ImportError:
+        return False
+    return True
 
 
 @app.post("/analizar", response_model=ResultadoAnalisis, response_model_by_alias=True)

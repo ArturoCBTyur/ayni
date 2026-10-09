@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from aini import cotejo, motor, ocr  # noqa: E402
 from aini.contrato import Comprobante  # noqa: E402
+from pruebas import documentos  # noqa: E402
 
 
 def _fuente(tam: int, negrita: bool):
@@ -382,6 +383,73 @@ class TestQR:
         leido = ocr.leer(str(ruta))
         assert leido.leyo_algo
         assert leido.total == 118.0
+
+
+class TestPDF:
+    """El comprobante que llega por correo es un PDF, no una foto.
+
+    Hasta esta version el backend lo aceptaba pero AIni no podia leerlo, y como
+    sin cotejo nada se aprueba solo, todo gasto con PDF terminaba en revision.
+    """
+
+    def test_el_texto_se_extrae_sin_ocr(self):
+        leido = ocr.leer(documentos.pdf())
+        assert leido.ruc_emisor == "20601030579"
+        assert (leido.serie, leido.numero) == ("B001", "004521")
+        assert leido.fecha_emision.isoformat() == "2026-09-14"
+        assert (leido.subtotal, leido.igv, leido.total) == (100.0, 18.0, 118.0)
+        # Es el texto del documento, no una lectura: no hay incertidumbre.
+        assert leido.confianza == 1.0
+
+    def test_se_lee_en_el_orden_del_papel_y_no_en_el_de_escritura(self):
+        """El emisor escribio todas las etiquetas y despues todos los montos.
+        Leido tal cual, cada monto quedaba lejos de su etiqueta."""
+        leido = ocr.leer(
+            documentos.pdf(
+                [
+                    (20, 40, "RUC: 20600598768"),
+                    (20, 60, "OP. GRAVADA:"),
+                    (20, 75, "IGV (18%):"),
+                    (20, 90, "IMPORTE TOTAL:"),
+                    (200, 60, "S/ 100.00"),
+                    (200, 75, "S/ 18.00"),
+                    (200, 90, "S/ 118.00"),
+                ]
+            )
+        )
+        assert (leido.subtotal, leido.igv, leido.total) == (100.0, 18.0, 118.0)
+
+    def test_el_qr_se_busca_en_la_pagina(self):
+        leido = ocr.leer(documentos.pdf(qr=QR_ESTANDAR))
+        assert leido.qr == QR_ESTANDAR
+
+    def test_un_pdf_retocado_no_engana_al_qr(self):
+        """Editar el texto de un PDF es mas facil que retocar una foto. El QR es
+        una imagen dentro del documento y conserva el total original."""
+        retocada = [
+            (x, y, texto.replace("118.00", "185.00")) for x, y, texto in documentos.BOLETA
+        ]
+        leido = ocr.leer(documentos.pdf(retocada, qr=QR_ESTANDAR))
+        assert leido.total == 118.0
+
+    def test_un_pdf_escaneado_se_lee_como_foto(self, tmp_path):
+        imagen = Image.open(boleta(tmp_path / "escaneo.jpg"))
+        leido = ocr.leer(documentos.pdf_escaneado(imagen))
+        assert leido.ruc_emisor == "20601030579"
+        assert leido.total == 118.0
+
+    def test_se_reconoce_por_el_contenido_y_no_por_el_nombre(self, tmp_path):
+        ruta = tmp_path / "comprobante.jpg"
+        ruta.write_bytes(documentos.pdf())
+        assert ocr.leer(str(ruta)).total == 118.0
+
+    def test_un_pdf_danado_no_tumba_el_analisis(self):
+        assert ocr.leer(b"%PDF-1.4 esto no es un PDF") is None
+
+    def test_cotejo_con_un_pdf(self):
+        motivos, penalizacion = cotejo.evaluar(comprobante(), ocr.leer(documentos.pdf()))
+        assert penalizacion == 0
+        assert "ocr.total_coincide" in reglas(motivos)
 
 
 class TestCotejo:

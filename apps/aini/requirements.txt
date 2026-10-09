@@ -22,6 +22,12 @@ numpy==2.3.4
 rapidocr-onnxruntime==1.4.4
 pillow==12.0.0
 
+# Comprobantes en PDF: extrae la capa de texto y convierte la pagina en imagen
+# para buscar el QR. Es PDFium, el motor de PDF de Chrome, con binarios para
+# Windows, Linux y macOS: tampoco exige instalar nada del sistema. Se eligio
+# sobre PyMuPDF por la licencia (BSD/Apache frente a AGPL).
+pypdfium2==5.13.0
+
 # Opcional: solo para `entrenar --real`, que suma los gastos de la base al
 # conjunto de entrenamiento. Sin esto el entrenamiento sintetico funciona igual.
 # psycopg[binary]==3.2.3

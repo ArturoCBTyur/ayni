@@ -61,7 +61,7 @@ Un detalle medido y no supuesto: **`Doc.similarity` de spaCy no sirve para esto.
 
 ### Lectura del comprobante — ¿lo declarado es lo que dice el papel?
 
-Antes de evaluar nada, AIni **descarga la foto del comprobante y la lee** (`ocr.py`), y compara campo por campo lo leído contra lo que el operador tecleó (`cotejo.py`).
+Antes de evaluar nada, AIni **descarga la foto o el PDF del comprobante y lo lee** (`ocr.py`), y compara campo por campo lo leído contra lo que el operador tecleó (`cotejo.py`).
 
 Esto cambia de categoría lo que el sistema puede comprobar. Hasta aquí, todas las reglas razonaban **sobre el dato declarado**: que el RUC estuviera bien formado, que el IGV cuadrara, que las fechas fueran posibles. Un operador que teclea `185.00` sobre una boleta de `158.00` pasa todas esas reglas —el dato es impecable— y el fondo paga S/ 27 que el papel no respalda. Para verlo hay que leer el documento.
 
@@ -75,6 +75,8 @@ Esto cambia de categoría lo que el sistema puede comprobar. Hasta aquí, todas 
 **Motor:** `rapidocr-onnxruntime` (detección y reconocimiento en ONNX). Se eligió sobre Tesseract porque no exige instalar un binario del sistema aparte, que en Windows era el punto de fricción del equipo. Cuesta ~2.6 s por imagen, que es la mayor parte del tiempo de análisis.
 
 **Antes que el texto, el QR.** Los comprobantes electrónicos llevan un QR con el formato de SUNAT (`RUC|tipo|serie|número|IGV|total|fecha|…`). Si la foto lo deja decodificar, sus campos mandan sobre lo leído del texto. No es una lectura sino un dato escrito por el sistema de facturación del emisor: no confunde un 1 con un 7, no depende de cómo estén dispuestas las líneas, y retocar el total impreso en la foto no cambia el del QR. Lo decodifica OpenCV, que ya viene con RapidOCR, en décimas de segundo. Si el QR no se puede leer (es pequeño en la foto, o el emisor solo puso un enlace), se sigue con el texto como antes. Cuando el total sale del QR, el mensaje del cotejo lo dice.
+
+**Comprobantes en PDF.** La factura o boleta que llega por correo es un PDF, y el backend ya lo aceptaba, pero AIni no lo sabía leer: lo marcaba como no leído y, como sin cotejo nada se aprueba solo, todo gasto con PDF terminaba en revisión. Ahora el lector reconoce el PDF por su contenido, no por el nombre del archivo. Si lo emitió un sistema de facturación, trae el texto dentro: se extrae tal cual, sin OCR, con confianza 1 y en décimas de segundo. Los trozos se ordenan por su posición en la página, porque algunos sistemas escriben todas las etiquetas y después todos los montos. Si es un escaneo, no hay texto que extraer, y la página se lee como una foto. En los dos casos el QR se busca en la página convertida en imagen. Así, un PDF con el total editado no engaña al cotejo si conserva el QR original. Usa `pypdfium2` (PDFium, el motor de PDF de Chrome) y lee como mucho las dos primeras páginas. El `/salud` indica si está disponible (`leePdf`).
 
 Sobre una boleta degradada a propósito el lector recupera el importe y el RUC con la imagen limpia, borrosa, al 50 % de escala, inclinada 7° hacia cualquier lado, oscurecida al 45 % y con el contraste al 35 %. **Eso no es un dato del README, es `TestRobustez`**: las degradaciones se aplican en la prueba, así que si una versión de la biblioteca empeora, falla en vez de dejar esta frase afirmando algo que dejó de ser cierto.
 
@@ -153,7 +155,7 @@ python -m pytest pruebas/ -q
 
 Las pruebas fijan el comportamiento; **cuánto acierta** el motor lo mide `python -m evaluacion` contra bancos etiquetados y una línea base versionada. Ver [`evaluacion/README.md`](evaluacion/README.md).
 
-90 casos. Lo que fijan no son los números del modelo —un umbral puede moverse al reentrenar— sino el comportamiento que el proyecto promete: que un gasto del fondo equivocado se detecte, que una evidencia reutilizada no se rescate con un comprobante impecable, que un monto que no coincide con el papel se detecte y que una foto ilegible no se confunda con uno, que nunca falte la explicación, y que un modelo ausente degrade la señal en vez de tumbar la verificación.
+107 casos. Lo que fijan no son los números del modelo —un umbral puede moverse al reentrenar— sino el comportamiento que el proyecto promete: que un gasto del fondo equivocado se detecte, que una evidencia reutilizada no se rescate con un comprobante impecable, que un monto que no coincide con el papel se detecte y que una foto ilegible no se confunda con uno, que nunca falte la explicación, y que un modelo ausente degrade la señal en vez de tumbar la verificación.
 
 ---
 

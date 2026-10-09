@@ -46,6 +46,7 @@ dependencies:
   web: ^1.1.1
   flutter_localizations:
     sdk: flutter
+  file_selector: ^1.1.0
 
 dev_dependencies:
   flutter_test:
