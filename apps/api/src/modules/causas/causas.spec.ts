@@ -12,7 +12,7 @@
  */
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { Test } from '@nestjs/testing';
+import { Test, type TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Server } from 'node:http';
@@ -28,12 +28,14 @@ import {
 } from '../../comun/pruebas/escenario-contable';
 import { cargarConfiguracion } from '../../config/configuracion';
 import { ConciliacionService } from '../analitica/conciliacion.service';
+import { PanelService } from '../analitica/panel.service';
 import { fechaEnLima } from '../../comun/periodo';
 import { clasificacionCuadra } from '../contable/clasificacion';
 import { ASIENTOS } from '../contable/cuentas';
 import { ContableModule } from '../contable/contable.module';
 import { LibroService } from '../contable/libro.service';
 import { DonacionesModule } from '../donaciones/donaciones.module';
+import { DonacionesService } from '../donaciones/donaciones.service';
 import { GastosModule } from '../gastos/gastos.module';
 import { GastosService } from '../gastos/gastos.service';
 import { ALMACENAMIENTO, type AlmacenamientoArchivos } from '../gastos/puertos/almacenamiento.port';
@@ -46,6 +48,7 @@ import { InformesCierreService, type InformeContenido } from './informes-cierre.
 import { iniciarCierreDeCausa } from './politica';
 
 let app: INestApplication;
+let modulo: TestingModule;
 let prisma: PrismaService;
 let causas: CausasService;
 let informes: InformesCierreService;
@@ -81,7 +84,7 @@ async function cierre() {
 }
 
 beforeAll(async () => {
-  const modulo = await Test.createTestingModule({
+  modulo = await Test.createTestingModule({
     imports: [
       ConfigModule.forRoot({ isGlobal: true, load: [() => cargarConfiguracion()] }),
       PrismaModule,
@@ -93,7 +96,7 @@ beforeAll(async () => {
       DonacionesModule,
       CausasModule,
     ],
-    providers: [ConciliacionService],
+    providers: [ConciliacionService, PanelService],
   }).compile();
 
   app = modulo.createNestApplication();
@@ -468,6 +471,37 @@ describe('RF-CF-11 · Resolucion', () => {
       }),
     ).rejects.toThrow(/ck_informes_hash_del_contenido/);
     await prisma.cierreCausa.delete({ where: { id: otro.id } });
+  });
+
+  it('lo devuelto deja de esperar evidencia y un traslado no se cuenta dos veces', async () => {
+    const panel = modulo.get(PanelService);
+    const [primero, segundo] = await Promise.all([
+      panel.panel(origen.donanteUsuarioId, ['DONANTE']),
+      panel.panel(segundoDonante.usuarioId, ['DONANTE']),
+    ]);
+
+    // El primero dio 192.12 netos: 150 se ejecutaron y 42.12 esperan en el destino.
+    expect(primero.donante).toMatchObject({
+      aportes: 1,
+      aportado: '192.12',
+      ejecutado: '150.00',
+      esperandoEvidencia: '42.12',
+    });
+    // Al segundo se le devolvio todo lo que no se uso.
+    expect(segundo.donante).toMatchObject({
+      aportado: '95.56',
+      esperandoEvidencia: '0.00',
+      devuelto: '95.56',
+    });
+
+    const donacion = await prisma.donacion.findFirstOrThrow({
+      where: { donanteId: segundoDonante.donanteId, fondoId: origen.fondoId },
+    });
+    const detalle = await modulo
+      .get(DonacionesService)
+      .detalle(donacion.id, segundoDonante.usuarioId);
+    expect(detalle.montoEsperandoEvidencia).toBe('0.00');
+    expect(detalle.saldoDeCierre).toMatchObject({ destino: 'DEVOLUCION', resuelto: true });
   });
 
   it('volver a avanzar no repite nada', async () => {
