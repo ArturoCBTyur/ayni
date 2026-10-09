@@ -56,6 +56,9 @@ function actividades(e: EstadoMensual): Array<[string, string]> {
     ['Menos: liberaciones revertidas', a.revertido],
     ['Liberado neto del mes', a.liberadoNeto],
     ['Reasignado a otro destino', a.reasignado],
+    ['Remanente devuelto a sus donantes', a.devuelto],
+    ['Remanente trasladado a otros fondos', a.trasladado],
+    ['Recibido del cierre de otras causas', a.recibidoPorTraslado],
   ];
 }
 
@@ -67,6 +70,9 @@ function situacion(e: EstadoMensual): Array<[string, string]> {
     ['Con restricción: retenido por justificar', s.conRestriccion],
     ['Liberado: ejecutado contra gasto aprobado', s.liberados],
     ['Reasignado, pendiente de llegar a su destino', s.reasignadoPendiente],
+    ['Devuelto a sus donantes al cerrar la causa', s.devuelto],
+    ['Trasladado a otros fondos al cerrar la causa', s.trasladado],
+    ['Recibido del cierre de otras causas', s.recibidoPorTraslado],
     ['Efectivo recibido neto de comisiones', s.efectivoRecibidoNeto],
   ];
 }

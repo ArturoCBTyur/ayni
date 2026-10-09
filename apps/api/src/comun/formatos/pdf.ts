@@ -116,6 +116,9 @@ export interface OpcionesTexto {
  */
 export class DocumentoPdf {
   private readonly paginas: string[][] = [[]];
+  /** Imagenes JPEG del documento, y en que pagina se usa cada una. */
+  private readonly imagenes: Array<{ jpeg: Buffer; ancho: number; alto: number; pagina: number }> =
+    [];
   private y = ALTO_PAGINA - MARGEN;
 
   constructor(private readonly titulo: string) {}
@@ -160,13 +163,59 @@ export class DocumentoPdf {
     return this;
   }
 
+  /**
+   * Una imagen JPEG, tal cual: el PDF la decodifica (DCTDecode), asi que no
+   * hace falta descomprimirla aqui. `pixeles` son sus dimensiones reales;
+   * `ancho` es el ancho en puntos con que se dibuja.
+   */
+  imagen(jpeg: Buffer, pixeles: { ancho: number; alto: number }, ancho: number, x = 0): this {
+    if (jpeg[0] !== 0xff || jpeg[1] !== 0xd8) {
+      throw new Error('Solo se incrustan imagenes JPEG.');
+    }
+    const alto = (ancho * pixeles.alto) / pixeles.ancho;
+    this.reservar(alto + 6);
+    this.imagenes.push({ jpeg, ...pixeles, pagina: this.paginas.length - 1 });
+    const nombre = `Im${this.imagenes.length}`;
+    this.actual().push(
+      `q ${ancho.toFixed(2)} 0 0 ${alto.toFixed(2)} ${(MARGEN + x).toFixed(2)} ` +
+        `${(this.y + 3).toFixed(2)} cm /${nombre} Do Q`,
+    );
+    return this;
+  }
+
+  /**
+   * Un codigo QR, dibujado con cuadros: vectorial, nitido a cualquier zoom y
+   * sin depender de una imagen. `modulos[fila][columna]` es true si es oscuro.
+   */
+  qr(modulos: boolean[][], lado: number, x = 0): this {
+    const n = modulos.length;
+    const modulo = lado / n;
+    this.reservar(lado + 6);
+    const base = this.y + 3;
+    const cuadros: string[] = [];
+    modulos.forEach((fila, f) =>
+      fila.forEach((oscuro, c) => {
+        if (!oscuro) return;
+        const cx = MARGEN + x + c * modulo;
+        const cy = base + (n - 1 - f) * modulo;
+        cuadros.push(
+          `${cx.toFixed(2)} ${cy.toFixed(2)} ${modulo.toFixed(2)} ${modulo.toFixed(2)} re`,
+        );
+      }),
+    );
+    this.actual().push(`0 g ${cuadros.join(' ')} f`);
+    return this;
+  }
+
   generar(): Buffer {
     const total = this.paginas.length;
     const pie = (i: number) =>
       `BT /F1 8 Tf 0.45 g ${MARGEN} 30 Td ${literal(`${this.titulo} · página ${i + 1} de ${total}`)} Tj 0 g ET`;
 
-    // 1 catalogo, 2 paginas, 3 y 4 fuentes, 5 info; despues pagina y contenido.
+    // 1 catalogo, 2 paginas, 3 y 4 fuentes, 5 info; despues pagina y
+    // contenido, y al final las imagenes.
     const objetos: string[] = [];
+    const objetoImagen = (k: number) => 6 + total * 2 + k;
     const kids = this.paginas.map((_, i) => `${6 + i * 2} 0 R`).join(' ');
 
     objetos.push('<< /Type /Catalog /Pages 2 0 R >>');
@@ -181,13 +230,29 @@ export class DocumentoPdf {
 
     this.paginas.forEach((operaciones, i) => {
       const contenido = [...operaciones, pie(i)].join('\n');
+      const deEstaPagina = this.imagenes
+        .map((img, k) => ({ img, k }))
+        .filter(({ img }) => img.pagina === i)
+        .map(({ k }) => `/Im${k + 1} ${objetoImagen(k)} 0 R`);
+      const xobjetos = deEstaPagina.length ? ` /XObject << ${deEstaPagina.join(' ')} >>` : '';
       objetos.push(
         `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${ANCHO_PAGINA} ${ALTO_PAGINA}] ` +
-          `/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${7 + i * 2} 0 R >>`,
+          `/Resources << /Font << /F1 3 0 R /F2 4 0 R >>${xobjetos} >> ` +
+          `/Contents ${7 + i * 2} 0 R >>`,
       );
       const bytes = Buffer.from(contenido, 'latin1');
       objetos.push(`<< /Length ${bytes.length} >>\nstream\n${contenido}\nendstream`);
     });
+
+    // Los bytes del JPEG pasan como latin1: un caracter por byte, sin perder
+    // ninguno, igual que el resto del documento.
+    for (const img of this.imagenes) {
+      objetos.push(
+        `<< /Type /XObject /Subtype /Image /Width ${img.ancho} /Height ${img.alto} ` +
+          '/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode ' +
+          `/Length ${img.jpeg.length} >>\nstream\n${img.jpeg.toString('latin1')}\nendstream`,
+      );
+    }
 
     // Todo lo que se escribe es ASCII o ya viene escapado a WinAnsi, asi que
     // latin1 conserva un byte por caracter y los desplazamientos son exactos.

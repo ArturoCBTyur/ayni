@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client';
 
 import { BitacoraService, type ContextoPeticion } from '../../comun/bitacora/bitacora.service';
 import { PrismaService } from '../../comun/prisma/prisma.service';
+import { iniciarCierreDeCausa } from '../causas/politica';
 import type {
   ActualizarCampana,
   ActualizarFondo,
@@ -229,6 +230,11 @@ export class CampanasService {
       },
     });
 
+    // D2 · Cerrar la campaña abre el cierre de cada fondo que recibio dinero.
+    if (datos.estado === 'CERRADA') {
+      for (const f of campana.fondos) await iniciarCierreDeCausa(this.prisma, f.id);
+    }
+
     await this.bitacora.registrarCambio({
       usuarioId,
       accion: 'CAMPANA_ACTUALIZADA',
@@ -383,6 +389,9 @@ export class CampanasService {
         },
       });
 
+      // D2 · Cerrar el fondo abre su cierre de causa, si recibio dinero.
+      if (datos.estado === 'CERRADO') await iniciarCierreDeCausa(this.prisma, fondoId);
+
       await this.bitacora.registrarCambio({
         usuarioId,
         accion: 'FONDO_ACTUALIZADO',
@@ -409,7 +418,12 @@ export class CampanasService {
 
     const campanas = await this.prisma.campana.findMany({
       where: { ongId },
-      include: { fondos: { orderBy: { creadoEn: 'asc' } } },
+      include: {
+        fondos: {
+          orderBy: { creadoEn: 'asc' },
+          include: { cierreCausa: { include: { informe: { select: { id: true } } } } },
+        },
+      },
       orderBy: { creadoEn: 'desc' },
     });
 
@@ -437,6 +451,19 @@ export class CampanasService {
         retenido: soles(f.saldoRetenido),
         ejecutado: soles(f.saldoEjecutado),
         avance: calcularAvance(f.saldoRecaudado.toNumber(), f.meta.toNumber()),
+        // D2 · Si se cerro: hasta cuando se justifica y, al final, su informe.
+        cierreCausa: f.cierreCausa
+          ? {
+              estado: f.cierreCausa.estado,
+              venceJustificacionEn: f.cierreCausa.venceJustificacionEn,
+              venceEleccionEn: f.cierreCausa.venceEleccionEn,
+              remanenteTotal: f.cierreCausa.remanenteTotal
+                ? soles(f.cierreCausa.remanenteTotal)
+                : null,
+              observacion: f.cierreCausa.observacion,
+              informeId: f.cierreCausa.informe?.id ?? null,
+            }
+          : null,
       })),
     }));
   }

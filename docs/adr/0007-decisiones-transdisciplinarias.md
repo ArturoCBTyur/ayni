@@ -107,6 +107,8 @@ Nada lo resuelve. `LibroService.asentarReverso` existe pero no lo llama ningún 
 
 La Fase 3 necesita lo que hoy falta: un tipo de movimiento **DEVOLUCION** (20.2 → 10.1) o una regla equivalente, y el par de movimientos de una reasignación entre fondos (salida en uno, retención en el otro) dentro de la misma transacción. Ambos tocan el trigger de saldos, la conciliación y `fn_aplicacion_validar`.
 
+**Implementado en la Fase 3 sobre esta propuesta** (`apps/api/src/modules/causas/politica.ts`). Un remanente sale de lo retenido con REASIGNACION (20.2 → 20.1) y del fondo con DEVOLUCION o TRASLADO_SALIDA (20.1 → 10.1); el traslado entra al destino con TRASLADO_ENTRADA (10.1 → 20.1) y una RETENCION, a nombre de una donación nueva del mismo donante. La comisión de la pasarela no se devuelve. Si Derecho firma otro plazo u otro destino por defecto, cambia ese archivo.
+
 ---
 
 ## D3 · Instrumentos de SOC-1 y PSI-1

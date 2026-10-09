@@ -20,8 +20,16 @@ export function urlPublicable(
   almacen: AlmacenamientoArchivos,
   evidencia: EvidenciaPublicable,
 ): string | null {
-  if (evidencia.archivoAnonimizadoUrl) {
-    return almacen.emitirUrlDescarga(evidencia.archivoAnonimizadoUrl).url;
-  }
-  return evidencia.anonimizada ? almacen.emitirUrlDescarga(evidencia.archivoUrl).url : null;
+  const objeto = objetoPublicable(evidencia);
+  return objeto ? almacen.emitirUrlDescarga(objeto).url : null;
+}
+
+/**
+ * El archivo que se puede publicar de una evidencia, con la misma regla que
+ * urlPublicable. Lo usa el informe de cierre, que incrusta la foto en vez de
+ * enlazarla.
+ */
+export function objetoPublicable(evidencia: EvidenciaPublicable): string | null {
+  if (evidencia.archivoAnonimizadoUrl) return evidencia.archivoAnonimizadoUrl;
+  return evidencia.anonimizada ? evidencia.archivoUrl : null;
 }

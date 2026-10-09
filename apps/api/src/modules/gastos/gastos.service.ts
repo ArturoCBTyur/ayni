@@ -66,11 +66,22 @@ export class GastosService {
   async registrar(usuarioId: string, datos: RegistrarGasto, contexto: ContextoPeticion) {
     const fondo = await this.prisma.fondo.findUnique({
       where: { id: datos.fondoId },
-      include: { campana: { include: { ong: true } } },
+      include: { campana: { include: { ong: true } }, cierreCausa: true },
     });
     if (!fondo) throw new NotFoundException('No encontramos ese fondo.');
 
     await this.exigirMiembroDe(fondo.campana.ongId, usuarioId);
+
+    // D2 · Un fondo cerrado se sigue justificando, pero solo dentro del plazo:
+    // despues, lo retenido ya tiene dueño otra vez, y es el donante.
+    const cierre = fondo.cierreCausa;
+    if (cierre && (cierre.estado !== 'JUSTIFICANDO' || new Date() >= cierre.venceJustificacionEn)) {
+      throw new BadRequestException(
+        `El plazo para justificar este fondo vencio el ` +
+          `${cierre.venceJustificacionEn.toLocaleDateString('es-PE')}: lo retenido vuelve a ` +
+          'sus donantes o pasa a la causa que ellos elijan.',
+      );
+    }
 
     if (new Prisma.Decimal(datos.montoDeclarado).greaterThan(fondo.saldoRetenido)) {
       throw new BadRequestException(

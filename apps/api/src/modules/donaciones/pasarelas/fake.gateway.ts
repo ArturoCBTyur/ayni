@@ -75,6 +75,17 @@ export class FakeGateway implements PasarelaPago {
   }
 
   /**
+   * Reembolso simulado: aceptado al instante. Una pasarela real lo procesa
+   * en dias; por eso el cierre de causa guarda la referencia y la fecha del
+   * reembolso aparte del asiento, y reintenta los que no llegaron.
+   */
+  reembolsar(referenciaExterna: string, monto: number): Promise<{ referencia: string }> {
+    if (monto <= 0) return Promise.reject(new Error('Un reembolso necesita un monto positivo.'));
+    this.logger.log(`Reembolso simulado de S/ ${monto.toFixed(2)} sobre ${referenciaExterna}.`);
+    return Promise.resolve({ referencia: `rf_${randomUUID().replace(/-/g, '').slice(0, 20)}` });
+  }
+
+  /**
    * Comision con la forma de las pasarelas peruanas: un porcentaje del monto
    * mas un cargo fijo por transaccion. Se redondea a dos decimales porque el
    * libro trabaja en soles con centimos exactos.

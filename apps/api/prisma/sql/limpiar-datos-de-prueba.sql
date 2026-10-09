@@ -41,6 +41,7 @@ CREATE TEMP TABLE _usuarios_prueba ON COMMIT DROP AS
 -- El libro es de solo insercion por diseño; se abre solo para esta limpieza.
 ALTER TABLE movimientos_contables DISABLE TRIGGER tg_movimientos_no_delete;
 ALTER TABLE cierres_mensuales DISABLE TRIGGER tg_cierres_no_delete;
+ALTER TABLE informes_cierre DISABLE TRIGGER tg_informes_no_delete;
 
 -- De adentro hacia afuera, respetando las claves foraneas.
 DELETE FROM notificaciones     WHERE gasto_id IN (SELECT id FROM gastos WHERE fondo_id IN (SELECT id FROM _fondos_prueba))
@@ -55,6 +56,10 @@ DELETE FROM comprobantes       WHERE gasto_id IN (SELECT id FROM gastos WHERE fo
 DELETE FROM aplicaciones_donacion WHERE gasto_id IN (SELECT id FROM gastos WHERE fondo_id IN (SELECT id FROM _fondos_prueba));
 DELETE FROM trabajos_verificacion WHERE gasto_id IN (SELECT id FROM gastos WHERE fondo_id IN (SELECT id FROM _fondos_prueba));
 DELETE FROM cierres_mensuales     WHERE fondo_id IN (SELECT id FROM _fondos_prueba);
+DELETE FROM informes_cierre       WHERE fondo_id IN (SELECT id FROM _fondos_prueba);
+DELETE FROM remanentes_donacion   WHERE cierre_id IN (SELECT id FROM cierres_causa WHERE fondo_id IN (SELECT id FROM _fondos_prueba))
+                                     OR fondo_destino_id IN (SELECT id FROM _fondos_prueba);
+DELETE FROM cierres_causa         WHERE fondo_id IN (SELECT id FROM _fondos_prueba);
 DELETE FROM movimientos_contables WHERE fondo_id IN (SELECT id FROM _fondos_prueba);
 DELETE FROM gastos             WHERE fondo_id IN (SELECT id FROM _fondos_prueba);
 DELETE FROM pagos              WHERE donacion_id IN (SELECT id FROM donaciones WHERE fondo_id IN (SELECT id FROM _fondos_prueba));
@@ -81,6 +86,7 @@ DELETE FROM usuarios           WHERE id IN (SELECT id FROM _usuarios_prueba);
 
 ALTER TABLE movimientos_contables ENABLE TRIGGER tg_movimientos_no_delete;
 ALTER TABLE cierres_mensuales ENABLE TRIGGER tg_cierres_no_delete;
+ALTER TABLE informes_cierre ENABLE TRIGGER tg_informes_no_delete;
 
 -- Los saldos de los fondos que quedan se recalculan desde el libro, que
 -- sigue siendo la unica fuente de verdad, con la misma aritmetica que
@@ -97,7 +103,10 @@ UPDATE fondos f SET
 FROM (
   SELECT fondo_id,
          COALESCE(SUM(monto) FILTER (WHERE tipo = 'INGRESO'), 0)
-           - COALESCE(SUM(monto) FILTER (WHERE tipo = 'COMISION'), 0)       AS recaudado,
+           - COALESCE(SUM(monto) FILTER (WHERE tipo = 'COMISION'), 0)
+           + COALESCE(SUM(monto) FILTER (WHERE tipo = 'TRASLADO_ENTRADA'), 0)
+           - COALESCE(SUM(monto) FILTER (WHERE tipo IN ('DEVOLUCION', 'TRASLADO_SALIDA')), 0)
+                                                                            AS recaudado,
          COALESCE(SUM(monto) FILTER (WHERE tipo = 'RETENCION'), 0)
            - COALESCE(SUM(monto) FILTER (WHERE tipo = 'EJECUCION'), 0)
            + COALESCE(SUM(monto) FILTER (WHERE tipo = 'REVERSO'), 0)

@@ -10,7 +10,7 @@
  * base.
  *
  * Fuera de dist/ por tsconfig.build.json: limpiar() apaga los triggers que
- * impiden borrar movimientos del libro y cierres mensuales.
+ * impiden borrar movimientos del libro, cierres mensuales e informes de cierre.
  */
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
@@ -29,8 +29,8 @@ export interface EscenarioContable {
   operadorId: string;
   /** Cuentas creadas por el escenario, para que la suite agregue las suyas. */
   usuarios: string[];
-  /** Donacion confirmada con su pago y sus tres asientos. */
-  donar(monto: number, comision: number, en?: Date): Promise<string>;
+  /** Donacion confirmada con su pago y sus tres asientos; del donante del escenario u otro. */
+  donar(monto: number, comision: number, en?: Date, donanteId?: string): Promise<string>;
   /** Gasto aprobado por un analisis ALTO, aplicado FIFO y ejecutado. */
   gastoAprobado(monto: number, en?: Date): Promise<string>;
   /** Saca de lo retenido un monto hacia otro destino (REASIGNACION). */
@@ -153,14 +153,14 @@ export async function crearEscenarioContable(
     operadorId: operador.id,
     usuarios,
 
-    async donar(monto, comision, en) {
+    async donar(monto, comision, en, otroDonante) {
       const neto = new Prisma.Decimal(monto).minus(comision);
       contador += 1;
 
       return prisma.$transaction(async (tx) => {
         const donacion = await tx.donacion.create({
           data: {
-            donanteId,
+            donanteId: otroDonante ?? donanteId,
             fondoId: fondo.id,
             monto,
             montoNeto: neto,
@@ -268,6 +268,18 @@ export async function crearEscenarioContable(
       await prisma.aplicacionDonacion.deleteMany({ where: enElFondo });
       await prisma.trabajoVerificacion.deleteMany({ where: enElFondo });
 
+      // El cierre de causa: lo que llego a este fondo desde otro, y su propio cierre.
+      await prisma.remanenteDonacion.deleteMany({
+        where: { OR: [{ fondoDestinoId: fondo.id }, { cierre: { fondoId: fondo.id } }] },
+      });
+      await prisma.$executeRaw`ALTER TABLE informes_cierre DISABLE TRIGGER tg_informes_no_delete`;
+      try {
+        await prisma.$executeRaw`DELETE FROM informes_cierre WHERE fondo_id = ${fondo.id}::uuid`;
+      } finally {
+        await prisma.$executeRaw`ALTER TABLE informes_cierre ENABLE TRIGGER tg_informes_no_delete`;
+      }
+      await prisma.cierreCausa.deleteMany({ where: { fondoId: fondo.id } });
+
       await prisma.$executeRaw`ALTER TABLE cierres_mensuales DISABLE TRIGGER tg_cierres_no_delete`;
       try {
         await prisma.$executeRaw`DELETE FROM cierres_mensuales WHERE fondo_id = ${fondo.id}::uuid`;
@@ -289,7 +301,9 @@ export async function crearEscenarioContable(
       await prisma.campana.delete({ where: { id: campana.id } });
       await prisma.ongMiembro.deleteMany({ where: { ongId: ong.id } });
       await prisma.ong.delete({ where: { id: ong.id } });
-      await prisma.bitacoraAuditoria.deleteMany({ where: { usuarioId: { in: usuarios } } });
+      await prisma.bitacoraAuditoria.deleteMany({
+        where: { OR: [{ usuarioId: { in: usuarios } }, { entidadId: fondo.id }] },
+      });
       await prisma.donante.deleteMany({ where: { usuarioId: { in: usuarios } } });
       await prisma.usuarioRol.deleteMany({ where: { usuarioId: { in: usuarios } } });
       await prisma.usuario.deleteMany({ where: { id: { in: usuarios } } });

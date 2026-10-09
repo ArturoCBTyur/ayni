@@ -106,6 +106,7 @@ Cada uno se muestra en menos de un minuto:
 - **Auditor** → **Auditoría**, pestaña **Organizaciones**: el expediente completo de una ONG que pidió verificación, y la decisión con motivo. En la revisión de un gasto, el ícono de informe abre el **informe de auditoría de la ONG**, con la integridad del libro de cada fondo y su extracto en CSV.
 - **Operador u otro rol que no dona** → el botón «Donar» no aparece: la ficha de la causa se ve en modo consulta y lo dice.
 - **Cualquier miembro de la ONG** → **Fondos**, **Estados mensuales** en un fondo: cada mes con su estado de actividades y la situación del fondo, en Excel o PDF. El mes en curso dice que sus cifras todavía pueden cambiar; un mes cerrado lleva el hash de su cierre. El auditor lo abre desde el informe de la ONG, con el libro diario en cuentas del PCGE. Los datos de la demo son del mes en curso, así que el primer cierre aparece el día 1 del mes siguiente.
+- **Cierre de una causa** → la administradora cierra un fondo con dinero retenido y el fondo muestra hasta cuándo puede justificarlo. Para recorrer el ciclo sin esperar 90 días hay que adelantar el reloj, como hace `causas.spec.ts`; resuelto, el **informe de cierre** se descarga desde Fondos y su QR abre la verificación pública, que recalcula el hash y la cadena en el momento.
 
 ## Si sobra tiempo: intentar romperlo
 

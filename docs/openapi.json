@@ -1684,6 +1684,132 @@
           "encuestas"
         ]
       }
+    },
+    "/api/v1/remanentes": {
+      "get": {
+        "operationId": "CausasController_misSaldos",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-11 · Mis saldos de causas cerradas, por elegir y resueltos",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/remanentes/{id}/destinos": {
+      "get": {
+        "operationId": "CausasController_destinos",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-11 · Fondos que pueden recibir mi saldo",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/remanentes/{id}/eleccion": {
+      "post": {
+        "operationId": "CausasController_elegir",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-11 · Elegir devolucion o traslado de mi saldo",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/cierres-causa/avanzar": {
+      "post": {
+        "operationId": "CausasController_avanzar",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-11 · Forzar el paso diario de los cierres de causa",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/publico/informes/{id}": {
+      "get": {
+        "operationId": "PublicoController_verificar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-IN-05 · Verificar un informe de cierre (HTML, o formato=json)",
+        "tags": [
+          "publico"
+        ]
+      }
+    },
+    "/api/v1/publico/informes/{id}/pdf": {
+      "get": {
+        "operationId": "PublicoController_pdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-12 · El informe de cierre en PDF, con su QR",
+        "tags": [
+          "publico"
+        ]
+      }
     }
   },
   "info": {

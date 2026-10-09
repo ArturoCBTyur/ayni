@@ -98,6 +98,7 @@ CIFRADO_CLAVE=<generada aparte, 32 bytes>
 ENCUESTAS_CLAVE=<generada aparte>
 CORS_ORIGENES=https://<tu-dominio-web>
 PASARELA_WEBHOOK_URL=https://<tu-api>.onrender.com/api/v1/webhooks/pasarela
+API_URL_PUBLICA=https://<tu-api>.onrender.com
 STORAGE_DRIVER=disco
 STORAGE_DIR=/app/storage
 PASARELA_DRIVER=fake
@@ -105,6 +106,8 @@ CPE_DRIVER=fake
 VERIFICACION_DRIVER=reglas-v0
 TOTP_EMISOR=Ayni
 ```
+
+`API_URL_PUBLICA` es la dirección con que la API se nombra a sí misma hacia afuera: la usan AIni para descargar comprobantes y el **QR del informe de cierre de una causa**, que lleva a la verificación pública. Si queda en el valor por defecto (`127.0.0.1`), el QR impreso no abre nada fuera del servidor.
 
 Tres avisos que evitan errores caros:
 

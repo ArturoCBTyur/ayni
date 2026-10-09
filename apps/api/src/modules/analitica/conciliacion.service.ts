@@ -113,6 +113,18 @@ export class ConciliacionService {
       encontrado: totales.comisionesLibro,
     });
 
+    // 2b. D2 · Lo que sale trasladado de un fondo al cerrar su causa tiene
+    //     que entrar en otro. Un traslado a medias deja dinero fuera de los dos.
+    this.compararImportes(descuadres, {
+      comprobacion: 'traslados_salida_vs_entrada',
+      severidad: 'CRITICO',
+      descripcion:
+        'Los remanentes trasladados que salieron de sus fondos no coinciden con los que ' +
+        'entraron a los fondos de destino.',
+      esperado: totales.trasladosSalida,
+      encontrado: totales.trasladosEntrada,
+    });
+
     // 3. Los saldos de los fondos son una proyeccion del libro: si difieren,
     //    alguien los escribio por fuera del trigger.
     await this.compararSaldosDeFondos(descuadres);
@@ -180,6 +192,8 @@ export class ConciliacionService {
       retenido: soles(libro.conRestriccion),
       ejecutado: soles(libro.liberados),
       aplicado: soles(aplicaciones._sum.monto ?? 0),
+      trasladosSalida: soles(libro.trasladado),
+      trasladosEntrada: soles(libro.recibidoPorTraslado),
     };
   }
 

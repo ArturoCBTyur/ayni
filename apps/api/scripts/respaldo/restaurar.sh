@@ -131,6 +131,22 @@ case "$cierres" in
   *) mal "solo $cierres de 3 triggers de los cierres mensuales estan activos" ;;
 esac
 
+# 3c. Los de los informes de cierre de causa, si el respaldo los trae.
+informes="$(psql "$URL" -XAtq <<'SQL'
+SELECT CASE WHEN to_regclass('informes_cierre') IS NULL THEN 'sin tabla'
+       ELSE (SELECT count(*)::text FROM pg_trigger
+              WHERE tgrelid = to_regclass('informes_cierre')
+                AND tgname IN ('tg_informes_no_update', 'tg_informes_no_delete')
+                AND tgenabled = 'O')
+       END;
+SQL
+)"
+case "$informes" in
+  'sin tabla') ok "el respaldo es anterior a los informes de cierre" ;;
+  2) ok "los informes de cierre siguen siendo de solo insercion (2 triggers activos)" ;;
+  *) mal "solo $informes de 2 triggers de los informes de cierre estan activos" ;;
+esac
+
 # 4. Cada cadena, recalculada por la propia base.
 read -r fondos rotas movimientos < <(psql "$URL" -XAtF ' ' <<'SQL'
 SELECT count(*), count(*) FILTER (WHERE v.rota), COALESCE(sum(v.movimientos), 0)

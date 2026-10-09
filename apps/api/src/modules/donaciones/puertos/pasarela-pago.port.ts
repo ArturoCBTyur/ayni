@@ -68,6 +68,12 @@ export interface PasarelaPago {
 
   /** Cancela una suscripcion recurrente en la pasarela. */
   cancelarSuscripcion(referenciaExterna: string): Promise<void>;
+
+  /**
+   * D2 · Devuelve al pagador parte de un cobro aprobado: el remanente de su
+   * donacion cuando la causa cierra. Devuelve la referencia del reembolso.
+   */
+  reembolsar(referenciaExterna: string, monto: number): Promise<{ referencia: string }>;
 }
 
 export const PASARELA_PAGO = Symbol('PASARELA_PAGO');

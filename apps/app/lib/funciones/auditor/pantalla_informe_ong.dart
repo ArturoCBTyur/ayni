@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../comun/descarga.dart';
 import '../../comun/estados_mensuales.dart';
+import '../donante/saldos_cierre.dart';
 import '../../comun/widgets.dart';
 import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
@@ -131,6 +132,13 @@ class _Informe extends ConsumerWidget {
                       : Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            if ((f['cierreCausa'] as Map<String, dynamic>?)?['informeId']
+                                case final String informeId)
+                              IconButton(
+                                tooltip: 'Informe de cierre de la causa (PDF)',
+                                icon: const Icon(Icons.picture_as_pdf_outlined),
+                                onPressed: () => descargarInformeCierre(context, ref, informeId),
+                              ),
                             IconButton(
                               tooltip: 'Estados mensuales del fondo',
                               icon: const Icon(Icons.calendar_month_outlined),

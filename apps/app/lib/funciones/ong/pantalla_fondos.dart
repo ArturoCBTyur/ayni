@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../comun/estados_mensuales.dart';
 import '../../comun/widgets.dart';
+import '../donante/saldos_cierre.dart';
 import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
 import '../../nucleo/tema.dart';
@@ -38,7 +39,9 @@ final avisosCierreProvider = FutureProvider.autoDispose<List<Map<String, dynamic
   final noLeidas = await ref
       .read(clienteApiProvider)
       .obtenerLista('/notificaciones', consulta: {'noLeidas': 'true'});
-  return noLeidas.where((n) => n['tipo'] == 'CIERRE_MENSUAL').toList();
+  return noLeidas
+      .where((n) => n['tipo'] == 'CIERRE_MENSUAL' || n['tipo'] == 'CIERRE_CAUSA')
+      .toList();
 });
 
 /// CU12 · Estado de fondos: recaudado, retenido y ejecutado.
@@ -313,6 +316,8 @@ class _FilaFondo extends StatelessWidget {
                 _Saldo('Meta', fondo['meta'] as String?),
               ],
             ),
+            if (fondo['cierreCausa'] != null)
+              _EstadoCierre(cierre: fondo['cierreCausa'] as Map<String, dynamic>),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
@@ -327,6 +332,57 @@ class _FilaFondo extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// RF-CF-11 · En que va el cierre de un fondo cerrado: hasta cuando justificar,
+/// si espera a los donantes, o su informe.
+class _EstadoCierre extends ConsumerWidget {
+  const _EstadoCierre({required this.cierre});
+
+  final Map<String, dynamic> cierre;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tema = Theme.of(context);
+    final informeId = cierre['informeId'] as String?;
+    final observacion = cierre['observacion'] as String?;
+    final texto = switch (cierre['estado']) {
+      'JUSTIFICANDO' => 'Causa cerrada. Puede justificar lo retenido con gastos hasta el '
+          '${Formato.fecha(Formato.aFecha(cierre['venceJustificacionEn']))}; después, vuelve a '
+          'sus donantes o pasa a la causa que ellos elijan.',
+      'ELIGIENDO' => 'Los donantes están eligiendo el destino de '
+          '${Formato.soles(cierre['remanenteTotal'] as String?)} sin usar, hasta el '
+          '${Formato.fecha(Formato.aFecha(cierre['venceEleccionEn']))}.',
+      _ => 'Causa cerrada y resuelta.',
+    };
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: TemaApp.nivelMedio.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(texto, style: tema.textTheme.bodySmall),
+          if (observacion != null)
+            Text(
+              observacion,
+              style: tema.textTheme.bodySmall?.copyWith(color: TemaApp.nivelBajo),
+            ),
+          if (informeId != null)
+            TextButton.icon(
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              label: const Text('Informe de cierre (PDF)'),
+              onPressed: () => descargarInformeCierre(context, ref, informeId),
+            ),
+        ],
       ),
     );
   }

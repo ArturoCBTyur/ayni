@@ -32,7 +32,7 @@ import type { CargaAcceso } from '../identidad/servicios/tokens.service';
  * armo: si el formato cambia, los cierres viejos se siguen leyendo con la
  * suya y no se recalculan con otra.
  */
-export const VERSION_ESTADO = 1;
+export const VERSION_ESTADO = 2;
 
 export interface ReferenciaCierre {
   periodo: string;
@@ -68,6 +68,10 @@ export interface EstadoMensual {
     revertido: string;
     liberadoNeto: string;
     reasignado: string;
+    /** D2 · Remanentes del cierre de la causa: devueltos, trasladados y recibidos. */
+    devuelto: string;
+    trasladado: string;
+    recibidoPorTraslado: string;
     ejecutadoPorCategoria: Array<{
       categoria: string;
       gastos: number;
@@ -86,6 +90,9 @@ export interface EstadoMensual {
     conRestriccion: string;
     liberados: string;
     reasignadoPendiente: string;
+    devuelto: string;
+    trasladado: string;
+    recibidoPorTraslado: string;
     particionCuadra: boolean;
   };
   /** Saldos acumulados en cuentas del PCGE (propuesta de D1). */
@@ -357,6 +364,9 @@ export class EstadosService {
         revertido: soles(delMes.REVERSO),
         liberadoNeto: soles(delMes.EJECUCION.minus(delMes.REVERSO)),
         reasignado: soles(delMes.REASIGNACION),
+        devuelto: soles(delMes.DEVOLUCION),
+        trasladado: soles(delMes.TRASLADO_SALIDA),
+        recibidoPorTraslado: soles(delMes.TRASLADO_ENTRADA),
         ejecutadoPorCategoria: categorias,
       },
       retenido: {
@@ -371,6 +381,9 @@ export class EstadosService {
         conRestriccion: soles(final.conRestriccion),
         liberados: soles(final.liberados),
         reasignadoPendiente: soles(final.reasignadoPendiente),
+        devuelto: soles(final.devuelto),
+        trasladado: soles(final.trasladado),
+        recibidoPorTraslado: soles(final.recibidoPorTraslado),
         particionCuadra: clasificacionCuadra(final),
       },
       balanceComprobacion: balanceComprobacion(alFinal),

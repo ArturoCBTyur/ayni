@@ -8,6 +8,7 @@ import '../../nucleo/navegacion.dart';
 import '../../nucleo/sesion.dart';
 import '../../nucleo/tema.dart';
 import '../donante/pantalla_campana.dart';
+import '../donante/saldos_cierre.dart';
 import '../encuestas/pantalla_encuesta.dart';
 import '../ong/pantalla_equipo.dart';
 import '../ong/pantalla_fondos.dart';
@@ -69,6 +70,7 @@ class PantallaInicio extends ConsumerWidget {
           onRefresh: () async {
             ref.invalidate(panelProvider);
             ref.invalidate(encuestasPendientesProvider);
+            ref.invalidate(saldosCierreProvider);
           },
           child: Contenido(
             child: ListView(
@@ -250,6 +252,8 @@ class _SeccionDonante extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _Titulo(icono: Icons.favorite_outline, texto: 'Sus aportes'),
+        // RF-CF-11: si una causa que apoyo cerro, lo que tiene que decidir va primero.
+        const SaldosDeCausasCerradas(),
         if (aportes == 0)
           const _Aviso(
             texto: 'Todavía no ha donado. Cada aporte queda retenido hasta que la organización '

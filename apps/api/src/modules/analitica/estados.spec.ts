@@ -144,6 +144,7 @@ describe('RF-CF-07 · Estado de actividades del mes', () => {
       const { actividades: a, retenido: r } = (await estados.consultar(e.fondoId, codigo, admin))
         .estado;
       const esperada = new Prisma.Decimal(a.donacionesNetas)
+        .plus(a.recibidoPorTraslado)
         .minus(a.liberadoNeto)
         .minus(a.reasignado);
       expect(new Prisma.Decimal(r.variacion).equals(esperada)).toBe(true);

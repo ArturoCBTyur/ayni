@@ -284,7 +284,10 @@ export class ExportacionService {
       }),
       this.prisma.fondo.findMany({
         where: { campana: { ongId } },
-        include: { campana: true },
+        include: {
+          campana: true,
+          cierreCausa: { include: { informe: { select: { id: true } } } },
+        },
       }),
     ]);
 
@@ -316,6 +319,10 @@ export class ExportacionService {
         // externo querria confirmar antes de mirar cualquier cifra.
         cadenaIntegra: !cadenas[i].rota,
         movimientos: cadenas[i].movimientos,
+        // D2 · Estado del cierre de la causa y su informe, si lo hay.
+        cierreCausa: f.cierreCausa
+          ? { estado: f.cierreCausa.estado, informeId: f.cierreCausa.informe?.id ?? null }
+          : null,
       })),
       gastos: gastos.map((g) => ({
         estado: g.estado,

@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Eta } from 'eta';
 
+import { PLANTILLAS_CIERRE, type ContextoCierre, type PlantillaCierre } from './plantillas-cierre';
+
 /**
  * Datos con los que se puede redactar una narrativa.
  *
@@ -181,6 +183,22 @@ export class NarrativaService {
   }
 
   /**
+   * RF-CO-03 · Redacta un aviso de cierre de causa, con el mismo contexto
+   * estricto que una narrativa de impacto.
+   */
+  redactarCierre(
+    codigo: PlantillaCierre['codigo'],
+    contexto: ContextoCierre,
+  ): { asunto: string; cuerpo: string; plantilla: string } {
+    const plantilla = PLANTILLAS_CIERRE.find((p) => p.codigo === codigo)!;
+    return {
+      asunto: plantilla.asunto,
+      cuerpo: this.eta.renderString(plantilla.cuerpo, this.contextoEstricto(contexto)).trim(),
+      plantilla: `${plantilla.codigo}@${plantilla.version}`,
+    };
+  }
+
+  /**
    * Decide si un borrador de AIni puede llegar al donante (RNF-21, RF-CO-02).
    *
    * El backend no confia en el texto que le devuelve otro proceso, por
@@ -259,8 +277,9 @@ export class NarrativaService {
    *   "desgarradora", que es precisamente la forma que aparece en "historia
    *   desgarradora". Se admite el sufijo flexivo.
    */
-  static revisarLenguaje(plantilla: PlantillaNarrativa): string[] {
-    return palabrasProhibidas(`${plantilla.asunto} ${plantilla.cuerpo} ${plantilla.verificacion}`);
+  static revisarLenguaje(plantilla: PlantillaNarrativa | PlantillaCierre): string[] {
+    const verificacion = 'verificacion' in plantilla ? plantilla.verificacion : '';
+    return palabrasProhibidas(`${plantilla.asunto} ${plantilla.cuerpo} ${verificacion}`);
   }
 
   /** Campos que una plantilla puede referenciar. */

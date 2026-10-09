@@ -13,6 +13,9 @@ export function sumasVacias(): SumasPorTipo {
     EJECUCION: CERO,
     REVERSO: CERO,
     REASIGNACION: CERO,
+    DEVOLUCION: CERO,
+    TRASLADO_SALIDA: CERO,
+    TRASLADO_ENTRADA: CERO,
   };
 }
 
@@ -44,9 +47,16 @@ export interface SaldosClasificados {
   liberados: Prisma.Decimal;
   /** Salio de lo retenido para otro destino y todavia no llego a el. */
   reasignadoPendiente: Prisma.Decimal;
+  /** D2 · Remanente devuelto a sus donantes al cerrar la causa. */
+  devuelto: Prisma.Decimal;
+  /** D2 · Remanente que salio hacia otro fondo elegido por su donante. */
+  trasladado: Prisma.Decimal;
+  /** D2 · Lo que llego desde el cierre de otra causa (TRASLADO_ENTRADA). */
+  recibidoPorTraslado: Prisma.Decimal;
   /**
-   * Lo recibido neto de comisiones. NO es lo que hay en custodia: el libro
-   * no registra la salida del dinero hacia la ONG (hallazgo 3 de D1).
+   * Lo recibido neto de comisiones y de lo que salio por cierre. NO es lo
+   * que hay en custodia: el libro no registra la salida del dinero hacia la
+   * ONG (hallazgo 3 de D1).
    */
   efectivoRecibidoNeto: Prisma.Decimal;
 }
@@ -64,22 +74,31 @@ export function clasificarSaldos(s: SumasPorTipo): SaldosClasificados {
     comisiones: s.COMISION,
     conRestriccion: s.RETENCION.minus(s.EJECUCION).plus(s.REVERSO).minus(s.REASIGNACION),
     liberados: s.EJECUCION.minus(s.REVERSO),
-    reasignadoPendiente: s.REASIGNACION,
-    efectivoRecibidoNeto: s.INGRESO.minus(s.COMISION),
+    reasignadoPendiente: s.REASIGNACION.minus(s.DEVOLUCION).minus(s.TRASLADO_SALIDA),
+    devuelto: s.DEVOLUCION,
+    trasladado: s.TRASLADO_SALIDA,
+    recibidoPorTraslado: s.TRASLADO_ENTRADA,
+    efectivoRecibidoNeto: s.INGRESO.minus(s.COMISION)
+      .plus(s.TRASLADO_ENTRADA)
+      .minus(s.DEVOLUCION)
+      .minus(s.TRASLADO_SALIDA),
   };
 }
 
 /**
  * Lo que la clasificacion tiene que cumplir para ser una particion.
  *
- * Todo sol que entro esta en exactamente un lugar: se lo quedo la pasarela,
- * sigue retenido, se libero o salio hacia otro destino. Si la suma no da el
- * bruto, el libro tiene un asiento que la clasificacion no sabe leer.
+ * Todo sol que entro (del donante o trasladado desde otra causa) esta en
+ * exactamente un lugar: se lo quedo la pasarela, sigue retenido, se libero,
+ * va hacia otro destino, se devolvio o se traslado. Si la suma no da lo que
+ * entro, el libro tiene un asiento que la clasificacion no sabe leer.
  */
 export function clasificacionCuadra(c: SaldosClasificados): boolean {
   return c.comisiones
     .plus(c.conRestriccion)
     .plus(c.liberados)
     .plus(c.reasignadoPendiente)
-    .equals(c.recaudadoBruto);
+    .plus(c.devuelto)
+    .plus(c.trasladado)
+    .equals(c.recaudadoBruto.plus(c.recibidoPorTraslado));
 }

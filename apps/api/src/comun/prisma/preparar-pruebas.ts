@@ -15,12 +15,14 @@
  */
 import { PrismaClient } from '@prisma/client';
 
-/** Tabla y trigger. Los cierres mensuales se borran igual que el libro al limpiar. */
+/** Tabla y trigger. Cierres e informes se borran igual que el libro al limpiar. */
 const TRIGGERS_INMUTABILIDAD: Array<[string, string]> = [
   ['movimientos_contables', 'tg_movimientos_no_update'],
   ['movimientos_contables', 'tg_movimientos_no_delete'],
   ['cierres_mensuales', 'tg_cierres_no_update'],
   ['cierres_mensuales', 'tg_cierres_no_delete'],
+  ['informes_cierre', 'tg_informes_no_update'],
+  ['informes_cierre', 'tg_informes_no_delete'],
 ];
 
 /**
