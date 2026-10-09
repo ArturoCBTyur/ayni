@@ -28,6 +28,7 @@ from aini.contrato import (  # noqa: E402
     MotivoAnalisis,
     ReglaUmbrales,
 )
+from pruebas import documentos  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -174,6 +175,13 @@ class TestSinVerificarContraElPapel:
         r = motor.analizar(entrada(), detector)
         assert r.nivel == "ALTO"
         assert not any(m.regla == "ocr.sin_cotejo" for m in r.explicacion.motivos)
+
+    def test_con_el_comprobante_en_pdf_si_se_aprueba(self, detector, monkeypatch):
+        """El PDF que llega por correo se lee y se coteja como una foto."""
+        monkeypatch.setattr(ocr, "descargar", lambda url: documentos.pdf())
+        r = motor.analizar(entrada(), detector)
+        assert r.nivel == "ALTO"
+        assert any(m.regla == "ocr.total_coincide" for m in r.explicacion.motivos)
 
     def test_no_sube_a_nadie(self, detector):
         """Solo baja ALTO a MEDIO: un gasto BAJO sigue BAJO."""
