@@ -234,6 +234,37 @@ class TestTildes:
         assert documental._sin_tilde("Campaña de Esterilización") == "Campaña de Esterilizacion"
 
 
+class TestTerminosDelDominio:
+    """Marcas y terminos que el modelo no conoce, llevados a uno que si."""
+
+    @pytest.mark.parametrize(
+        "texto,esperado",
+        [
+            ("Bravecto para 6 perros", "antiparasitario para 6 perros"),
+            ("DOG  CHOW adulto", "alimento adulto"),
+            ("ovariohisterectomía de perras", "esterilizacion de perras"),
+            ("Ovariohisterectomia de perras", "esterilizacion de perras"),
+        ],
+    )
+    def test_se_traducen_con_tilde_mayusculas_y_espacios(self, texto, esperado):
+        assert documental._con_terminos_del_dominio(texto) == esperado
+
+    def test_solo_terminos_completos(self):
+        """"chow chow" es una raza, no la marca: solo "dog chow" y "cat chow"."""
+        assert documental._con_terminos_del_dominio("chow chow") == "chow chow"
+
+    def test_una_marca_de_alimento_corresponde_a_alimentos(self):
+        """Sin el diccionario, "mimaskot" no tenia vector y el concepto quedaba
+        con "sacos" y "adulto" como unicas palabras."""
+        sim = documental.coherencia_concepto_categoria("3 sacos de mimaskot adulto", "ALIMENTOS")
+        assert sim >= documental.UMBRAL_COHERENCIA
+
+    def test_todos_los_destinos_tienen_vector(self):
+        """Un destino sin vector haria desaparecer el termino en vez de traducirlo."""
+        for destino in set(documental.TERMINOS_DEL_DOMINIO.values()):
+            assert documental._vector(destino) is not None, destino
+
+
 class TestSeñalDocumental:
     def test_ruc_con_digito_verificador_equivocado(self, detector):
         r = motor.analizar(entrada(comprobante={"rucEmisor": "20553456575"}), detector)

@@ -1,5 +1,5 @@
 {
-  "generadaEn": "2026-10-09T04:36:15+00:00",
+  "generadaEn": "2026-10-09T04:43:49+00:00",
   "identidad": {
     "versionMotor": "aini-0.1-sklearn",
     "modeloAnomaliaSha256": "e5d956552202",
@@ -28,29 +28,29 @@
       "noMediblesPorCategoria": {
         "OTROS": 20
       },
-      "rechazaCorrectos": 0.3702,
-      "advierteCorrectos": 0.3536,
+      "rechazaCorrectos": 0.2928,
+      "advierteCorrectos": 0.4199,
       "rechazaCorrectosPorOrigen": {
-        "control-diccionario": 0.8571,
+        "control-diccionario": 0.381,
         "documental": 0.0,
         "ejemplos": 0.0,
         "probar": 0.0,
         "probar.limites": 0.125,
-        "redactado": 0.3357,
+        "redactado": 0.3077,
         "seed-demo": 0.0
       },
       "aceptaEquivocados": 0.1129,
-      "pasaSinAdvertirEquivocados": 0.0244,
-      "aciertaCategoriaTop1": 0.6796,
+      "pasaSinAdvertirEquivocados": 0.0211,
+      "aciertaCategoriaTop1": 0.7624,
       "similitud": {
-        "propiosMediana": 0.544,
-        "propiosP5": 0.273,
-        "ajenosMediana": 0.372,
+        "propiosMediana": 0.552,
+        "propiosP5": 0.344,
+        "ajenosMediana": 0.383,
         "ajenosP95": 0.555
       },
       "paresAjenosMedidos": 1187,
       "paresAjenosNoMedibles": 0,
-      "palabrasSinVectorDistintas": 23,
+      "palabrasSinVectorDistintas": 2,
       "categorias": {
         "delBackendSinDescripcion": [
           "OTROS"

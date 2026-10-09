@@ -163,6 +163,95 @@ def _vector(palabra: str) -> np.ndarray | None:
     return promedio / float(np.linalg.norm(promedio))
 
 
+#: Terminos del dominio que `es_core_news_md` no conoce en ninguna forma, o que
+#: conoce con otro sentido ("revolution" y "advocate" son palabras inglesas;
+#: "pro plan" se partiria en "pro" y "plan"), llevados a una palabra que si
+#: conoce y que esta en la descripcion de su categoria.
+#:
+#: Las claves van sin tilde y en minusculas; se reconocen con tilde o sin ella.
+#: Salen de terminos que una ONG veterinaria usa a diario, no de los conceptos
+#: del banco de evaluacion: el banco tiene 21 conceptos de control escritos
+#: antes de este diccionario, para medirlo sobre casos que no lo motivaron.
+#:
+#: Un termino nuevo se agrega aqui cuando `python -m evaluacion --detalle` lo
+#: lista entre las palabras sin vector y se sabe que significa.
+TERMINOS_DEL_DOMINIO: dict[str, str] = {
+    # Antiparasitarios: genericos y marcas.
+    "garrapaticida": "antiparasitario",
+    "pulguicida": "antiparasitario",
+    "endoparasiticida": "antiparasitario",
+    "ectoparasiticida": "antiparasitario",
+    "nexgard": "antiparasitario",
+    "bravecto": "antiparasitario",
+    "simparica": "antiparasitario",
+    "frontline": "antiparasitario",
+    "revolution": "antiparasitario",
+    "advocate": "antiparasitario",
+    "milbemax": "antiparasitario",
+    "drontal": "antiparasitario",
+    # Otros medicamentos y vacunas.
+    "enrofloxacino": "antibiotico",
+    "carprofeno": "antiinflamatorio",
+    "tolfedine": "antiinflamatorio",
+    "xilacina": "sedante",
+    "canigen": "vacuna",
+    "nobivac": "vacuna",
+    # Marcas de alimento.
+    "whiskas": "alimento",
+    "ricocan": "alimento",
+    "mimaskot": "alimento",
+    "supercan": "alimento",
+    "nutrapet": "alimento",
+    "dog chow": "alimento",
+    "cat chow": "alimento",
+    "pro plan": "alimento",
+    "royal canin": "alimento",
+    # Procedimientos y diagnosticos.
+    "ovariohisterectomia": "esterilizacion",
+    "ovh": "esterilizacion",
+    "otohematoma": "hematoma",
+    "demodicosis": "sarna",
+    "venoclisis": "suero",
+    # Regionalismos.
+    "gasfitero": "fontanero",
+    "gatario": "albergue",
+}
+
+#: Para cada vocal, la clase que acepta la misma vocal con tilde.
+_VOCAL_O_TILDE = {v: f"[{v}{t}]" for v, t in _CON_TILDE.items()}
+
+
+def _patron_termino(termino: str) -> str:
+    """Patron que reconoce el termino con tilde o sin ella, y con un espacio
+    cualquiera entre sus palabras."""
+    partes = []
+    for c in termino:
+        if c == " ":
+            partes.append(r"\s+")
+        else:
+            partes.append(_VOCAL_O_TILDE.get(c, re.escape(c)))
+    return "".join(partes)
+
+
+#: Los terminos de varias palabras primero, para que "dog chow" gane a "chow".
+_TERMINOS = re.compile(
+    r"\b("
+    + "|".join(
+        _patron_termino(t) for t in sorted(TERMINOS_DEL_DOMINIO, key=len, reverse=True)
+    )
+    + r")\b"
+)
+
+
+def _con_terminos_del_dominio(texto: str) -> str:
+    """El texto en minusculas, con cada termino del dominio cambiado por la
+    palabra conocida que le corresponde."""
+    return _TERMINOS.sub(
+        lambda m: TERMINOS_DEL_DOMINIO[_sin_tilde(" ".join(m.group(0).split()))],
+        texto.lower(),
+    )
+
+
 def _palabras_con_carga(texto: str) -> list[np.ndarray]:
     """Vectores de los sustantivos, verbos, adjetivos y nombres propios.
 
@@ -174,7 +263,7 @@ def _palabras_con_carga(texto: str) -> list[np.ndarray]:
     """
     vectores = (
         _vector(token.text)
-        for token in nlp()(texto.lower())
+        for token in nlp()(_con_terminos_del_dominio(texto))
         if token.pos_ in ("NOUN", "VERB", "ADJ", "PROPN") and not token.is_stop
     )
     return [v for v in vectores if v is not None]
@@ -223,15 +312,20 @@ def _similitud(concepto: list[np.ndarray], categoria: list[np.ndarray]) -> float
 # escritas sin ella, y "desparasitacion de ocho perros rescatados" se
 # rechazaba (0.418). Con tilde o sin ella, hoy corresponde (0.627).
 #
-# Lo que si sigue faltando es vocabulario del dominio. `es_core_news_md` es un
-# modelo de proposito general entrenado sobre texto periodistico, y no conoce,
-# en ninguna forma, "garrapaticida", "venoclisis", "ovariohisterectomia",
-# "gatario" ni las marcas de alimento y medicamentos (`python -m evaluacion
-# --detalle` las lista). Cuando la palabra que define el gasto es una de esas,
-# quedan solo las genericas. Se arregla con vectores del dominio o con un
-# diccionario de terminos que lleve cada una a una palabra que el modelo si
-# conozca; ampliar las descripciones es mas barato pero esta medido que las
-# descripciones largas empeoran la separacion.
+# El vocabulario del dominio que el modelo no conoce lo cubre
+# TERMINOS_DEL_DOMINIO. Con el, de las palabras de contenido del banco solo
+# quedan sin vector nombres de lugar ("pillco", "huallaga"), que no dicen nada
+# de la categoria. Cuando aparezca un termino nuevo, `python -m evaluacion
+# --detalle` lo lista.
+#
+# Lo que el diccionario deja al descubierto, medido: el termino se traduce bien
+# pero el promedio de las MEJORES_COINCIDENCIAS lo diluye con palabras que
+# estan en conceptos de todas las categorias. "bravecto para 6 perros del
+# albergue" queda en 0.468 aunque "antiparasitario" calza 1.0 con su
+# categoria, porque "perros" (0.25) y "albergue" (0.15) entran en el promedio.
+# El arreglo no es el diccionario sino como se combinan las palabras: pesar
+# menos las que no distinguen categorias, o decidir comparando contra las demas
+# categorias en vez de contra un umbral fijo.
 
 def coherencia_concepto_categoria(concepto: str, categoria: str) -> float | None:
     """Similitud coseno entre el concepto y la descripcion de su categoria.

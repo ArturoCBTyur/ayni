@@ -86,7 +86,7 @@ def _palabras_sin_vector(texto: str) -> list[str]:
     """
     return [
         token.text
-        for token in documental.nlp()(texto.lower())
+        for token in documental.nlp()(documental._con_terminos_del_dominio(texto))
         if token.pos_ in ("NOUN", "VERB", "ADJ", "PROPN")
         and not token.is_stop
         and not token.is_digit
