@@ -380,7 +380,7 @@ BOLETAS_DEMO: list[tuple[str, str, float, str]] = [
     # (archivo, numero, total impreso, para que sirve)
     ("1-boleta-de-78.jpg", "006101", 78.00, "declare S/ 78.00 y el lector confirma los cuatro campos"),
     ("2-boleta-de-78-pero-declare-140.jpg", "006102", 78.00, "declare S/ 140.00 y el lector lo detecta"),
-    ("3-boleta-ilegible.jpg", "006103", 78.00, "sin texto legible: el lector lo declara y NO penaliza"),
+    ("3-boleta-ilegible.jpg", "006103", 78.00, "ilegible: no resta puntos, pero va a revision"),
 ]
 
 

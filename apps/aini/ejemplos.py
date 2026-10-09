@@ -172,8 +172,9 @@ def casos(juego: str) -> list[Caso]:
             Caso(
                 "3-boleta-ilegible.jpg", SAN_ROQUE, n(3), 30.00, "Atencion veterinaria",
                 VETERINARIA, "cirugia veterinaria de un perro atropellado",
-                "El lector dice que no pudo leer y NO penaliza.",
-                escribe_libro=True,
+                "MEDIO. El lector no pudo leer: NO resta puntos, pero sin verificar el papel "
+                "no se aprueba solo y pasa a revision.",
+                escribe_libro=False,
             ),
         ] + lista
     return lista

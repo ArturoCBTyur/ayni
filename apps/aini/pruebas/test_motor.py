@@ -18,7 +18,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from aini import anomalia, documental, motor, narrativa  # noqa: E402
+from aini import anomalia, documental, motor, narrativa, ocr  # noqa: E402
 from aini.contrato import (  # noqa: E402
     Comprobante,
     Contexto,
@@ -33,6 +33,28 @@ from aini.contrato import (  # noqa: E402
 @pytest.fixture(scope="session")
 def detector() -> anomalia.DetectorAnomalias:
     return anomalia.DetectorAnomalias.cargar()
+
+
+@pytest.fixture
+def papel_coincide(monkeypatch):
+    """El lector leyo el comprobante y dice lo mismo que lo declarado.
+
+    Sin esto, `entrada()` apunta a un archivo que no se puede descargar y el
+    lector no lee nada: un gasto asi ya no sale ALTO, porque nadie verifico el
+    papel.
+    """
+    leido = ocr.CamposLeidos(
+        ruc_emisor="20601030579",
+        serie="B001",
+        numero="004521",
+        fecha_emision=date(2026, 9, 14),
+        subtotal=100.0,
+        igv=18.0,
+        total=118.0,
+        texto="(simulado)",
+        confianza=0.95,
+    )
+    monkeypatch.setattr(ocr, "leer_desde", lambda url: leido)
 
 
 def entrada(**cambios) -> EntradaAnalisis:
@@ -115,8 +137,53 @@ def falla(resultado, regla: str) -> bool:
 # --------------------------------------------------------------------------
 
 
+class TestSinVerificarContraElPapel:
+    """ALTO aprueba sin que lo mire nadie: exige haber leido el comprobante."""
+
+    def test_sin_lectura_no_se_aprueba_solo(self, detector):
+        r = motor.analizar(entrada(), detector)
+        assert r.nivel == "MEDIO"
+        assert any(m.regla == "ocr.sin_cotejo" for m in r.explicacion.motivos)
+        assert r.explicacion.resumen == motor.SIN_COTEJO
+
+    def test_no_leer_sigue_sin_restar_puntos(self, detector, monkeypatch):
+        """Una foto mala no dice que el gasto este mal: cambia quien decide, no
+        el puntaje. El mismo gasto, con y sin el papel leido, puntua igual."""
+        sin_leer = motor.analizar(entrada(), detector)
+
+        leido = ocr.CamposLeidos(ruc_emisor="20601030579", total=118.0, confianza=0.95)
+        monkeypatch.setattr(ocr, "leer_desde", lambda url: leido)
+        con_papel = motor.analizar(entrada(), detector)
+
+        assert sin_leer.score_final == con_papel.score_final
+        assert (sin_leer.nivel, con_papel.nivel) == ("MEDIO", "ALTO")
+        motivo = next(m for m in sin_leer.explicacion.motivos if m.regla == "ocr.sin_cotejo")
+        assert motivo.penalizacion == 0
+        assert motivo.resultado == "advertencia"
+
+    def test_no_acusa_ni_genera_alertas(self, detector):
+        r = motor.analizar(entrada(), detector)
+        assert r.alertas == []
+        assert "fraude" not in r.explicacion.resumen.lower()
+
+    def test_una_foto_ilegible_tampoco_se_aprueba_sola(self, detector, monkeypatch):
+        monkeypatch.setattr(ocr, "leer_desde", lambda url: ocr.CamposLeidos(confianza=0.0))
+        assert motor.analizar(entrada(), detector).nivel == "MEDIO"
+
+    def test_con_el_papel_leido_si_se_aprueba(self, detector, papel_coincide):
+        r = motor.analizar(entrada(), detector)
+        assert r.nivel == "ALTO"
+        assert not any(m.regla == "ocr.sin_cotejo" for m in r.explicacion.motivos)
+
+    def test_no_sube_a_nadie(self, detector):
+        """Solo baja ALTO a MEDIO: un gasto BAJO sigue BAJO."""
+        r = motor.analizar(entrada(declarado={"montoDeclarado": 9999.0}), detector)
+        assert r.nivel == "BAJO"
+        assert not any(m.regla == "ocr.sin_cotejo" for m in r.explicacion.motivos)
+
+
 class TestCaminoFeliz:
-    def test_un_gasto_coherente_sale_alto(self, detector):
+    def test_un_gasto_coherente_sale_alto(self, detector, papel_coincide):
         r = motor.analizar(entrada(), detector)
         assert r.nivel == "ALTO"
         assert r.score_final >= 90
@@ -331,7 +398,7 @@ class TestReglasDelNegocio:
         assert r.nivel == "BAJO"
         assert falla(r, "ano.saldo_insuficiente")
 
-    def test_los_umbrales_vienen_en_la_peticion(self, detector):
+    def test_los_umbrales_vienen_en_la_peticion(self, detector, papel_coincide):
         """RN-06: el nivel se calcula con la regla vigente, no con una fija."""
         base = entrada()
         exigente = base.model_copy(
