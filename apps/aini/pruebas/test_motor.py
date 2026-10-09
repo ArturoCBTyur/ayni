@@ -169,6 +169,34 @@ class TestCoherenciaSemantica:
         assert motivo.penalizacion == 0
         assert "no se pudo evaluar" in motivo.mensaje.lower()
 
+    def test_un_gasto_de_esterilizacion_se_evalua(self, detector):
+        """ESTERILIZACION es una categoria del backend. Sin descripcion, todo gasto
+        de esos fondos pasaba con "no se pudo evaluar"."""
+        r = motor.analizar(
+            entrada(
+                declarado={
+                    "concepto": "castración de perros machos del albergue",
+                    "categoriaGasto": "ESTERILIZACION",
+                }
+            ),
+            detector,
+        )
+        motivo = next(m for m in r.explicacion.motivos if m.regla == "nlp.coherencia_categoria")
+        assert "no se pudo evaluar" not in motivo.mensaje.lower()
+        assert motivo.resultado != "falla"
+
+    def test_un_alquiler_no_corresponde_al_fondo_de_esterilizacion(self, detector):
+        r = motor.analizar(
+            entrada(
+                declarado={
+                    "concepto": "alquiler de oficina administrativa y mobiliario",
+                    "categoriaGasto": "ESTERILIZACION",
+                }
+            ),
+            detector,
+        )
+        assert falla(r, "nlp.coherencia_categoria")
+
 
 class TestSeñalDocumental:
     def test_ruc_con_digito_verificador_equivocado(self, detector):

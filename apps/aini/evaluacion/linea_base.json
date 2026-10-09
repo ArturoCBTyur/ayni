@@ -1,9 +1,9 @@
 {
-  "generadaEn": "2026-10-08T17:06:35+00:00",
+  "generadaEn": "2026-10-08T17:53:59+00:00",
   "identidad": {
     "versionMotor": "aini-0.1-sklearn",
     "modeloAnomaliaSha256": "e5d956552202",
-    "descripcionesCategoriaSha256": "fc75a28068c5",
+    "descripcionesCategoriaSha256": "5cc7f0fba0d9",
     "umbrales": {
       "coherencia": 0.5,
       "coherenciaDudosa": 0.6,
@@ -24,27 +24,26 @@
         "conceptos": 180,
         "paresAjenosExplicitos": 14
       },
-      "cobertura": 0.7722,
+      "cobertura": 0.8889,
       "noMediblesPorCategoria": {
-        "ESTERILIZACION": 21,
         "OTROS": 20
       },
-      "rechazaCorrectos": 0.3381,
-      "advierteCorrectos": 0.3669,
-      "aceptaEquivocados": 0.0955,
-      "pasaSinAdvertirEquivocados": 0.0187,
-      "aciertaCategoriaTop1": 0.741,
+      "rechazaCorrectos": 0.3312,
+      "advierteCorrectos": 0.3812,
+      "aceptaEquivocados": 0.1065,
+      "pasaSinAdvertirEquivocados": 0.0196,
+      "aciertaCategoriaTop1": 0.7063,
       "similitud": {
-        "propiosMediana": 0.548,
-        "propiosP5": 0.339,
+        "propiosMediana": 0.547,
+        "propiosP5": 0.332,
         "ajenosMediana": 0.372,
-        "ajenosP95": 0.539
+        "ajenosP95": 0.555
       },
-      "paresAjenosMedidos": 911,
+      "paresAjenosMedidos": 1070,
+      "paresAjenosNoMedibles": 0,
       "palabrasSinVectorDistintas": 15,
       "categorias": {
         "delBackendSinDescripcion": [
-          "ESTERILIZACION",
           "OTROS"
         ],
         "descritasQueElBackendNoUsa": [
