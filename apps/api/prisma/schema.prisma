@@ -226,6 +226,12 @@ model Ong {
   /// RF-DE-05: terminos de adhesion que obligan a justificar cada sol.
   terminosAceptadosEn    DateTime?             @map("terminos_aceptados_en") @db.Timestamptz(6)
   versionTerminos        String?               @map("version_terminos")
+  /// RF-DE-07: calificada por SUNAT como entidad perceptora de donaciones. Lo
+  /// registra el administrador o el auditor, con la resolucion que lo acredita.
+  perceptoraDonaciones   Boolean               @default(false) @map("perceptora_donaciones")
+  perceptoraResolucion   String?               @map("perceptora_resolucion")
+  perceptoraDesde        DateTime?             @map("perceptora_desde") @db.Date
+  perceptoraHasta        DateTime?             @map("perceptora_hasta") @db.Date
   creadoEn               DateTime              @default(now()) @map("creado_en") @db.Timestamptz(6)
   actualizadoEn          DateTime              @updatedAt @map("actualizado_en") @db.Timestamptz(6)
 

@@ -1,6 +1,18 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+  Res,
+  StreamableFile,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 
 import { BitacoraService } from '../../comun/bitacora/bitacora.service';
 import { ZodPipe } from '../../comun/validacion/zod.pipe';
@@ -9,11 +21,14 @@ import { CumplimientoService } from './cumplimiento.service';
 import {
   esquemaActualizarConsentimiento,
   esquemaCrearArco,
+  esquemaInformeCumplimiento,
   esquemaResponderArco,
   type ActualizarConsentimiento,
   type CrearArco,
+  type InformeCumplimientoConsulta,
   type ResponderArco,
 } from './esquemas';
+import { informeCumplimientoPdf, informeCumplimientoXlsx } from './informe';
 
 @ApiTags('cumplimiento')
 @Controller('cumplimiento')
@@ -60,6 +75,32 @@ export class CumplimientoController {
   @ApiOperation({ summary: 'Derecho de acceso · Exportar mis datos personales' })
   async exportar(@UsuarioActual('sub') usuarioId: string) {
     return this.cumplimiento.exportarDatos(usuarioId);
+  }
+
+  @Roles('ADMIN')
+  @Get('informe')
+  @ApiOperation({
+    summary: 'RF-DE-08 · Informe de cumplimiento de la Ley 29733 (json, xlsx o pdf)',
+  })
+  async informe(
+    @Query(new ZodPipe(esquemaInformeCumplimiento)) consulta: InformeCumplimientoConsulta,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    // hasta es inclusivo para quien lo pide: se cuenta hasta el final de ese dia.
+    const hasta = new Date(consulta.hasta.getTime() + 24 * 60 * 60 * 1000);
+    const informe = await this.cumplimiento.informeCumplimiento(consulta.desde, hasta);
+    if (consulta.formato === 'json') return informe;
+
+    const pdf = consulta.formato === 'pdf';
+    res.setHeader(
+      'Content-Type',
+      pdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="cumplimiento-ley-29733.${pdf ? 'pdf' : 'xlsx'}"`,
+    );
+    return new StreamableFile(pdf ? informeCumplimientoPdf(informe) : informeCumplimientoXlsx(informe));
   }
 
   @Roles('ADMIN')

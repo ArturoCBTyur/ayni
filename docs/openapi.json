@@ -318,6 +318,21 @@
         ]
       }
     },
+    "/api/v1/cumplimiento/informe": {
+      "get": {
+        "operationId": "CumplimientoController_informe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-DE-08 · Informe de cumplimiento de la Ley 29733 (json, xlsx o pdf)",
+        "tags": [
+          "cumplimiento"
+        ]
+      }
+    },
     "/api/v1/cumplimiento/arco/bandeja": {
       "get": {
         "operationId": "CumplimientoController_bandeja",
@@ -595,6 +610,30 @@
           }
         },
         "summary": "CU14 · Verificar, rechazar o suspender una ONG",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/ongs/{id}/perceptora": {
+      "patch": {
+        "operationId": "CampanasController_registrarPerceptora",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-DE-07 · Registrar la calificacion de perceptora de donaciones",
         "tags": [
           "causas"
         ]
@@ -930,6 +969,30 @@
           }
         },
         "summary": "RF-13 · Un aporte: en que gastos se uso, con su evidencia",
+        "tags": [
+          "donaciones"
+        ]
+      }
+    },
+    "/api/v1/donaciones/{id}/constancia": {
+      "get": {
+        "operationId": "DonacionesController_constancia",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-DE-07 · Constancia de una donacion confirmada, en PDF",
         "tags": [
           "donaciones"
         ]

@@ -87,6 +87,7 @@ class _Informe extends ConsumerWidget {
               ' · confianza ${org['puntajeConfianza']}',
               style: tema.textTheme.bodySmall,
             ),
+            _Perceptora(organizacion: org),
             Text(
               'Generado ${Formato.fechaHora(Formato.aFecha(datos['generadoEn']))}',
               style: tema.textTheme.bodySmall?.copyWith(
@@ -204,6 +205,151 @@ class _Informe extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// RF-DE-07 · Si la ONG esta calificada por SUNAT como perceptora de
+/// donaciones. Lo registra la auditoria, con el documento que lo acredita, y
+/// cambia lo que dice la constancia de cada donacion.
+class _Perceptora extends ConsumerWidget {
+  const _Perceptora({required this.organizacion});
+
+  final Map<String, dynamic> organizacion;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tema = Theme.of(context);
+    final calificada = organizacion['perceptoraDonaciones'] == true;
+    final hasta = organizacion['perceptoraHasta'];
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            calificada
+                ? 'Perceptora de donaciones: ${organizacion['perceptoraResolucion']}, desde el '
+                    '${Formato.fecha(Formato.aDia(organizacion['perceptoraDesde']))}'
+                    '${hasta != null ? ' hasta el ${Formato.fecha(Formato.aDia(hasta))}' : ''}'
+                : 'Sin calificación registrada como perceptora de donaciones.',
+            style: tema.textTheme.bodySmall,
+          ),
+        ),
+        TextButton(
+          onPressed: () async {
+            final hecho = await showDialog<bool>(
+              context: context,
+              builder: (_) => _DialogoPerceptora(organizacion: organizacion),
+            );
+            if (hecho == true) {
+              ref.invalidate(informeOngProvider(organizacion['id'] as String));
+            }
+          },
+          child: const Text('Calificación SUNAT'),
+        ),
+      ],
+    );
+  }
+}
+
+class _DialogoPerceptora extends ConsumerStatefulWidget {
+  const _DialogoPerceptora({required this.organizacion});
+
+  final Map<String, dynamic> organizacion;
+
+  @override
+  ConsumerState<_DialogoPerceptora> createState() => _DialogoPerceptoraState();
+}
+
+class _DialogoPerceptoraState extends ConsumerState<_DialogoPerceptora> {
+  late bool _calificada = widget.organizacion['perceptoraDonaciones'] == true;
+  late final _resolucion = TextEditingController(
+    text: widget.organizacion['perceptoraResolucion'] as String? ?? '',
+  );
+  final _desde = TextEditingController();
+  final _hasta = TextEditingController();
+  final _motivo = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _resolucion.dispose();
+    _desde.dispose();
+    _hasta.dispose();
+    _motivo.dispose();
+    super.dispose();
+  }
+
+  Future<void> _guardar() async {
+    final navegador = Navigator.of(context);
+    try {
+      await ref.read(clienteApiProvider).actualizar(
+        '/ongs/${widget.organizacion['id']}/perceptora',
+        cuerpo: {
+          'perceptora': _calificada,
+          if (_calificada) 'resolucion': _resolucion.text.trim(),
+          if (_calificada && _desde.text.trim().isNotEmpty) 'desde': _desde.text.trim(),
+          if (_calificada && _hasta.text.trim().isNotEmpty) 'hasta': _hasta.text.trim(),
+          'motivo': _motivo.text.trim(),
+        },
+      );
+      navegador.pop(true);
+    } on ErrorApi catch (e) {
+      setState(() => _error = e.errores?.first.mensaje ?? e.mensaje);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Calificación SUNAT'),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SwitchListTile(
+              value: _calificada,
+              onChanged: (v) => setState(() => _calificada = v),
+              title: const Text('Calificada como perceptora de donaciones'),
+            ),
+            if (_calificada) ...[
+              TextField(
+                controller: _resolucion,
+                decoration: const InputDecoration(labelText: 'Resolución o constancia'),
+              ),
+              TextField(
+                controller: _desde,
+                decoration: const InputDecoration(labelText: 'Vigente desde (AAAA-MM-DD)'),
+              ),
+              TextField(
+                controller: _hasta,
+                decoration: const InputDecoration(labelText: 'Vigente hasta (opcional)'),
+              ),
+            ],
+            TextField(
+              controller: _motivo,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'De dónde sale el dato',
+                hintText: 'Qué documento de SUNAT lo acredita',
+              ),
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(_error!, style: const TextStyle(color: TemaApp.nivelBajo)),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(onPressed: _guardar, child: const Text('Guardar')),
+      ],
     );
   }
 }

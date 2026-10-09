@@ -305,6 +305,11 @@ export class ExportacionService {
           ? `${ong.verificador.nombres} ${ong.verificador.apellidos}`
           : null,
         puntajeConfianza: soles(ong.puntajeConfianza),
+        // RF-DE-07: lo que registro la auditoria sobre su calificacion SUNAT.
+        perceptoraDonaciones: ong.perceptoraDonaciones,
+        perceptoraResolucion: ong.perceptoraResolucion,
+        perceptoraDesde: ong.perceptoraDesde,
+        perceptoraHasta: ong.perceptoraHasta,
       },
       fondos: fondos.map((f, i) => ({
         // Para pedir el extracto del libro de este fondo.

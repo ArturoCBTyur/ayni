@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../comun/descarga.dart';
 import '../../comun/widgets.dart';
 import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
@@ -66,6 +67,16 @@ class PantallaArcoBandeja extends ConsumerWidget {
                     ],
                   ),
                   const Spacer(),
+                  // RF-DE-08: lo que habria que mostrar ante una fiscalizacion.
+                  PopupMenuButton<String>(
+                    tooltip: 'Informe de cumplimiento de la Ley 29733',
+                    icon: const Icon(Icons.policy_outlined),
+                    onSelected: (formato) => _descargarInforme(context, ref, formato),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'xlsx', child: Text('Informe del año en Excel')),
+                      PopupMenuItem(value: 'pdf', child: Text('Informe del año en PDF')),
+                    ],
+                  ),
                   IconButton(
                     tooltip: 'Actualizar',
                     onPressed: () => ref.invalidate(bandejaArcoProvider),
@@ -123,6 +134,23 @@ class PantallaArcoBandeja extends ConsumerWidget {
 
 /// Un incumplimiento de plazo no es un detalle de la lista: es una infraccion
 /// a la Ley N.o 29733, asi que se dice arriba y con su cantidad.
+/// Del 1 de enero a hoy: el periodo que se revisa en una fiscalizacion anual.
+Future<void> _descargarInforme(BuildContext context, WidgetRef ref, String formato) {
+  final hoy = DateTime.now();
+  String dia(DateTime f) =>
+      '${f.year}-${f.month.toString().padLeft(2, '0')}-${f.day.toString().padLeft(2, '0')}';
+  return descargarArchivo(
+    context,
+    ref,
+    ruta: '/cumplimiento/informe',
+    consulta: {'desde': '${hoy.year}-01-01', 'hasta': dia(hoy), 'formato': formato},
+    nombre: 'cumplimiento-ley-29733-${hoy.year}.$formato',
+    tipo: formato == 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  );
+}
+
 class _AvisoVencidas extends StatelessWidget {
   const _AvisoVencidas({required this.cantidad});
 
