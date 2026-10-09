@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../comun/estados_mensuales.dart';
 import '../../comun/widgets.dart';
+import '../donante/saldos_cierre.dart';
 import '../../nucleo/api/cliente_api.dart';
 import '../../nucleo/formato.dart';
 import '../../nucleo/tema.dart';
@@ -29,6 +31,17 @@ final estadoFondosProvider =
 final alertasOngProvider =
     FutureProvider.autoDispose.family<List<Map<String, dynamic>>, String>((ref, ongId) async {
   return ref.read(clienteApiProvider).obtenerLista('/ongs/$ongId/alertas');
+});
+
+/// Avisos de cierre mensual sin leer (RF-CF-09). Llegan a cada miembro de la
+/// ONG; la bandeja de notificaciones es del donante, asi que se muestran aqui.
+final avisosCierreProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  final noLeidas = await ref
+      .read(clienteApiProvider)
+      .obtenerLista('/notificaciones', consulta: {'noLeidas': 'true'});
+  return noLeidas
+      .where((n) => n['tipo'] == 'CIERRE_MENSUAL' || n['tipo'] == 'CIERRE_CAUSA')
+      .toList();
 });
 
 /// CU12 · Estado de fondos: recaudado, retenido y ejecutado.
@@ -101,12 +114,20 @@ class _PanelOng extends ConsumerWidget {
       onRefresh: () async {
         ref.invalidate(estadoFondosProvider(ongId));
         ref.invalidate(alertasOngProvider(ongId));
+        ref.invalidate(avisosCierreProvider);
       },
       child: Contenido(
         child: ListView(
           children: [
             _CabeceraOng(ong: ong),
             const SizedBox(height: 20),
+
+            ref.watch(avisosCierreProvider).maybeWhen(
+                  data: (avisos) => Column(
+                    children: [for (final aviso in avisos) _AvisoCierre(aviso: aviso)],
+                  ),
+                  orElse: () => const SizedBox.shrink(),
+                ),
 
             alertas.maybeWhen(
               data: (lista) {
@@ -295,7 +316,106 @@ class _FilaFondo extends StatelessWidget {
                 _Saldo('Meta', fondo['meta'] as String?),
               ],
             ),
+            if (fondo['cierreCausa'] != null)
+              _EstadoCierre(cierre: fondo['cierreCausa'] as Map<String, dynamic>),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                icon: const Icon(Icons.calendar_month_outlined),
+                label: const Text('Estados mensuales'),
+                onPressed: () => mostrarEstadosMensuales(
+                  context,
+                  fondoId: fondo['id'] as String,
+                  nombreFondo: fondo['nombre'] as String,
+                ),
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// RF-CF-11 · En que va el cierre de un fondo cerrado: hasta cuando justificar,
+/// si espera a los donantes, o su informe.
+class _EstadoCierre extends ConsumerWidget {
+  const _EstadoCierre({required this.cierre});
+
+  final Map<String, dynamic> cierre;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tema = Theme.of(context);
+    final informeId = cierre['informeId'] as String?;
+    final observacion = cierre['observacion'] as String?;
+    final texto = switch (cierre['estado']) {
+      'JUSTIFICANDO' => 'Causa cerrada. Puede justificar lo retenido con gastos hasta el '
+          '${Formato.fecha(Formato.aFecha(cierre['venceJustificacionEn']))}; después, vuelve a '
+          'sus donantes o pasa a la causa que ellos elijan.',
+      'ELIGIENDO' => 'Los donantes están eligiendo el destino de '
+          '${Formato.soles(cierre['remanenteTotal'] as String?)} sin usar, hasta el '
+          '${Formato.fecha(Formato.aFecha(cierre['venceEleccionEn']))}.',
+      _ => 'Causa cerrada y resuelta.',
+    };
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: TemaApp.nivelMedio.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(texto, style: tema.textTheme.bodySmall),
+          if (observacion != null)
+            Text(
+              observacion,
+              style: tema.textTheme.bodySmall?.copyWith(color: TemaApp.nivelBajo),
+            ),
+          if (informeId != null)
+            TextButton.icon(
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              label: const Text('Informe de cierre (PDF)'),
+              onPressed: () => descargarInformeCierre(context, ref, informeId),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// El aviso de que un mes se cerro: sus estados ya no cambian.
+class _AvisoCierre extends ConsumerWidget {
+  const _AvisoCierre({required this.aviso});
+
+  final Map<String, dynamic> aviso;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tema = Theme.of(context);
+
+    return Card(
+      color: TemaApp.nivelAlto.withValues(alpha: 0.06),
+      child: ListTile(
+        leading: Icon(Icons.lock_outline, color: TemaApp.nivelAlto),
+        title: Text(aviso['asunto'] as String, style: tema.textTheme.titleSmall),
+        subtitle: Text((aviso['narrativa'] as String?) ?? ''),
+        trailing: TextButton(
+          onPressed: () async {
+            try {
+              await ref.read(clienteApiProvider).enviar('/notificaciones/${aviso['id']}/leida');
+              ref.invalidate(avisosCierreProvider);
+            } on ErrorApi catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensaje)));
+              }
+            }
+          },
+          child: const Text('Entendido'),
         ),
       ),
     );

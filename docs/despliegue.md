@@ -39,6 +39,12 @@ echo "CIFRADO_CLAVE=$(openssl rand -base64 32)"
 
 Con `NODE_ENV=production` la API no arranca sin ella. **Guárdala además fuera del proveedor**, en el gestor de contraseñas del equipo: si se pierde, cada evidencia guardada queda ilegible para siempre, y los respaldos también, porque no la llevan (a propósito: un respaldo con la clave al lado no está cifrado). Para rotarla, ver [respaldo.md](respaldo.md#rotar-la-clave-de-cifrado).
 
+Y la clave del **seudónimo de las encuestas** (D6 del [ADR-0007](adr/0007-decisiones-transdisciplinarias.md)), que permite emparejar las dos respuestas de una persona en SOC-1 sin guardar quién respondió. Tampoco arranca la API sin ella en producción. No se rota a mitad de una medición: con otra clave, las respuestas de antes dejan de emparejarse.
+
+```bash
+echo "ENCUESTAS_CLAVE=$(openssl rand -base64 36)"
+```
+
 ---
 
 ## Paso 2 · La base de datos
@@ -89,8 +95,10 @@ COOKIE_SECRET=<generado>
 STORAGE_URL_SECRET=<generado>
 PASARELA_WEBHOOK_SECRET=<generado>
 CIFRADO_CLAVE=<generada aparte, 32 bytes>
+ENCUESTAS_CLAVE=<generada aparte>
 CORS_ORIGENES=https://<tu-dominio-web>
 PASARELA_WEBHOOK_URL=https://<tu-api>.onrender.com/api/v1/webhooks/pasarela
+API_URL_PUBLICA=https://<tu-api>.onrender.com
 STORAGE_DRIVER=disco
 STORAGE_DIR=/app/storage
 PASARELA_DRIVER=fake
@@ -98,6 +106,8 @@ CPE_DRIVER=fake
 VERIFICACION_DRIVER=reglas-v0
 TOTP_EMISOR=Ayni
 ```
+
+`API_URL_PUBLICA` es la dirección con que la API se nombra a sí misma hacia afuera: la usan AIni para descargar comprobantes y el **QR del informe de cierre de una causa**, que lleva a la verificación pública. Si queda en el valor por defecto (`127.0.0.1`), el QR impreso no abre nada fuera del servidor.
 
 Tres avisos que evitan errores caros:
 

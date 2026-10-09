@@ -3,6 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { soles } from '../../comun/dinero';
 import { PrismaService } from '../../comun/prisma/prisma.service';
 import { LibroService } from '../contable/libro.service';
+import { lineasDiario } from '../contable/pcge';
 import { ConciliacionService } from './conciliacion.service';
 
 /**
@@ -97,6 +98,57 @@ export class ExportacionService {
     );
 
     return { nombre: `libro-${this.aSlug(fondo.nombre)}.csv`, csv };
+  }
+
+  /**
+   * RF-CF-05 · Libro diario de un fondo en cuentas del PCGE.
+   *
+   * El mismo libro que libroDeFondo, traducido al plan contable que lee un
+   * contador: dos lineas por movimiento, una por cuenta, con la cuenta
+   * interna como subcuenta auxiliar. Ningun asiento se reescribe; la
+   * correspondencia es la propuesta de D1 (ADR-0007) y vive en pcge.ts.
+   *
+   * Cada linea lleva el hash de su movimiento, para que quien la lea pueda
+   * volver al libro original y comprobar que la traduccion no invento nada.
+   */
+  async diarioPcge(fondoId: string): Promise<{ nombre: string; csv: string }> {
+    const fondo = await this.prisma.fondo.findUnique({ where: { id: fondoId } });
+    if (!fondo) throw new NotFoundException('No encontramos ese fondo.');
+
+    const movimientos = await this.libro.extracto(fondoId);
+
+    const filas: ValorCsv[][] = movimientos.flatMap((m) =>
+      lineasDiario(m.tipo, m.monto).map((l) => [
+        m.secuencia,
+        m.fecha.toISOString(),
+        m.tipo,
+        l.cuenta.codigo,
+        l.cuenta.nombre,
+        l.auxiliar,
+        soles(l.debe),
+        soles(l.haber),
+        m.descripcion,
+        m.hashActual,
+      ]),
+    );
+
+    const csv = aCsv(
+      [
+        'secuencia',
+        'fecha',
+        'tipo',
+        'cuenta_pcge',
+        'nombre_cuenta_pcge',
+        'subcuenta_interna',
+        'debe_pen',
+        'haber_pen',
+        'glosa',
+        'hash_actual',
+      ],
+      filas,
+    );
+
+    return { nombre: `diario-pcge-${this.aSlug(fondo.nombre)}.csv`, csv };
   }
 
   /** Gastos de una ONG con su verificacion y su respaldo documental. */
@@ -232,7 +284,10 @@ export class ExportacionService {
       }),
       this.prisma.fondo.findMany({
         where: { campana: { ongId } },
-        include: { campana: true },
+        include: {
+          campana: true,
+          cierreCausa: { include: { informe: { select: { id: true } } } },
+        },
       }),
     ]);
 
@@ -250,6 +305,11 @@ export class ExportacionService {
           ? `${ong.verificador.nombres} ${ong.verificador.apellidos}`
           : null,
         puntajeConfianza: soles(ong.puntajeConfianza),
+        // RF-DE-07: lo que registro la auditoria sobre su calificacion SUNAT.
+        perceptoraDonaciones: ong.perceptoraDonaciones,
+        perceptoraResolucion: ong.perceptoraResolucion,
+        perceptoraDesde: ong.perceptoraDesde,
+        perceptoraHasta: ong.perceptoraHasta,
       },
       fondos: fondos.map((f, i) => ({
         // Para pedir el extracto del libro de este fondo.
@@ -264,6 +324,10 @@ export class ExportacionService {
         // externo querria confirmar antes de mirar cualquier cifra.
         cadenaIntegra: !cadenas[i].rota,
         movimientos: cadenas[i].movimientos,
+        // D2 · Estado del cierre de la causa y su informe, si lo hay.
+        cierreCausa: f.cierreCausa
+          ? { estado: f.cierreCausa.estado, informeId: f.cierreCausa.informe?.id ?? null }
+          : null,
       })),
       gastos: gastos.map((g) => ({
         estado: g.estado,

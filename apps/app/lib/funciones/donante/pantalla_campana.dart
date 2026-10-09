@@ -347,6 +347,9 @@ class _TarjetaFondo extends StatelessWidget {
               ],
             ),
 
+            if ((fondo['impacto'] as Map<String, dynamic>?)?['costoPorUnidad'] != null)
+              _Impacto(impacto: fondo['impacto'] as Map<String, dynamic>),
+
             if (verificados.isNotEmpty) ...[
               const SizedBox(height: 8),
               _GastosVerificados(gastos: verificados),
@@ -365,6 +368,39 @@ class _TarjetaFondo extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// RF-SO-09 · Cuanto costo cada unidad de impacto, y sobre cuantos gastos.
+///
+/// Se dice cuantos gastos declararon unidades: un costo calculado sobre la
+/// mitad de los gastos no es el costo de la causa entera.
+class _Impacto extends StatelessWidget {
+  const _Impacto({required this.impacto});
+
+  final Map<String, dynamic> impacto;
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        children: [
+          const Icon(Icons.pets_outlined, size: 18, color: TemaApp.nivelAlto),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${impacto['unidades']} ${impacto['unidad']} · '
+              '${Formato.soles(impacto['costoPorUnidad'] as String?)} cada uno, según '
+              '${impacto['gastosConUnidades']} de ${impacto['gastosAprobados']} gastos verificados',
+              style: tema.textTheme.bodySmall,
+            ),
+          ),
+        ],
       ),
     );
   }

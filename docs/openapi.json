@@ -318,6 +318,21 @@
         ]
       }
     },
+    "/api/v1/cumplimiento/informe": {
+      "get": {
+        "operationId": "CumplimientoController_informe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-DE-08 · Informe de cumplimiento de la Ley 29733 (json, xlsx o pdf)",
+        "tags": [
+          "cumplimiento"
+        ]
+      }
+    },
     "/api/v1/cumplimiento/arco/bandeja": {
       "get": {
         "operationId": "CumplimientoController_bandeja",
@@ -595,6 +610,30 @@
           }
         },
         "summary": "CU14 · Verificar, rechazar o suspender una ONG",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/ongs/{id}/perceptora": {
+      "patch": {
+        "operationId": "CampanasController_registrarPerceptora",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-DE-07 · Registrar la calificacion de perceptora de donaciones",
         "tags": [
           "causas"
         ]
@@ -930,6 +969,30 @@
           }
         },
         "summary": "RF-13 · Un aporte: en que gastos se uso, con su evidencia",
+        "tags": [
+          "donaciones"
+        ]
+      }
+    },
+    "/api/v1/donaciones/{id}/constancia": {
+      "get": {
+        "operationId": "DonacionesController_constancia",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-DE-07 · Constancia de una donacion confirmada, en PDF",
         "tags": [
           "donaciones"
         ]
@@ -1479,6 +1542,30 @@
         ]
       }
     },
+    "/api/v1/analitica/exportar/diario/{fondoId}": {
+      "get": {
+        "operationId": "AnaliticaController_exportarDiario",
+        "parameters": [
+          {
+            "name": "fondoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-05 · Libro diario de un fondo en cuentas del PCGE",
+        "tags": [
+          "analitica"
+        ]
+      }
+    },
     "/api/v1/analitica/exportar/gastos/{ongId}": {
       "get": {
         "operationId": "AnaliticaController_exportarGastos",
@@ -1515,6 +1602,299 @@
         "summary": "RF-15 · Conciliacion contable en CSV",
         "tags": [
           "analitica"
+        ]
+      }
+    },
+    "/api/v1/analitica/estados/fondos/{id}/periodos": {
+      "get": {
+        "operationId": "EstadosController_periodos",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-07 · Meses de vida de un fondo, con su cierre si lo tienen",
+        "tags": [
+          "analitica"
+        ]
+      }
+    },
+    "/api/v1/analitica/estados/fondos/{id}": {
+      "get": {
+        "description": "formato=json (por defecto), xlsx o pdf. Si el mes esta cerrado se entrega el cierre guardado, con su hash, y se indica si el libro lo sigue sosteniendo.",
+        "operationId": "EstadosController_estado",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-07, RF-CF-08 · Estado de actividades y situacion de un fondo en un mes",
+        "tags": [
+          "analitica"
+        ]
+      }
+    },
+    "/api/v1/analitica/estados/cierres/ejecutar": {
+      "post": {
+        "operationId": "EstadosController_ejecutarCierre",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-09 · Forzar el cierre mensual fuera de su horario",
+        "tags": [
+          "analitica"
+        ]
+      }
+    },
+    "/api/v1/analitica/ple/ongs/{ongId}": {
+      "get": {
+        "description": "Estructura pendiente de validacion por un contador. Ver contable/ple.ts.",
+        "operationId": "EstadosController_borradorPle",
+        "parameters": [
+          {
+            "name": "ongId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-10 · BORRADOR del libro diario o mayor de una ONG en formato PLE",
+        "tags": [
+          "analitica"
+        ]
+      }
+    },
+    "/api/v1/encuestas/pendientes": {
+      "get": {
+        "operationId": "EncuestasController_pendientes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-SO-05 · Encuestas que le corresponde responder hoy",
+        "tags": [
+          "encuestas"
+        ]
+      }
+    },
+    "/api/v1/encuestas/instrumentos/{codigo}": {
+      "get": {
+        "operationId": "EncuestasController_instrumento",
+        "parameters": [
+          {
+            "name": "codigo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-SO-05 · Version activa de un instrumento, con su hash",
+        "tags": [
+          "encuestas"
+        ]
+      }
+    },
+    "/api/v1/encuestas/respuestas": {
+      "post": {
+        "operationId": "EncuestasController_responder",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "RF-SO-05 · Responder; exige la finalidad INVESTIGACION (RF-DE-06)",
+        "tags": [
+          "encuestas"
+        ]
+      }
+    },
+    "/api/v1/remanentes": {
+      "get": {
+        "operationId": "CausasController_misSaldos",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-11 · Mis saldos de causas cerradas, por elegir y resueltos",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/remanentes/{id}/destinos": {
+      "get": {
+        "operationId": "CausasController_destinos",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-11 · Fondos que pueden recibir mi saldo",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/remanentes/{id}/eleccion": {
+      "post": {
+        "operationId": "CausasController_elegir",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-11 · Elegir devolucion o traslado de mi saldo",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/cierres-causa/avanzar": {
+      "post": {
+        "operationId": "CausasController_avanzar",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-11 · Forzar el paso diario de los cierres de causa",
+        "tags": [
+          "causas"
+        ]
+      }
+    },
+    "/api/v1/publico/informes/{id}": {
+      "get": {
+        "operationId": "PublicoController_verificar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-IN-05 · Verificar un informe de cierre (HTML, o formato=json)",
+        "tags": [
+          "publico"
+        ]
+      }
+    },
+    "/api/v1/publico/informes/{id}/pdf": {
+      "get": {
+        "operationId": "PublicoController_pdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-CF-12 · El informe de cierre en PDF, con su QR",
+        "tags": [
+          "publico"
+        ]
+      }
+    },
+    "/api/v1/publico/iati/ongs/{ongId}": {
+      "get": {
+        "operationId": "DatosAbiertosController_iati",
+        "parameters": [
+          {
+            "name": "ongId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "RF-IN-06 · Actividades de una ONG en el estandar IATI 2.03 (XML)",
+        "tags": [
+          "publico"
         ]
       }
     }

@@ -10,6 +10,7 @@
     "node_modules",
     "dist",
     "src/**/*.spec.ts",
-    "src/comun/prisma/preparar-pruebas.ts"
+    "src/comun/prisma/preparar-pruebas.ts",
+    "src/comun/pruebas/**"
   ]
 }

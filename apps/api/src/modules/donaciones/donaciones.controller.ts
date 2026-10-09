@@ -12,14 +12,17 @@ import {
   Post,
   type RawBodyRequest,
   Req,
+  Res,
+  StreamableFile,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 
 import { BitacoraService } from '../../comun/bitacora/bitacora.service';
 import { ZodPipe } from '../../comun/validacion/zod.pipe';
 import { Publico, Roles, UsuarioActual } from '../identidad/decoradores';
+import { constanciaPdf } from './constancia';
 import { DonacionesService } from './donaciones.service';
 import {
   esquemaCambiarSuscripcion,
@@ -69,6 +72,22 @@ export class DonacionesController {
     @UsuarioActual('sub') usuarioId: string,
   ) {
     return this.donaciones.detalle(donacionId, usuarioId);
+  }
+
+  @Get('donaciones/:id/constancia')
+  @ApiOperation({ summary: 'RF-DE-07 · Constancia de una donacion confirmada, en PDF' })
+  async constancia(
+    @Param('id', ParseUUIDPipe) donacionId: string,
+    @UsuarioActual('sub') usuarioId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const constancia = await this.donaciones.constancia(donacionId, usuarioId);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="constancia-${constancia.numero}.pdf"`,
+    );
+    return new StreamableFile(constanciaPdf(constancia));
   }
 
   @Roles('DONANTE')

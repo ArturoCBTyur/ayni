@@ -1,9 +1,14 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { EstadoArco, FinalidadConsentimiento } from '@prisma/client';
 
 import { BitacoraService, type ContextoPeticion } from '../../comun/bitacora/bitacora.service';
 import { PrismaService } from '../../comun/prisma/prisma.service';
+import { seudonimoDe } from '../../comun/seudonimo';
+import type { Configuracion } from '../../config/configuracion';
+import { EncuestasService } from '../encuestas/encuestas.service';
 import type { ActualizarConsentimiento, CrearArco, ResponderArco } from './esquemas';
+import type { InformeCumplimiento } from './informe';
 import { calcularPlazoArco, DIAS_HABILES_ARCO } from './plazos';
 
 /**
@@ -18,6 +23,7 @@ export class CumplimientoService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly bitacora: BitacoraService,
+    private readonly config: ConfigService<Configuracion, true>,
   ) {}
 
   /** Consentimientos vigentes del usuario, uno por finalidad. */
@@ -70,7 +76,7 @@ export class CumplimientoService {
       return { finalidad: datos.finalidad, otorgado: datos.otorgado, sinCambios: true };
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    const desvinculadas = await this.prisma.$transaction(async (tx) => {
       if (anterior) {
         await tx.consentimiento.update({
           where: { id: anterior.id },
@@ -87,6 +93,16 @@ export class CumplimientoService {
           userAgent: contexto.userAgent,
         },
       });
+
+      // D6 · Revocar la investigacion desvincula lo que ya respondio, en la
+      // misma transaccion: no puede quedar un instante revocado y vinculado.
+      if (datos.finalidad === 'INVESTIGACION' && !datos.otorgado) {
+        return EncuestasService.desvincular(
+          tx,
+          seudonimoDe(usuarioId, this.config.get('ENCUESTAS_CLAVE', { infer: true })),
+        );
+      }
+      return 0;
     });
 
     await this.bitacora.registrar({
@@ -95,11 +111,98 @@ export class CumplimientoService {
       entidad: 'consentimientos',
       entidadId: usuarioId,
       valorAnterior: { finalidad: datos.finalidad, otorgado: anterior?.otorgado ?? null },
-      valorNuevo: { finalidad: datos.finalidad, otorgado: datos.otorgado },
+      valorNuevo: {
+        finalidad: datos.finalidad,
+        otorgado: datos.otorgado,
+        ...(desvinculadas > 0 ? { respuestasDesvinculadas: desvinculadas } : {}),
+      },
       ...contexto,
     });
 
     return { finalidad: datos.finalidad, otorgado: datos.otorgado, sinCambios: false };
+  }
+
+  /**
+   * RF-DE-08 · Cifras de cumplimiento de la Ley N.o 29733 en un periodo
+   * [desde, hasta). Lo que estaba vigente se mide al cierre del periodo.
+   */
+  async informeCumplimiento(desde: Date, hasta: Date): Promise<InformeCumplimiento> {
+    const enRango = { gte: desde, lt: hasta };
+    const [recibidas, resueltas, vencidas, consentimientos, conEvidencia, sinAnonimizar] =
+      await Promise.all([
+        this.prisma.solicitudArco.findMany({ where: { creadoEn: enRango }, select: { tipo: true } }),
+        this.prisma.solicitudArco.findMany({
+          where: { respondidoEn: enRango, estado: { in: ['ATENDIDA', 'RECHAZADA'] } },
+          select: { creadoEn: true, respondidoEn: true, plazoLimite: true },
+        }),
+        this.prisma.solicitudArco.count({
+          where: {
+            creadoEn: { lt: hasta },
+            plazoLimite: { lt: hasta },
+            OR: [
+              { estado: { in: ['RECIBIDA', 'EN_PROCESO'] } },
+              { respondidoEn: { gte: hasta } },
+            ],
+          },
+        }),
+        this.prisma.consentimiento.findMany({
+          where: { otorgadoEn: { lt: hasta } },
+          select: { finalidad: true, otorgado: true, otorgadoEn: true, revocadoEn: true },
+        }),
+        this.prisma.notificacion.count({
+          where: { evidenciaId: { not: null }, creadoEn: enRango },
+        }),
+        this.prisma.notificacion.count({
+          where: { evidencia: { anonimizada: false }, creadoEn: enRango },
+        }),
+      ]);
+
+    const porTipo: Record<string, number> = {};
+    for (const r of recibidas) porTipo[r.tipo] = (porTipo[r.tipo] ?? 0) + 1;
+    const enPlazo = resueltas.filter((r) => r.respondidoEn! <= r.plazoLimite).length;
+    const dias = resueltas.map(
+      (r) => (r.respondidoEn!.getTime() - r.creadoEn.getTime()) / 86_400_000,
+    );
+
+    const finalidades: FinalidadConsentimiento[] = [
+      'TRATAMIENTO_DATOS',
+      'COMUNICACIONES',
+      'USO_IMAGEN',
+      'INVESTIGACION',
+    ];
+    const enElRango = (f: Date | null) => f !== null && f >= desde && f < hasta;
+
+    return {
+      periodo: { desde, hasta },
+      arco: {
+        recibidas: recibidas.length,
+        porTipo,
+        resueltas: resueltas.length,
+        resueltasEnPlazo: enPlazo,
+        porcentajeEnPlazo:
+          resueltas.length === 0 ? null : Math.round((enPlazo / resueltas.length) * 1000) / 10,
+        diasPromedioDeRespuesta:
+          dias.length === 0
+            ? null
+            : Math.round((dias.reduce((t, d) => t + d, 0) / dias.length) * 10) / 10,
+        vencidasSinResolver: vencidas,
+      },
+      consentimientos: finalidades.map((finalidad) => {
+        const deEsta = consentimientos.filter((c) => c.finalidad === finalidad && c.otorgado);
+        return {
+          finalidad,
+          otorgados: deEsta.filter((c) => enElRango(c.otorgadoEn)).length,
+          revocados: deEsta.filter((c) => enElRango(c.revocadoEn)).length,
+          vigentesAlCierre: deEsta.filter((c) => c.revocadoEn === null || c.revocadoEn >= hasta)
+            .length,
+        };
+      }),
+      der1: {
+        notificacionesConEvidencia: conEvidencia,
+        sinAnonimizar,
+        cumple: sinAnonimizar === 0,
+      },
+    };
   }
 
   /** Registra una solicitud ARCO con su plazo legal (RF-DE-02). */

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../comun/descarga.dart';
 import '../../comun/visor_archivo.dart';
 import '../../comun/widgets.dart';
 import '../../nucleo/api/cliente_api.dart';
@@ -35,19 +36,20 @@ class PantallaDetalleAporte extends ConsumerWidget {
           mensaje: e is ErrorApi ? e.mensaje : 'No pudimos cargar el aporte.',
           onReintentar: () => ref.invalidate(detalleAporteProvider(donacionId)),
         ),
-        data: (datos) => _Contenido(datos: datos),
+        data: (datos) => _Contenido(id: donacionId, datos: datos),
       ),
     );
   }
 }
 
-class _Contenido extends StatelessWidget {
-  const _Contenido({required this.datos});
+class _Contenido extends ConsumerWidget {
+  const _Contenido({required this.id, required this.datos});
 
+  final String id;
   final Map<String, dynamic> datos;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tema = Theme.of(context);
     final estado = datos['estado'] as Map<String, dynamic>;
     final campana = datos['campana'] as Map<String, dynamic>;
@@ -109,8 +111,35 @@ class _Contenido extends StatelessWidget {
                       etiqueta: 'Fecha',
                       valor: Formato.fecha(Formato.aFecha(datos['fecha'])),
                     ),
+                    // D2 · Si su causa cerro: a donde fue el saldo que no se uso.
+                    if (datos['saldoDeCierre'] case {'resuelto': true} && final saldo)
+                      FilaDato(
+                        etiqueta: 'Saldo al cerrar la causa',
+                        valor: saldo['destino'] == 'REASIGNACION'
+                            ? '${Formato.soles(saldo['monto'] as String?)} pasaron a '
+                                '${(saldo['fondoDestino'] as Map<String, dynamic>?)?['nombre']}'
+                            : '${Formato.soles(saldo['monto'] as String?)} se le devolvieron',
+                      ),
+                    if (datos['trasladadoDesde'] case {'fondo': final String fondo})
+                      FilaDato(
+                        etiqueta: 'Viene de',
+                        valor: 'El saldo de su aporte a $fondo, que cerró',
+                      ),
                   ],
                 ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // RF-DE-07: la constancia, para quien la necesite para sus cuentas.
+            OutlinedButton.icon(
+              icon: const Icon(Icons.description_outlined),
+              label: const Text('Constancia de donación (PDF)'),
+              onPressed: () => descargarArchivo(
+                context,
+                ref,
+                ruta: '/donaciones/$id/constancia',
+                nombre: 'constancia-$id.pdf',
+                tipo: 'application/pdf',
               ),
             ),
             const SizedBox(height: 20),

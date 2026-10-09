@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -98,6 +100,18 @@ class ClienteApi {
     return r.data?.toString() ?? '';
   }
 
+  /// Para las descargas binarias: los estados en Excel o PDF, el borrador del PLE.
+  Future<List<int>> obtenerBytes(String ruta, {Map<String, dynamic>? consulta}) async {
+    final r = await _llamar(
+      () => _dio.get<List<int>>(
+        ruta,
+        queryParameters: consulta,
+        options: Options(responseType: ResponseType.bytes),
+      ),
+    );
+    return (r.data as List<int>?) ?? const [];
+  }
+
   /// Sube un archivo binario a una URL firmada, como haria contra S3.
   Future<void> subirArchivo(String urlFirmada, List<int> bytes, String mime) async {
     // La URL firmada ya trae su token; el prefijo de la API no se repite.
@@ -148,7 +162,7 @@ class ClienteApi {
     }
 
     final estado = e.response?.statusCode;
-    final datos = e.response?.data;
+    final datos = _comoJson(e.response?.data);
     final cuerpo = datos is Map<String, dynamic> ? datos : null;
 
     // El backend detalla los errores de validacion por campo; se conservan
@@ -177,6 +191,18 @@ class ClienteApi {
     };
 
     return ErrorApi(mensaje: mensaje, codigo: estado, errores: errores);
+  }
+}
+
+/// Una descarga binaria que falla trae su error JSON como bytes. Sin
+/// decodificarlo, el mensaje del servidor ("los estados de un fondo los ven
+/// su organizacion...") se perderia y la pantalla mostraria uno generico.
+dynamic _comoJson(dynamic datos) {
+  if (datos is! List<int>) return datos;
+  try {
+    return jsonDecode(utf8.decode(datos));
+  } on FormatException {
+    return null;
   }
 }
 

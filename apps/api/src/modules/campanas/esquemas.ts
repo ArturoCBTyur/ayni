@@ -63,6 +63,37 @@ export const esquemaVerificarOng = z.object({
 });
 export type VerificarOng = z.infer<typeof esquemaVerificarOng>;
 
+/** RF-DE-07 · Calificacion SUNAT de la ONG como entidad perceptora de donaciones. */
+export const esquemaPerceptora = z
+  .object({
+    perceptora: z.boolean(),
+    resolucion: z.string().trim().min(3).max(120).optional(),
+    desde: z.coerce.date().optional(),
+    hasta: z.coerce.date().optional(),
+    motivo: z
+      .string()
+      .trim()
+      .min(10, 'Explique de donde sale el dato: que documento de SUNAT lo acredita.')
+      .max(2000),
+  })
+  .superRefine((d, ctx) => {
+    if (d.perceptora && (!d.resolucion || !d.desde)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['resolucion'],
+        message: 'Para calificarla hace falta la resolucion y la fecha desde la que rige.',
+      });
+    }
+    if (d.desde && d.hasta && d.hasta < d.desde) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['hasta'],
+        message: 'La vigencia no puede terminar antes de empezar.',
+      });
+    }
+  });
+export type Perceptora = z.infer<typeof esquemaPerceptora>;
+
 /** Agregar a alguien al equipo de la ONG: tiene que tener cuenta ya. */
 export const esquemaAgregarMiembro = z.object({
   correo: z.string().trim().toLowerCase().email('Ingrese el correo de su cuenta en Ayni.'),

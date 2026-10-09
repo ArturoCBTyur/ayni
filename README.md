@@ -24,6 +24,8 @@ Cada análisis queda atado al modelo y a la regla de umbrales **vigentes al mome
 
 Y cada decisión de auditor se guarda en `revisiones_auditoria`: es el **conjunto etiquetado** con el que AIni se reentrena.
 
+Sobre eso, el [plan transdisciplinario](docs/plan-transdisciplinario.md) agrega lo que cada disciplina necesita para leer la plataforma en su propio idioma: estados mensuales por fondo en cuentas del PCGE, con cierre inmutable; cierre de causa con el destino del remanente de cada donante y un informe verificable por QR; encuestas para medir confianza (SOC-1) y usabilidad (PSI-1); costo por unidad de impacto; constancia de donación; informe de cumplimiento de la Ley N.° 29733; y datos abiertos en IATI. **Las decisiones de cada disciplina están propuestas y sin firmar** en [ADR-0007](docs/adr/0007-decisiones-transdisciplinarias.md): lo construido se apoya en esas propuestas, cada una en un solo archivo para que la que se firme cambie poco.
+
 ## AIni: qué hace de IA, y qué deliberadamente no
 
 [`apps/aini`](apps/aini) es un servicio Python propio —**no una API de terceros**—. Corre en la infraestructura del proyecto, sin clave que custodiar ni cuota que agotar, y los datos de los beneficiarios no salen de ella. Para un sistema que trata datos sensibles bajo la **Ley N.° 29733**, eso último no es un detalle de costo.
@@ -216,6 +218,8 @@ El respaldo (RNF-13) no termina en el volcado: termina en una restauración que 
 - [AIni: el motor de verificación](apps/aini/README.md) — las tres señales, con las mediciones y los límites
 - [Revisión OWASP ASVS L2](docs/revision-asvs-l2.md) — capítulo por capítulo, con lo que no cubre
 - [Respaldo y recuperación](docs/respaldo.md) — respaldar, restaurar, verificar y rotar la clave de cifrado
+- [Plan transdisciplinario](docs/plan-transdisciplinario.md) y sus [decisiones propuestas (ADR-0007)](docs/adr/0007-decisiones-transdisciplinarias.md)
+- [Protocolo de la sesión de usabilidad](docs/protocolo-sus.md) — la parte de PSI-1 que no se puede automatizar
 
 ## Equipo
 

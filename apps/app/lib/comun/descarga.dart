@@ -52,3 +52,33 @@ Future<void> descargarCsv(
     mensajero.showSnackBar(SnackBar(content: Text(e.mensaje)));
   }
 }
+
+/// Pide un archivo binario a la API (Excel, PDF, el borrador del PLE) y lo
+/// entrega como descarga.
+///
+/// En Android o iOS no hay donde guardarlo sin pedir permisos de
+/// almacenamiento, y un PDF no se puede mostrar como texto: se avisa que la
+/// descarga es de la version web.
+Future<void> descargarArchivo(
+  BuildContext context,
+  WidgetRef ref, {
+  required String ruta,
+  Map<String, dynamic>? consulta,
+  required String nombre,
+  required String tipo,
+}) async {
+  final mensajero = ScaffoldMessenger.of(context);
+  try {
+    final bytes = await ref.read(clienteApiProvider).obtenerBytes(ruta, consulta: consulta);
+    final guardado = plataforma.guardarBytes(nombre, bytes, tipo);
+    mensajero.showSnackBar(
+      SnackBar(
+        content: Text(
+          guardado ? 'Descargado: $nombre' : 'Este archivo se descarga desde la versión web.',
+        ),
+      ),
+    );
+  } on ErrorApi catch (e) {
+    mensajero.showSnackBar(SnackBar(content: Text(e.mensaje)));
+  }
+}

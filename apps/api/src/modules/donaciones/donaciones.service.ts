@@ -11,6 +11,7 @@ import { Prisma } from '@prisma/client';
 import { BitacoraService, type ContextoPeticion } from '../../comun/bitacora/bitacora.service';
 import { PrismaService } from '../../comun/prisma/prisma.service';
 import { soles } from '../../comun/dinero';
+import type { Constancia } from './constancia';
 import { LibroService } from '../contable/libro.service';
 import { urlPublicable } from '../gastos/evidencia-publica';
 import { ALMACENAMIENTO, type AlmacenamientoArchivos } from '../gastos/puertos/almacenamiento.port';
@@ -366,6 +367,8 @@ export class DonacionesService {
         fondo: { include: { campana: { include: { ong: true } } } },
         pago: true,
         aplicaciones: { include: { gasto: true } },
+        remanente: { include: { fondoDestino: true } },
+        donacionOrigen: { include: { fondo: true } },
       },
     });
 
@@ -390,8 +393,9 @@ export class DonacionesService {
           ong: d.fondo.campana.ong.nombreComercial ?? d.fondo.campana.ong.razonSocial,
           estado: this.estadoParaDonante(d.estado, aplicado, d.montoNeto, verificado),
           montoAplicado: soles(aplicado),
-          montoEsperandoEvidencia: soles(d.montoNeto.minus(aplicado)),
+          montoEsperandoEvidencia: soles(esperandoEvidencia(d.montoNeto, aplicado, d.remanente)),
           gastosFinanciados: d.aplicaciones.length,
+          ...destinoDelSaldo(d),
         };
       }),
     };
@@ -405,6 +409,89 @@ export class DonacionesService {
    * siempre la version publicable, y del comprobante va su identificacion,
    * no el archivo: es un documento de la ONG.
    */
+  /**
+   * RF-DE-07 · Constancia de una donacion confirmada, solo para su donante.
+   *
+   * Si la ONG estaba calificada como perceptora en la fecha de la donacion,
+   * lo dice con su resolucion. Una calificacion posterior o vencida no se
+   * aplica hacia atras.
+   */
+  async constancia(donacionId: string, usuarioId: string): Promise<Constancia> {
+    const d = await this.prisma.donacion.findUnique({
+      where: { id: donacionId },
+      include: {
+        donante: { include: { usuario: true } },
+        pago: true,
+        fondo: { include: { campana: { include: { ong: true } } } },
+        aplicaciones: true,
+        remanente: { include: { fondoDestino: true } },
+        donacionOrigen: { include: { fondo: true } },
+      },
+    });
+    if (!d || d.donante.usuarioId !== usuarioId) {
+      throw new NotFoundException('No encontramos ese aporte.');
+    }
+    if (d.estado !== 'CONFIRMADA' || !d.confirmadaEn) {
+      throw new BadRequestException(
+        'La constancia se emite cuando el pago esta confirmado; este aporte todavia no lo esta.',
+      );
+    }
+
+    const ong = d.fondo.campana.ong;
+    const fecha = d.confirmadaEn;
+    const vigente =
+      ong.perceptoraDonaciones &&
+      ong.perceptoraDesde !== null &&
+      ong.perceptoraDesde <= fecha &&
+      (ong.perceptoraHasta === null || fecha <= ong.perceptoraHasta);
+    const aplicado = d.aplicaciones.reduce((t, a) => t.plus(a.monto), new Prisma.Decimal(0));
+    const documento =
+      d.donante.documentoTipo && d.donante.documentoNumero
+        ? `${d.donante.documentoTipo} ${d.donante.documentoNumero}`
+        : null;
+
+    return {
+      numero: `AYNI-${fecha.getUTCFullYear()}-${d.id.slice(0, 8).toUpperCase()}`,
+      emitidaEn: new Date(),
+      donatario: {
+        razonSocial: ong.razonSocial,
+        ruc: ong.ruc,
+        direccion: ong.direccion,
+        perceptora: vigente
+          ? {
+              resolucion: ong.perceptoraResolucion!,
+              desde: ong.perceptoraDesde!,
+              hasta: ong.perceptoraHasta,
+            }
+          : null,
+      },
+      donante: { nombre: `${d.donante.usuario.nombres} ${d.donante.usuario.apellidos}`, documento },
+      donacion: {
+        id: d.id,
+        fecha,
+        monto: soles(d.monto),
+        comision: d.pago ? soles(d.pago.comision) : '0.00',
+        neto: soles(d.montoNeto),
+        medio: d.pago
+          ? `${d.pago.marca ?? 'Tarjeta'} terminada en ${d.pago.ultimos4 ?? '----'}`
+          : 'Traslado del saldo de un aporte anterior',
+        referencia: d.pago?.referenciaExterna ?? null,
+        fondo: d.fondo.nombre,
+        campana: d.fondo.campana.titulo,
+        trasladadaDesde: d.donacionOrigen?.fondo.nombre ?? null,
+      },
+      destino: {
+        aplicado: soles(aplicado),
+        esperandoEvidencia: soles(esperandoEvidencia(d.montoNeto, aplicado, d.remanente)),
+        saldoDeCierre: d.remanente?.resueltoEn
+          ? d.remanente.destino === 'DEVOLUCION'
+            ? `S/ ${soles(d.remanente.monto)} devueltos`
+            : `S/ ${soles(d.remanente.monto)} trasladados a ${d.remanente.fondoDestino?.nombre}`
+          : null,
+      },
+    };
+  }
+
   async detalle(donacionId: string, usuarioId: string) {
     const donacion = await this.prisma.donacion.findUnique({
       where: { id: donacionId },
@@ -416,6 +503,8 @@ export class DonacionesService {
           orderBy: { creadoEn: 'asc' },
           include: { gasto: { include: { comprobante: true, evidencias: true } } },
         },
+        remanente: { include: { fondoDestino: true } },
+        donacionOrigen: { include: { fondo: true } },
       },
     });
 
@@ -443,7 +532,10 @@ export class DonacionesService {
       campana: { titulo: donacion.fondo.campana.titulo, slug: donacion.fondo.campana.slug },
       ong: donacion.fondo.campana.ong.nombreComercial ?? donacion.fondo.campana.ong.razonSocial,
       montoAplicado: soles(aplicado),
-      montoEsperandoEvidencia: soles(donacion.montoNeto.minus(aplicado)),
+      montoEsperandoEvidencia: soles(
+        esperandoEvidencia(donacion.montoNeto, aplicado, donacion.remanente),
+      ),
+      ...destinoDelSaldo(donacion),
       aplicaciones: donacion.aplicaciones.map((a) => ({
         monto: soles(a.monto),
         aplicadoEn: a.creadoEn,
@@ -583,4 +675,45 @@ export class DonacionesService {
     fecha.setHours(9, 0, 0, 0);
     return fecha;
   }
+}
+
+/**
+ * D2 · Lo que de un aporte todavia espera evidencia. Si su causa cerro y el
+ * saldo ya salio (devuelto o trasladado), ese saldo no espera nada aqui: se
+ * devolvio, o espera en el fondo de destino, como otra donacion.
+ */
+function esperandoEvidencia(
+  neto: Prisma.Decimal,
+  aplicado: Prisma.Decimal,
+  remanente: { monto: Prisma.Decimal; resueltoEn: Date | null } | null,
+): Prisma.Decimal {
+  const salio = remanente?.resueltoEn ? remanente.monto : new Prisma.Decimal(0);
+  return Prisma.Decimal.max(neto.minus(aplicado).minus(salio), 0);
+}
+
+/** D2 · De donde vino un aporte trasladado, y a donde fue el saldo de uno cerrado. */
+function destinoDelSaldo(d: {
+  remanente: {
+    monto: Prisma.Decimal;
+    destino: string | null;
+    resueltoEn: Date | null;
+    fondoDestino: { id: string; nombre: string } | null;
+  } | null;
+  donacionOrigen: { id: string; fondo: { nombre: string } } | null;
+}) {
+  return {
+    saldoDeCierre: d.remanente
+      ? {
+          monto: soles(d.remanente.monto),
+          destino: d.remanente.destino,
+          resuelto: d.remanente.resueltoEn !== null,
+          fondoDestino: d.remanente.fondoDestino
+            ? { id: d.remanente.fondoDestino.id, nombre: d.remanente.fondoDestino.nombre }
+            : null,
+        }
+      : null,
+    trasladadoDesde: d.donacionOrigen
+      ? { donacionId: d.donacionOrigen.id, fondo: d.donacionOrigen.fondo.nombre }
+      : null,
+  };
 }

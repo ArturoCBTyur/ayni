@@ -8,7 +8,13 @@ import {
 
 import { BitacoraService, type ContextoPeticion } from '../../comun/bitacora/bitacora.service';
 import { PrismaService } from '../../comun/prisma/prisma.service';
-import type { AgregarMiembro, CambiarMiembro, RegistrarOng, VerificarOng } from './esquemas';
+import type {
+  AgregarMiembro,
+  CambiarMiembro,
+  Perceptora,
+  RegistrarOng,
+  VerificarOng,
+} from './esquemas';
 import {
   calcularPuntajeConfianza,
   PUNTAJE_NEUTRO,
@@ -201,6 +207,73 @@ export class OngsService {
     };
   }
 
+  /**
+   * RF-DE-07 · Registra si la ONG esta calificada por SUNAT como entidad
+   * perceptora de donaciones. Lo que cambia es lo que dice su constancia de
+   * donacion, asi que lo registra alguien de afuera, con motivo, y queda en la
+   * bitacora como una verificacion.
+   */
+  async registrarPerceptora(
+    ongId: string,
+    usuarioId: string,
+    datos: Perceptora,
+    contexto: ContextoPeticion,
+  ) {
+    const ong = await this.prisma.ong.findUnique({ where: { id: ongId } });
+    if (!ong) throw new NotFoundException('No encontramos esa organizacion.');
+
+    const miembro = await this.prisma.ongMiembro.findUnique({
+      where: { ongId_usuarioId: { ongId, usuarioId } },
+    });
+    if (miembro) {
+      throw new ForbiddenException(
+        'Usted es miembro de esta organizacion: su calificacion la debe registrar otra persona.',
+      );
+    }
+
+    const actualizada = await this.prisma.ong.update({
+      where: { id: ongId },
+      data: datos.perceptora
+        ? {
+            perceptoraDonaciones: true,
+            perceptoraResolucion: datos.resolucion,
+            perceptoraDesde: datos.desde,
+            perceptoraHasta: datos.hasta ?? null,
+          }
+        : {
+            perceptoraDonaciones: false,
+            perceptoraResolucion: null,
+            perceptoraDesde: null,
+            perceptoraHasta: null,
+          },
+    });
+
+    await this.bitacora.registrar({
+      usuarioId,
+      accion: 'ONG_PERCEPTORA',
+      entidad: 'ongs',
+      entidadId: ongId,
+      valorAnterior: {
+        perceptora: ong.perceptoraDonaciones,
+        resolucion: ong.perceptoraResolucion,
+      },
+      valorNuevo: {
+        perceptora: datos.perceptora,
+        resolucion: datos.resolucion ?? null,
+        motivo: datos.motivo,
+      },
+      ...contexto,
+    });
+
+    return {
+      id: actualizada.id,
+      perceptoraDonaciones: actualizada.perceptoraDonaciones,
+      perceptoraResolucion: actualizada.perceptoraResolucion,
+      perceptoraDesde: actualizada.perceptoraDesde,
+      perceptoraHasta: actualizada.perceptoraHasta,
+    };
+  }
+
   /** Ficha publica de la ONG con el desglose de su puntaje (RF-SO-01). */
   async fichaPublica(ongId: string) {
     const ong = await this.prisma.ong.findUnique({
@@ -231,6 +304,9 @@ export class OngsService {
       // El sello es la señal visible que sostiene la confianza institucional.
       verificada: ong.estadoVerificacion === 'VERIFICADA',
       verificadaEn: ong.verificadaEn,
+      // RF-DE-07: que sea perceptora es un dato publico de SUNAT y le importa
+      // a quien quiere deducir su donacion.
+      perceptoraDonaciones: ong.perceptoraDonaciones,
       confianza: puntaje,
       campanas: ong.campanas.map((c) => ({
         id: c.id,

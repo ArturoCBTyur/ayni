@@ -15,6 +15,7 @@ import {
   esquemaCrearCampana,
   esquemaCrearFondo,
   esquemaRegistrarOng,
+  esquemaPerceptora,
   esquemaVerificarOng,
   type ActualizarCampana,
   type ActualizarFondo,
@@ -24,6 +25,7 @@ import {
   type CrearCampana,
   type CrearFondo,
   type RegistrarOng,
+  type Perceptora,
   type VerificarOng,
 } from './esquemas';
 import { OngsService } from './ongs.service';
@@ -145,6 +147,18 @@ export class CampanasController {
     @Req() req: Request,
   ) {
     return this.ongs.verificar(ongId, auditorId, datos, BitacoraService.contexto(req));
+  }
+
+  @Roles('AUDITOR', 'ADMIN')
+  @Patch('ongs/:id/perceptora')
+  @ApiOperation({ summary: 'RF-DE-07 · Registrar la calificacion de perceptora de donaciones' })
+  async registrarPerceptora(
+    @Param('id', ParseUUIDPipe) ongId: string,
+    @UsuarioActual('sub') usuarioId: string,
+    @Body(new ZodPipe(esquemaPerceptora)) datos: Perceptora,
+    @Req() req: Request,
+  ) {
+    return this.ongs.registrarPerceptora(ongId, usuarioId, datos, BitacoraService.contexto(req));
   }
 
   // ----- Campañas y fondos -------------------------------------------------

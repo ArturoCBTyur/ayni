@@ -68,7 +68,7 @@ void main() {
           },
         );
 
-    testWidgets('lista las tres finalidades aunque solo una este otorgada', (tester) async {
+    testWidgets('lista las cuatro finalidades aunque solo una este otorgada', (tester) async {
       await tester.binding.setSurfaceSize(const Size(900, 1800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -93,9 +93,10 @@ void main() {
       expect(find.text('Tratamiento de mis datos'), findsOneWidget);
       expect(find.text('Comunicaciones sobre mis aportes'), findsOneWidget);
       expect(find.text('Uso de mi nombre en agradecimientos'), findsOneWidget);
+      expect(find.text('Uso de mis respuestas en encuestas'), findsOneWidget);
 
       final interruptores = tester.widgetList<SwitchListTile>(find.byType(SwitchListTile));
-      expect(interruptores.map((s) => s.value).toList(), [true, false, false]);
+      expect(interruptores.map((s) => s.value).toList(), [true, false, false, false]);
     });
 
     testWidgets('revocar el permiso esencial pide confirmacion antes de llamar al API',

@@ -78,6 +78,13 @@ export const esquemaRegistrarGasto = z
     capturadoEn: z.coerce.date().optional(),
     latitud: z.coerce.number().min(-90).max(90).optional(),
     longitud: z.coerce.number().min(-180).max(180).optional(),
+    /** D4 · Unidades de impacto del gasto, si la categoria del fondo las mide. */
+    unidadesImpacto: z
+      .number()
+      .int('Las unidades de impacto se cuentan en enteros.')
+      .positive('Si no hubo unidades, deje el campo vacio.')
+      .max(1_000_000)
+      .optional(),
     comprobante: esquemaComprobante,
     evidencias: z
       .array(esquemaEvidencia)

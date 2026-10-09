@@ -17,6 +17,7 @@ import { cargarConfiguracion } from '../../config/configuracion';
 import { AplicacionFifoService } from '../contable/aplicacion-fifo.service';
 import { LibroService } from '../contable/libro.service';
 import { NarrativaService, normalizar, PLANTILLAS } from './narrativa.service';
+import { PLANTILLAS_CIERRE } from './plantillas-cierre';
 import { RetornoService } from './retorno.service';
 import { CifradoService } from '../../comun/cifrado/cifrado.service';
 import { AlmacenamientoDisco } from '../gastos/almacenamiento/disco.storage';
@@ -414,6 +415,33 @@ describe('RF-CO-02 · Revision de lenguaje etico', () => {
     for (const plantilla of PLANTILLAS) {
       expect(NarrativaService.revisarLenguaje(plantilla)).toEqual([]);
     }
+  });
+
+  it('RF-CO-03 · tampoco los avisos de cierre de causa', () => {
+    for (const plantilla of PLANTILLAS_CIERRE) {
+      expect(NarrativaService.revisarLenguaje(plantilla)).toEqual([]);
+    }
+  });
+
+  it('RF-CO-03 · un aviso de cierre lleva el monto verificado y falla con un dato que no existe', () => {
+    const narrativa = new NarrativaService();
+    const contexto = {
+      donante: 'Rosa',
+      monto: '42.12',
+      fondo: 'Atención veterinaria',
+      ong: 'Huellas del Ande',
+      fecha: '09/02/2027',
+      destino: '',
+    };
+    const aviso = narrativa.redactarCierre('cierre.eleccion', contexto);
+
+    expect(aviso.cuerpo).toContain('S/ 42.12');
+    expect(aviso.cuerpo).toContain('hasta el 09/02/2027');
+    expect(aviso.plantilla).toBe('cierre.eleccion@1.0');
+    const { destino: _sinDestino, ...incompleto } = contexto;
+    expect(() => narrativa.redactarCierre('cierre.traslado', incompleto as never)).toThrow(
+      'no es un dato verificado',
+    );
   });
 
   it('la revision detecta las palabras prohibidas pese a la flexion', () => {

@@ -58,6 +58,7 @@ const _tablero = <String, dynamic>{
       'valor': 100,
       'unidad': '%',
       'cumple': true,
+      'n': 12,
     },
     {
       'codigo': 'PSI-1',
@@ -66,7 +67,9 @@ const _tablero = <String, dynamic>{
       'meta': 'SUS >= 75',
       'valor': null,
       'unidad': 'SUS',
-      'noMedible': 'Requiere una prueba de usabilidad con usuarios reales.',
+      'noMedible': 'Hay 3 respuesta(s); se publica desde 5 para que el promedio no deje ver '
+          'lo que respondio cada persona (D6).',
+      'n': 3,
     },
   ],
   'medidos': 1,
@@ -164,16 +167,24 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sin medir'), findsOneWidget);
-    expect(
-      find.text('Requiere una prueba de usabilidad con usuarios reales.'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('se publica desde 5'), findsOneWidget);
     // Y se declara cuantos de cuantos se pueden medir, en lugar de mostrar
     // solo los que si y dar la impresion de que eso era todo.
     expect(
       find.textContaining('1 de 2 se pueden medir'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('cada indicador dice sobre cuantos casos se calcula (T4.4)', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(_envolver(_conciliacion(cuadra: true)));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('n = 12'), findsOneWidget);
+    expect(find.textContaining('n = 3'), findsOneWidget);
   });
 
   testWidgets('las cifras del grafico existen tambien como texto (RNF-15)', (tester) async {

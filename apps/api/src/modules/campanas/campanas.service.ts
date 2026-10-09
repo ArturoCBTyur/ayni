@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client';
 
 import { BitacoraService, type ContextoPeticion } from '../../comun/bitacora/bitacora.service';
 import { PrismaService } from '../../comun/prisma/prisma.service';
+import { iniciarCierreDeCausa } from '../causas/politica';
 import type {
   ActualizarCampana,
   ActualizarFondo,
@@ -18,6 +19,7 @@ import type {
 } from './esquemas';
 import { soles } from '../../comun/dinero';
 import { urlPublicable } from '../gastos/evidencia-publica';
+import { calcularImpacto, unidadDe } from '../gastos/impacto';
 import { comprimirEvidencia } from '../gastos/imagen';
 import { ALMACENAMIENTO, type AlmacenamientoArchivos } from '../gastos/puertos/almacenamiento.port';
 import { calcularAvance } from './ongs.service';
@@ -229,6 +231,11 @@ export class CampanasService {
       },
     });
 
+    // D2 · Cerrar la campaña abre el cierre de cada fondo que recibio dinero.
+    if (datos.estado === 'CERRADA') {
+      for (const f of campana.fondos) await iniciarCierreDeCausa(this.prisma, f.id);
+    }
+
     await this.bitacora.registrarCambio({
       usuarioId,
       accion: 'CAMPANA_ACTUALIZADA',
@@ -383,6 +390,9 @@ export class CampanasService {
         },
       });
 
+      // D2 · Cerrar el fondo abre su cierre de causa, si recibio dinero.
+      if (datos.estado === 'CERRADO') await iniciarCierreDeCausa(this.prisma, fondoId);
+
       await this.bitacora.registrarCambio({
         usuarioId,
         accion: 'FONDO_ACTUALIZADO',
@@ -409,7 +419,12 @@ export class CampanasService {
 
     const campanas = await this.prisma.campana.findMany({
       where: { ongId },
-      include: { fondos: { orderBy: { creadoEn: 'asc' } } },
+      include: {
+        fondos: {
+          orderBy: { creadoEn: 'asc' },
+          include: { cierreCausa: { include: { informe: { select: { id: true } } } } },
+        },
+      },
       orderBy: { creadoEn: 'desc' },
     });
 
@@ -437,6 +452,21 @@ export class CampanasService {
         retenido: soles(f.saldoRetenido),
         ejecutado: soles(f.saldoEjecutado),
         avance: calcularAvance(f.saldoRecaudado.toNumber(), f.meta.toNumber()),
+        // D4 · Que unidad de impacto se le pide a cada gasto, o null.
+        unidadImpacto: unidadDe(f.categoriaGasto),
+        // D2 · Si se cerro: hasta cuando se justifica y, al final, su informe.
+        cierreCausa: f.cierreCausa
+          ? {
+              estado: f.cierreCausa.estado,
+              venceJustificacionEn: f.cierreCausa.venceJustificacionEn,
+              venceEleccionEn: f.cierreCausa.venceEleccionEn,
+              remanenteTotal: f.cierreCausa.remanenteTotal
+                ? soles(f.cierreCausa.remanenteTotal)
+                : null,
+              observacion: f.cierreCausa.observacion,
+              informeId: f.cierreCausa.informe?.id ?? null,
+            }
+          : null,
       })),
     }));
   }
@@ -536,7 +566,15 @@ export class CampanasService {
       throw new NotFoundException('No encontramos esa campaña.');
     }
 
-    const verificados = await this.gastosVerificados(campana.fondos.map((f) => f.id));
+    const fondoIds = campana.fondos.map((f) => f.id);
+    const [verificados, aprobados] = await Promise.all([
+      this.gastosVerificados(fondoIds),
+      this.gastosParaImpacto(fondoIds),
+    ]);
+    // Un fondo tiene una categoria: su impacto es, a lo sumo, una fila.
+    const impactos = new Map(
+      fondoIds.map((id) => [id, calcularImpacto(aprobados.filter((g) => g.fondoId === id))[0]]),
+    );
 
     return {
       id: campana.id,
@@ -567,8 +605,31 @@ export class CampanasService {
         ejecutado: soles(f.saldoEjecutado),
         avance: calcularAvance(f.saldoRecaudado.toNumber(), f.meta.toNumber()),
         gastosVerificados: verificados.get(f.id) ?? [],
+        // RF-SO-09 · Cuanto costo cada unidad de impacto en este fondo.
+        impacto: impactos.get(f.id) ?? null,
       })),
+      impacto: calcularImpacto(aprobados),
     };
+  }
+
+  /** Gastos aprobados de unos fondos, con lo que hace falta para su impacto. */
+  private async gastosParaImpacto(fondoIds: string[]) {
+    const filas = await this.prisma.gasto.findMany({
+      where: { fondoId: { in: fondoIds }, estado: 'APROBADO' },
+      select: {
+        fondoId: true,
+        montoAprobado: true,
+        montoDeclarado: true,
+        unidadesImpacto: true,
+        fondo: { select: { categoriaGasto: true } },
+      },
+    });
+    return filas.map((g) => ({
+      fondoId: g.fondoId,
+      categoria: g.fondo.categoriaGasto,
+      monto: g.montoAprobado ?? g.montoDeclarado,
+      unidades: g.unidadesImpacto,
+    }));
   }
 
   /**

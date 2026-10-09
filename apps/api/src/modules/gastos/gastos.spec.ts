@@ -306,6 +306,28 @@ describe('CU10 · Registrar gasto', () => {
     expect(trabajos).toBe(1);
   });
 
+  it('RF-SO-08 · guarda las unidades de impacto si la categoria las mide (D4)', async () => {
+    const r = await gastos.registrar(
+      operadorId,
+      { ...(await datosGasto({ monto: 60 })), unidadesImpacto: 40 },
+      {},
+    );
+    const guardado = await prisma.gasto.findUniqueOrThrow({ where: { id: r.id } });
+    expect(guardado.unidadesImpacto).toBe(40);
+  });
+
+  it('RF-SO-08 · rechaza unidades en una categoria que no mide impacto', async () => {
+    await prisma.fondo.update({ where: { id: fondoId }, data: { categoriaGasto: 'INSUMOS' } });
+    try {
+      const datos = { ...(await datosGasto({ monto: 60 })), unidadesImpacto: 3 };
+      await expect(gastos.registrar(operadorId, datos, {})).rejects.toThrow(
+        'no declaran unidades de impacto',
+      );
+    } finally {
+      await prisma.fondo.update({ where: { id: fondoId }, data: { categoriaGasto: 'ALIMENTOS' } });
+    }
+  });
+
   it('calcula hashes, huella perceptual y nitidez de la evidencia', async () => {
     const r = await gastos.registrar(operadorId, await datosGasto({ monto: 90 }), {});
 

@@ -41,6 +41,7 @@ import { PASARELA_PAGO } from './puertos/pasarela-pago.port';
       },
     },
   ],
-  exports: [DonacionesService],
+  // La pasarela tambien la usa el cierre de causa, para devolver remanentes.
+  exports: [DonacionesService, PASARELA_PAGO],
 })
 export class DonacionesModule {}

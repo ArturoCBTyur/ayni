@@ -41,6 +41,12 @@ export const ASIENTOS = {
   EJECUCION: { debe: CUENTAS.RETENIDO, haber: CUENTAS.EJECUTADO },
   /** Correccion de un movimiento anterior (RN-03: nunca se edita). */
   REVERSO: { debe: CUENTAS.EJECUTADO, haber: CUENTAS.RETENIDO },
-  /** Traslado de saldo retenido a otro fondo con consentimiento del donante. */
+  /** Sale de lo retenido hacia otro destino; el destino lo dice el movimiento que sigue. */
   REASIGNACION: { debe: CUENTAS.RETENIDO, haber: CUENTAS.POR_EJECUTAR },
+  /** D2 · El remanente vuelve al donante: sale el dinero del fondo. */
+  DEVOLUCION: { debe: CUENTAS.POR_EJECUTAR, haber: CUENTAS.CAJA },
+  /** D2 · El remanente sale de este fondo hacia el que eligio el donante... */
+  TRASLADO_SALIDA: { debe: CUENTAS.POR_EJECUTAR, haber: CUENTAS.CAJA },
+  /** ...y entra al de destino, donde una RETENCION lo vuelve a condicionar. */
+  TRASLADO_ENTRADA: { debe: CUENTAS.CAJA, haber: CUENTAS.POR_EJECUTAR },
 } as const;

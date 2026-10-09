@@ -3,6 +3,12 @@ import { Prisma } from '@prisma/client';
 
 import { soles } from '../../comun/dinero';
 import { PrismaService } from '../../comun/prisma/prisma.service';
+import {
+  CONFIANZA_DONANTE,
+  SUS,
+  UMBRAL_PUBLICACION,
+  variacionSoc1,
+} from '../encuestas/instrumentos';
 
 /**
  * Un indicador de la Tabla 3 del Entregable 2.
@@ -22,6 +28,30 @@ export interface Indicador {
   /** Por que no se puede medir todavia, cuando valor es null. */
   noMedible?: string;
   cumple?: boolean;
+  /**
+   * Sobre cuantos casos se calcula (T4.4). Un 100 % de dos gastos y uno de
+   * dos mil no dicen lo mismo, y el tablero tiene que poder distinguirlos.
+   */
+  n?: number;
+}
+
+/**
+ * D6 · Un indicador que sale de lo que opinan las personas no se publica con
+ * menos de UMBRAL_PUBLICACION respuestas: con tres, el promedio casi dice lo
+ * que respondio cada una. Los indicadores operativos (gastos, analisis,
+ * plazos) no llevan umbral: no describen a nadie.
+ */
+function conUmbral(indicador: Indicador, n: number): Indicador {
+  if (n >= UMBRAL_PUBLICACION || indicador.valor === null) return { ...indicador, n };
+  return {
+    ...indicador,
+    n,
+    valor: null,
+    cumple: undefined,
+    noMedible:
+      `Hay ${n} respuesta(s); se publica desde ${UMBRAL_PUBLICACION} para que el promedio ` +
+      'no deje ver lo que respondio cada persona (D6).',
+  };
 }
 
 @Injectable()
@@ -35,6 +65,7 @@ export class IndicadoresService {
       ...(await this.privacidad()),
       ...(await this.operacion()),
       ...(await this.comunicacion()),
+      ...(await this.encuestas()),
       ...this.requierenInstrumento(),
     ];
 
@@ -50,6 +81,7 @@ export class IndicadoresService {
       this.prisma.gasto.aggregate({
         where: { estado: 'APROBADO' },
         _sum: { montoAprobado: true },
+        _count: { _all: true },
       }),
       this.prisma.gasto.aggregate({
         where: {
@@ -78,6 +110,7 @@ export class IndicadoresService {
         unidad: '%',
         cumple: porcentaje === null ? undefined : porcentaje >= 100,
         noMedible: ejecutado.isZero() ? 'Todavia no hay gastos ejecutados.' : undefined,
+        n: total._count._all,
       },
       {
         codigo: 'CYF-2',
@@ -86,6 +119,7 @@ export class IndicadoresService {
         meta: '—',
         valor: soles(ejecutado),
         unidad: 'PEN',
+        n: total._count._all,
       },
     ];
   }
@@ -94,9 +128,10 @@ export class IndicadoresService {
     // RNF-06 · La base impide notificar una evidencia sin anonimizar, asi
     // que esto deberia ser siempre 0. Se mide igual: un indicador que no se
     // comprueba nunca es una promesa, no un control.
-    const publicadasSinAnonimizar = await this.prisma.notificacion.count({
-      where: { evidencia: { anonimizada: false } },
-    });
+    const [publicadasSinAnonimizar, conEvidencia] = await Promise.all([
+      this.prisma.notificacion.count({ where: { evidencia: { anonimizada: false } } }),
+      this.prisma.notificacion.count({ where: { evidenciaId: { not: null } } }),
+    ]);
 
     const arco = await this.prisma.solicitudArco.findMany({
       where: { estado: { in: ['ATENDIDA', 'RECHAZADA'] } },
@@ -113,6 +148,7 @@ export class IndicadoresService {
         valor: publicadasSinAnonimizar,
         unidad: 'notificaciones',
         cumple: publicadasSinAnonimizar === 0,
+        n: conEvidencia,
       },
       {
         codigo: 'DER-2',
@@ -123,6 +159,7 @@ export class IndicadoresService {
         unidad: '%',
         cumple: arco.length === 0 ? undefined : enPlazo === arco.length,
         noMedible: arco.length === 0 ? 'Aun no se ha resuelto ninguna solicitud ARCO.' : undefined,
+        n: arco.length,
       },
     ];
   }
@@ -168,6 +205,7 @@ export class IndicadoresService {
         unidad: '%',
         cumple: totalAnalisis === 0 ? undefined : (altos / totalAnalisis) * 100 >= 60,
         noMedible: totalAnalisis === 0 ? 'Todavia no hay analisis registrados.' : undefined,
+        n: totalAnalisis,
       },
       {
         codigo: 'INF-2',
@@ -181,6 +219,7 @@ export class IndicadoresService {
           muestreo.length === 0
             ? 'Aun no se han completado revisiones por muestreo (RN-08).'
             : undefined,
+        n: muestreo.length,
       },
       {
         codigo: 'PSI-2',
@@ -191,6 +230,7 @@ export class IndicadoresService {
         unidad: 's',
         cumple: mediana === null ? undefined : mediana <= 120,
         noMedible: mediana === null ? 'Todavia no hay gastos con captura registrada.' : undefined,
+        n: duraciones.length,
       },
     ];
   }
@@ -218,21 +258,24 @@ export class IndicadoresService {
       minutos.length === 0 ? null : Math.round(minutos[Math.floor(minutos.length / 2)] * 10) / 10;
 
     return [
-      {
-        codigo: 'COM-1',
-        disciplina: 'Comunicacion',
-        nombre: 'Valoracion de la narrativa por el donante',
-        meta: '>= 4 de 5',
-        valor: valoraciones._avg.valoracion
-          ? Math.round(valoraciones._avg.valoracion * 10) / 10
-          : null,
-        unidad: '/5',
-        cumple: valoraciones._avg.valoracion ? valoraciones._avg.valoracion >= 4 : undefined,
-        noMedible:
-          valoraciones._count._all === 0
-            ? 'Ningun donante ha valorado una narrativa todavia.'
-            : undefined,
-      },
+      conUmbral(
+        {
+          codigo: 'COM-1',
+          disciplina: 'Comunicacion',
+          nombre: 'Valoracion de la narrativa por el donante',
+          meta: '>= 4 de 5',
+          valor: valoraciones._avg.valoracion
+            ? Math.round(valoraciones._avg.valoracion * 10) / 10
+            : null,
+          unidad: '/5',
+          cumple: valoraciones._avg.valoracion ? valoraciones._avg.valoracion >= 4 : undefined,
+          noMedible:
+            valoraciones._count._all === 0
+              ? 'Ningun donante ha valorado una narrativa todavia.'
+              : undefined,
+        },
+        valoraciones._count._all,
+      ),
       {
         codigo: 'COM-2',
         disciplina: 'Comunicacion y Psicologia',
@@ -242,7 +285,81 @@ export class IndicadoresService {
         unidad: 'min',
         cumple: medianaMinutos === null ? undefined : medianaMinutos <= 10,
         noMedible: medianaMinutos === null ? 'Aun no se ha enviado ninguna narrativa.' : undefined,
+        n: minutos.length,
       },
+    ];
+  }
+
+  /**
+   * SOC-1 y PSI-1, medidos con las encuestas de la Fase 4 (RF-SO-06, RF-PS-06).
+   *
+   * Sobre la version activa de cada instrumento: dos versiones con items
+   * distintos no miden lo mismo y no se promedian juntas.
+   */
+  private async encuestas(): Promise<Indicador[]> {
+    const [confianza, sus] = await Promise.all([
+      this.prisma.instrumentoEncuesta.findFirst({
+        where: { codigo: CONFIANZA_DONANTE.codigo, activo: true },
+      }),
+      this.prisma.instrumentoEncuesta.findFirst({ where: { codigo: SUS.codigo, activo: true } }),
+    ]);
+
+    const pares = confianza
+      ? await this.prisma.$queryRaw<{ base: Prisma.Decimal; seguimiento: Prisma.Decimal }[]>`
+          SELECT b.puntaje AS base, s.puntaje AS seguimiento
+            FROM respuestas_encuesta b
+            JOIN respuestas_encuesta s
+              ON s.instrumento_id = b.instrumento_id AND s.seudonimo = b.seudonimo
+           WHERE b.instrumento_id = ${confianza.id}::uuid
+             AND b.momento = 'LINEA_BASE' AND s.momento = 'SEGUIMIENTO'
+        `
+      : [];
+    const variacion = variacionSoc1(
+      pares.map((p) => ({ base: Number(p.base), seguimiento: Number(p.seguimiento) })),
+    );
+
+    const usabilidad = sus
+      ? await this.prisma.respuestaEncuesta.aggregate({
+          where: { instrumentoId: sus.id },
+          _avg: { puntaje: true },
+          _count: { _all: true },
+        })
+      : null;
+    const promedioSus = usabilidad?._avg.puntaje
+      ? Math.round(Number(usabilidad._avg.puntaje) * 10) / 10
+      : null;
+
+    return [
+      conUmbral(
+        {
+          codigo: 'SOC-1',
+          disciplina: 'Sociologia',
+          nombre: 'Variacion del indice de confianza del donante',
+          meta: '+20 % sobre la linea base',
+          valor: variacion,
+          unidad: '%',
+          cumple: variacion === null ? undefined : variacion >= 20,
+          noMedible:
+            variacion === null
+              ? 'Todavia no hay donantes con linea base y seguimiento respondidos.'
+              : undefined,
+        },
+        pares.length,
+      ),
+      conUmbral(
+        {
+          codigo: 'PSI-1',
+          disciplina: 'Psicologia y UX',
+          nombre: 'Usabilidad percibida (System Usability Scale)',
+          meta: 'SUS >= 75',
+          valor: promedioSus,
+          unidad: 'SUS',
+          cumple: promedioSus === null ? undefined : promedioSus >= 75,
+          noMedible:
+            promedioSus === null ? 'Todavia nadie respondio el cuestionario SUS.' : undefined,
+        },
+        usabilidad?._count._all ?? 0,
+      ),
     ];
   }
 
@@ -250,31 +367,12 @@ export class IndicadoresService {
    * Indicadores que el sistema no puede calcular por si solo.
    *
    * Se declaran con su motivo porque forman parte de la Tabla 3 y omitirlos
-   * daria una imagen incompleta de lo que el piloto se propuso medir. Dos
-   * necesitan instrumentos externos (encuesta y prueba de usabilidad) y uno
-   * depende de una capacidad que esta version no tiene.
+   * daria una imagen incompleta de lo que el piloto se propuso medir. SOC-1 y
+   * PSI-1 salieron de aqui con las encuestas de la Fase 4; queda INF-3, que es
+   * del frente de IA.
    */
   private requierenInstrumento(): Indicador[] {
     return [
-      {
-        codigo: 'SOC-1',
-        disciplina: 'Sociologia',
-        nombre: 'Variacion del indice de confianza del donante',
-        meta: '+20 % sobre la linea base',
-        valor: null,
-        unidad: '%',
-        noMedible:
-          'Requiere una encuesta Likert antes y despues del piloto; el sistema no la administra.',
-      },
-      {
-        codigo: 'PSI-1',
-        disciplina: 'Psicologia y UX',
-        nombre: 'Usabilidad percibida (System Usability Scale)',
-        meta: 'SUS >= 75',
-        valor: null,
-        unidad: 'SUS',
-        noMedible: 'Requiere una prueba de usabilidad con usuarios reales.',
-      },
       {
         codigo: 'INF-3',
         disciplina: 'Informatica',

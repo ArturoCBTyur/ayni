@@ -8,6 +8,8 @@ import '../../nucleo/navegacion.dart';
 import '../../nucleo/sesion.dart';
 import '../../nucleo/tema.dart';
 import '../donante/pantalla_campana.dart';
+import '../donante/saldos_cierre.dart';
+import '../encuestas/pantalla_encuesta.dart';
 import '../ong/pantalla_equipo.dart';
 import '../ong/pantalla_fondos.dart';
 import '../ong/pantalla_gastos.dart';
@@ -65,7 +67,11 @@ class PantallaInicio extends ConsumerWidget {
         secciones.sort((a, b) => (a.$1 == principal ? 0 : 1).compareTo(b.$1 == principal ? 0 : 1));
 
         return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(panelProvider),
+          onRefresh: () async {
+            ref.invalidate(panelProvider);
+            ref.invalidate(encuestasPendientesProvider);
+            ref.invalidate(saldosCierreProvider);
+          },
           child: Contenido(
             child: ListView(
               children: [
@@ -75,6 +81,8 @@ class PantallaInicio extends ConsumerWidget {
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                 const SizedBox(height: 16),
+                // RF-SO-05: solo aparece si a esta persona le toca responder hoy.
+                const InvitacionEncuesta(),
                 if (secciones.isEmpty)
                   const EstadoVacio(
                     icono: Icons.inbox_outlined,
@@ -244,6 +252,8 @@ class _SeccionDonante extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _Titulo(icono: Icons.favorite_outline, texto: 'Sus aportes'),
+        // RF-CF-11: si una causa que apoyo cerro, lo que tiene que decidir va primero.
+        const SaldosDeCausasCerradas(),
         if (aportes == 0)
           const _Aviso(
             texto: 'Todavía no ha donado. Cada aporte queda retenido hasta que la organización '

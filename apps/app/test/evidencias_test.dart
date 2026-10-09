@@ -182,6 +182,13 @@ void main() {
             'retenido': '200.00',
             'ejecutado': '80.00',
             'avance': 30,
+            'impacto': {
+              'unidad': 'animales atendidos',
+              'unidades': 4,
+              'gastosConUnidades': 1,
+              'gastosAprobados': 1,
+              'costoPorUnidad': '20.00',
+            },
             'gastosVerificados': [
               {
                 'id': 'g1',
@@ -199,6 +206,11 @@ void main() {
     });
 
     expect(find.text('En qué se usó: 1 gasto verificado'), findsOneWidget);
+    // RF-SO-09: el costo por unidad, y sobre cuantos gastos se calculo.
+    expect(
+      find.text('4 animales atendidos · S/ 20.00 cada uno, según 1 de 1 gastos verificados'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('En qué se usó: 1 gasto verificado'));
     await tester.pumpAndSettle();

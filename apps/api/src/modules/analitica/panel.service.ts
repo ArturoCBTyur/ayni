@@ -42,32 +42,45 @@ export class PanelService {
     const donante = await this.prisma.donante.findUnique({ where: { usuarioId } });
     if (!donante) return null;
 
-    const [confirmadas, aplicado, sinLeer, ultimo, suscripciones, causas] = await Promise.all([
-      this.prisma.donacion.aggregate({
-        where: { donanteId: donante.id, estado: 'CONFIRMADA' },
-        _sum: { montoNeto: true },
-        _count: { _all: true },
-      }),
-      this.prisma.aplicacionDonacion.aggregate({
-        where: { donacion: { donanteId: donante.id }, gasto: { estado: 'APROBADO' } },
-        _sum: { monto: true },
-      }),
-      this.prisma.notificacion.count({ where: { usuarioId, leidaEn: null } }),
-      this.prisma.notificacion.findFirst({
-        where: { usuarioId },
-        orderBy: { creadoEn: 'desc' },
-        select: { asunto: true, montoAplicado: true, creadoEn: true },
-      }),
-      this.prisma.suscripcion.count({ where: { donanteId: donante.id, estado: 'ACTIVA' } }),
-      this.prisma.campana.count({
-        where: {
-          fondos: { some: { donaciones: { some: { donanteId: donante.id, estado: 'CONFIRMADA' } } } },
-        },
-      }),
-    ]);
+    const [confirmadas, aplicado, sinLeer, ultimo, suscripciones, causas, devuelto] =
+      await Promise.all([
+        // Una donacion nacida de un traslado no es dinero nuevo: ya se conto
+        // como aporte en la causa que cerro (D2).
+        this.prisma.donacion.aggregate({
+          where: { donanteId: donante.id, estado: 'CONFIRMADA', donacionOrigenId: null },
+          _sum: { montoNeto: true },
+          _count: { _all: true },
+        }),
+        this.prisma.aplicacionDonacion.aggregate({
+          where: { donacion: { donanteId: donante.id }, gasto: { estado: 'APROBADO' } },
+          _sum: { monto: true },
+        }),
+        this.prisma.notificacion.count({ where: { usuarioId, leidaEn: null } }),
+        this.prisma.notificacion.findFirst({
+          where: { usuarioId },
+          orderBy: { creadoEn: 'desc' },
+          select: { asunto: true, montoAplicado: true, creadoEn: true },
+        }),
+        this.prisma.suscripcion.count({ where: { donanteId: donante.id, estado: 'ACTIVA' } }),
+        this.prisma.campana.count({
+          where: {
+            fondos: { some: { donaciones: { some: { donanteId: donante.id, estado: 'CONFIRMADA' } } } },
+          },
+        }),
+        this.prisma.remanenteDonacion.aggregate({
+          where: {
+            donacion: { donanteId: donante.id },
+            destino: 'DEVOLUCION',
+            resueltoEn: { not: null },
+          },
+          _sum: { monto: true },
+        }),
+      ]);
 
     const aportado = confirmadas._sum.montoNeto ?? CERO;
     const ejecutado = aplicado._sum.monto ?? CERO;
+    // Lo devuelto al cerrar una causa ya no espera evidencia: volvio al donante.
+    const devueltoAlDonante = devuelto._sum.monto ?? CERO;
 
     return {
       aportes: confirmadas._count._all,
@@ -75,7 +88,10 @@ export class PanelService {
       // Lo que ya financio un gasto aprobado, con comprobante y evidencia.
       ejecutado: soles(ejecutado),
       // Lo que sigue retenido: todavia no se gasto, o no se demostro.
-      esperandoEvidencia: soles(Prisma.Decimal.max(aportado.minus(ejecutado), CERO)),
+      esperandoEvidencia: soles(
+        Prisma.Decimal.max(aportado.minus(ejecutado).minus(devueltoAlDonante), CERO),
+      ),
+      devuelto: soles(devueltoAlDonante),
       causasApoyadas: causas,
       impactosSinLeer: sinLeer,
       ultimoImpacto: ultimo

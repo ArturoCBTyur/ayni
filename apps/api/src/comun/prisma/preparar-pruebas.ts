@@ -1,12 +1,13 @@
 /**
  * Preparacion de la base antes de que corra cualquier prueba.
  *
- * Ocho suites apagan los triggers de inmutabilidad del libro: unas para
- * simular una manipulacion externa, otras para poder borrar sus propios
- * asientos al limpiar. Apagarlos es una operacion de tabla y no de sesion,
- * asi que si una corrida se interrumpe entre el DISABLE y el ENABLE -- un
- * Ctrl-C a destiempo alcanza -- la base se queda sin la garantia que el
- * proyecto promete, en silencio y hasta que alguien lo note.
+ * Varias suites apagan los triggers de inmutabilidad del libro y de los
+ * cierres mensuales: unas para simular una manipulacion externa, otras para
+ * poder borrar sus propios datos al limpiar. Apagarlos es una operacion de
+ * tabla y no de sesion, asi que si una corrida se interrumpe entre el
+ * DISABLE y el ENABLE -- un Ctrl-C a destiempo alcanza -- la base se queda
+ * sin la garantia que el proyecto promete, en silencio y hasta que alguien
+ * lo note.
  *
  * Esto los reactiva una sola vez, antes de todo. Es idempotente y no sustituye
  * al try/finally de cada suite: es la red por si el proceso no llega a
@@ -14,7 +15,15 @@
  */
 import { PrismaClient } from '@prisma/client';
 
-const TRIGGERS_INMUTABILIDAD = ['tg_movimientos_no_update', 'tg_movimientos_no_delete'];
+/** Tabla y trigger. Cierres e informes se borran igual que el libro al limpiar. */
+const TRIGGERS_INMUTABILIDAD: Array<[string, string]> = [
+  ['movimientos_contables', 'tg_movimientos_no_update'],
+  ['movimientos_contables', 'tg_movimientos_no_delete'],
+  ['cierres_mensuales', 'tg_cierres_no_update'],
+  ['cierres_mensuales', 'tg_cierres_no_delete'],
+  ['informes_cierre', 'tg_informes_no_update'],
+  ['informes_cierre', 'tg_informes_no_delete'],
+];
 
 /**
  * Comprueba que no haya un servidor de la API corriendo contra la misma base.
@@ -61,10 +70,8 @@ export default async function prepararPruebas(): Promise<void> {
 
   const prisma = new PrismaClient({ log: [] });
   try {
-    for (const trigger of TRIGGERS_INMUTABILIDAD) {
-      await prisma.$executeRawUnsafe(
-        `ALTER TABLE movimientos_contables ENABLE TRIGGER ${trigger}`,
-      );
+    for (const [tabla, trigger] of TRIGGERS_INMUTABILIDAD) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE ${tabla} ENABLE TRIGGER ${trigger}`);
     }
   } finally {
     await prisma.$disconnect();

@@ -3,6 +3,12 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../comun/prisma/prisma.service';
 import { soles } from '../../comun/dinero';
+import {
+  clasificarSaldos,
+  sumasDesdeGrupos,
+  type SaldosClasificados,
+  type SumasPorTipo,
+} from './clasificacion';
 import { ASIENTOS } from './cuentas';
 
 type Tx = Prisma.TransactionClient;
@@ -168,6 +174,85 @@ export class LibroService {
     });
   }
 
+  /**
+   * D2 · Devuelve a su donante el remanente de una donacion, al cerrar la causa.
+   *
+   * Dos asientos: el monto sale de lo retenido (REASIGNACION) y sale del fondo
+   * (DEVOLUCION). Separados a proposito: la REASIGNACION es la misma en una
+   * devolucion y en un traslado, y lo que distingue el destino es el segundo.
+   */
+  async asentarDevolucion(
+    tx: Tx,
+    datos: { fondoId: string; donacionId: string; monto: Prisma.Decimal; motivo: string },
+  ) {
+    const comun = { fondoId: datos.fondoId, donacionId: datos.donacionId, monto: datos.monto };
+    return [
+      await tx.movimientoContable.create({
+        data: {
+          ...comun,
+          tipo: 'REASIGNACION',
+          ...this.asiento('REASIGNACION'),
+          descripcion: `Remanente al cerrar la causa: ${datos.motivo}`,
+        },
+      }),
+      await tx.movimientoContable.create({
+        data: {
+          ...comun,
+          tipo: 'DEVOLUCION',
+          ...this.asiento('DEVOLUCION'),
+          descripcion: `Devolucion del remanente al donante: ${datos.motivo}`,
+        },
+      }),
+    ];
+  }
+
+  /**
+   * D2 · Traslada el remanente de una donacion al fondo que eligio su donante.
+   *
+   * Cuatro asientos que tienen que ocurrir juntos: en el origen, sale de lo
+   * retenido y sale del fondo; en el destino, entra al fondo y queda retenido
+   * otra vez, a nombre de la donacion nueva. Un traslado a medias dejaria
+   * dinero fuera de un fondo y fuera del otro.
+   */
+  async asentarTraslado(
+    tx: Tx,
+    datos: {
+      fondoOrigenId: string;
+      donacionOrigenId: string;
+      fondoDestinoId: string;
+      donacionDestinoId: string;
+      monto: Prisma.Decimal;
+      motivo: string;
+    },
+  ) {
+    const origen = {
+      fondoId: datos.fondoOrigenId,
+      donacionId: datos.donacionOrigenId,
+      monto: datos.monto,
+    };
+    const destino = {
+      fondoId: datos.fondoDestinoId,
+      donacionId: datos.donacionDestinoId,
+      monto: datos.monto,
+    };
+    const asientos: Array<[typeof origen, keyof typeof ASIENTOS, string]> = [
+      [origen, 'REASIGNACION', `Remanente al cerrar la causa: ${datos.motivo}`],
+      [origen, 'TRASLADO_SALIDA', `Traslado del remanente a otro fondo: ${datos.motivo}`],
+      [destino, 'TRASLADO_ENTRADA', `Remanente recibido de otra causa: ${datos.motivo}`],
+      [destino, 'RETENCION', 'Retencion condicionada a evidencia de gasto'],
+    ];
+
+    const movimientos = [];
+    for (const [donde, tipo, descripcion] of asientos) {
+      movimientos.push(
+        await tx.movimientoContable.create({
+          data: { ...donde, tipo, ...this.asiento(tipo), descripcion },
+        }),
+      );
+    }
+    return movimientos;
+  }
+
   /** Extracto del libro de un fondo, en el orden en que ocurrio. */
   async extracto(fondoId: string) {
     const movimientos = await this.prisma.movimientoContable.findMany({
@@ -189,6 +274,29 @@ export class LibroService {
       hashPrevio: m.hashPrevio,
       hashActual: m.hashActual,
     }));
+  }
+
+  /**
+   * Suma de los movimientos de un fondo por tipo.
+   *
+   * El rango es semiabierto, [desde, hasta), para que dos periodos contiguos
+   * no cuenten dos veces el movimiento que cae justo en el limite.
+   */
+  async sumasPorTipo(
+    fondoId: string,
+    rango: { desde?: Date; hasta?: Date },
+  ): Promise<SumasPorTipo> {
+    const grupos = await this.prisma.movimientoContable.groupBy({
+      by: ['tipo'],
+      where: { fondoId, creadoEn: { gte: rango.desde, lt: rango.hasta } },
+      _sum: { monto: true },
+    });
+    return sumasDesdeGrupos(grupos);
+  }
+
+  /** RF-CF-06 · Saldos con restriccion y liberados, leidos del libro. */
+  async saldosClasificados(fondoId: string, hasta?: Date): Promise<SaldosClasificados> {
+    return clasificarSaldos(await this.sumasPorTipo(fondoId, { hasta }));
   }
 
   /**

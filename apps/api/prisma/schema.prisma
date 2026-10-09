@@ -105,6 +105,8 @@ enum FinalidadConsentimiento {
   TRATAMIENTO_DATOS
   COMUNICACIONES
   USO_IMAGEN
+  /// Usar las respuestas a las encuestas de SOC-1 y PSI-1 (D6, ADR-0007).
+  INVESTIGACION
 }
 
 /// Consentimiento por finalidad, con version de politica y revocacion.
@@ -224,6 +226,12 @@ model Ong {
   /// RF-DE-05: terminos de adhesion que obligan a justificar cada sol.
   terminosAceptadosEn    DateTime?             @map("terminos_aceptados_en") @db.Timestamptz(6)
   versionTerminos        String?               @map("version_terminos")
+  /// RF-DE-07: calificada por SUNAT como entidad perceptora de donaciones. Lo
+  /// registra el administrador o el auditor, con la resolucion que lo acredita.
+  perceptoraDonaciones   Boolean               @default(false) @map("perceptora_donaciones")
+  perceptoraResolucion   String?               @map("perceptora_resolucion")
+  perceptoraDesde        DateTime?             @map("perceptora_desde") @db.Date
+  perceptoraHasta        DateTime?             @map("perceptora_hasta") @db.Date
   creadoEn               DateTime              @default(now()) @map("creado_en") @db.Timestamptz(6)
   actualizadoEn          DateTime              @updatedAt @map("actualizado_en") @db.Timestamptz(6)
 
@@ -332,11 +340,14 @@ model Fondo {
   creadoEn       DateTime       @default(now()) @map("creado_en") @db.Timestamptz(6)
   actualizadoEn  DateTime       @updatedAt @map("actualizado_en") @db.Timestamptz(6)
 
-  campana       Campana              @relation(fields: [campanaId], references: [id], onDelete: Cascade)
-  donaciones    Donacion[]
-  gastos        Gasto[]
-  movimientos   MovimientoContable[]
-  suscripciones Suscripcion[]
+  campana             Campana              @relation(fields: [campanaId], references: [id], onDelete: Cascade)
+  donaciones          Donacion[]
+  gastos              Gasto[]
+  movimientos         MovimientoContable[]
+  suscripciones       Suscripcion[]
+  cierres             CierreMensual[]
+  cierreCausa         CierreCausa?
+  remanentesRecibidos RemanenteDonacion[]  @relation("DestinoRemanente")
 
   @@index([campanaId, estado])
   @@map("fondos")
@@ -349,6 +360,12 @@ enum TipoMovimiento {
   EJECUCION
   REVERSO
   REASIGNACION
+  /// D2: el remanente de un donante vuelve a el al cerrar la causa.
+  DEVOLUCION
+  /// D2: el remanente sale de este fondo hacia otro que eligio el donante...
+  TRASLADO_SALIDA
+  /// ...y entra al fondo de destino, donde se vuelve a retener.
+  TRASLADO_ENTRADA
 }
 
 /// Libro de solo insercion con partida doble y cadena de hashes.
@@ -387,6 +404,166 @@ model MovimientoContable {
   @@index([fondoId, creadoEn])
   @@index([gastoId])
   @@map("movimientos_contables")
+}
+
+/// Cierre mensual de un fondo: el estado del mes, congelado. RF-CF-09.
+/// La base lo hace inmutable, comprueba que hash_contenido sea el SHA-256 de
+/// contenido y que hash_anterior sea el del cierre previo del fondo, de modo
+/// que ni un error del backend pueda guardar un cierre que no se sostenga.
+/// Ver la migracion 20261008120000_cierres_mensuales.                [CYF INF]
+model CierreMensual {
+  id             String   @id @default(uuid()) @db.Uuid
+  fondoId        String   @map("fondo_id") @db.Uuid
+  /// AAAA-MM, en hora de Lima.
+  periodo        String   @db.Char(7)
+  /// JSON canonico del estado: el texto exacto sobre el que se calcula el hash.
+  contenido      String
+  hashContenido  String   @map("hash_contenido") @db.Char(64)
+  /// Hash del cierre anterior del mismo fondo; null en el primero.
+  hashAnterior   String?  @map("hash_anterior") @db.Char(64)
+  versionFormato Int      @default(1) @map("version_formato")
+  creadoEn       DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  fondo Fondo @relation(fields: [fondoId], references: [id], onDelete: Restrict)
+
+  @@unique([fondoId, periodo])
+  @@map("cierres_mensuales")
+}
+
+enum EstadoCierreCausa {
+  /// Corre el plazo para justificar lo retenido.
+  JUSTIFICANDO
+  /// Vencio el plazo: cada donante elige que hacer con su parte.
+  ELIGIENDO
+  /// Cada remanente tiene su destino asentado y el informe esta emitido.
+  RESUELTO
+}
+
+enum DestinoRemanente {
+  DEVOLUCION
+  REASIGNACION
+}
+
+/// Cierre de una causa: el plazo para justificar lo retenido y el destino de
+/// lo que quede. RF-CF-11, D2 del ADR-0007 (propuesta sin firmar).    [CYF DER]
+model CierreCausa {
+  id                   String            @id @default(uuid()) @db.Uuid
+  fondoId              String            @unique @map("fondo_id") @db.Uuid
+  estado               EstadoCierreCausa @default(JUSTIFICANDO)
+  iniciadoEn           DateTime          @default(now()) @map("iniciado_en") @db.Timestamptz(6)
+  venceJustificacionEn DateTime          @map("vence_justificacion_en") @db.Timestamptz(6)
+  avisoOngEn           DateTime?         @map("aviso_ong_en") @db.Timestamptz(6)
+  venceEleccionEn      DateTime?         @map("vence_eleccion_en") @db.Timestamptz(6)
+  remanenteTotal       Decimal?          @map("remanente_total") @db.Decimal(12, 2)
+  resueltoEn           DateTime?         @map("resuelto_en") @db.Timestamptz(6)
+  /// Que detuvo el cierre, si algo lo detuvo: un gasto sin resolver o un descuadre.
+  observacion          String?
+
+  fondo      Fondo               @relation(fields: [fondoId], references: [id], onDelete: Restrict)
+  remanentes RemanenteDonacion[]
+  informe    InformeCierre?
+
+  @@index([estado])
+  @@map("cierres_causa")
+}
+
+/// La parte de una donacion que quedo sin usar al cerrar su causa, y su
+/// destino. RF-CF-11.
+model RemanenteDonacion {
+  id                  String            @id @default(uuid()) @db.Uuid
+  cierreId            String            @map("cierre_id") @db.Uuid
+  donacionId          String            @unique @map("donacion_id") @db.Uuid
+  monto               Decimal           @db.Decimal(12, 2)
+  destino             DestinoRemanente?
+  fondoDestinoId      String?           @map("fondo_destino_id") @db.Uuid
+  /// DONANTE si eligio; PLAZO si vencio sin elegir y se aplico el destino por defecto.
+  elegidoPor          String?           @map("elegido_por")
+  elegidoEn           DateTime?         @map("elegido_en") @db.Timestamptz(6)
+  resueltoEn          DateTime?         @map("resuelto_en") @db.Timestamptz(6)
+  /// La donacion que nace en el fondo de destino al trasladar.
+  donacionDestinoId   String?           @unique @map("donacion_destino_id") @db.Uuid
+  /// Referencia del reembolso en la pasarela; null mientras no se ejecuta.
+  reembolsoReferencia String?           @map("reembolso_referencia")
+  reembolsadoEn       DateTime?         @map("reembolsado_en") @db.Timestamptz(6)
+  creadoEn            DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  cierre          CierreCausa @relation(fields: [cierreId], references: [id], onDelete: Cascade)
+  donacion        Donacion    @relation("RemanenteOrigen", fields: [donacionId], references: [id], onDelete: Restrict)
+  fondoDestino    Fondo?      @relation("DestinoRemanente", fields: [fondoDestinoId], references: [id], onDelete: Restrict)
+  donacionDestino Donacion?   @relation("RemanenteDestino", fields: [donacionDestinoId], references: [id], onDelete: Restrict)
+
+  @@index([cierreId])
+  @@map("remanentes_donacion")
+}
+
+/// Informe de cierre de una causa, congelado como los cierres mensuales:
+/// JSON canonico con su SHA-256, comprobado por la base e inmutable. Es lo
+/// que muestra la pagina publica de verificacion. RF-CF-12, RF-IN-05.
+model InformeCierre {
+  id            String   @id @default(uuid()) @db.Uuid
+  cierreId      String   @unique @map("cierre_id") @db.Uuid
+  fondoId       String   @map("fondo_id") @db.Uuid
+  contenido     String
+  hashContenido String   @map("hash_contenido") @db.Char(64)
+  creadoEn      DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  cierre CierreCausa @relation(fields: [cierreId], references: [id], onDelete: Restrict)
+
+  @@map("informes_cierre")
+}
+
+enum MomentoEncuesta {
+  /// SOC-1: antes de la primera notificacion de impacto.
+  LINEA_BASE
+  /// SOC-1: despues del primer impacto (D3).
+  SEGUIMIENTO
+  /// PSI-1: una sola aplicacion, al terminar una tarea real.
+  UNICA
+}
+
+/// Instrumento de medicion versionado: items, escala e instrucciones. RF-SO-05.
+/// contenido es el JSON canonico de la version; la base comprueba su hash y no
+/// deja cambiarlo despues de publicado: un instrumento que cambia a mitad de
+/// la medicion mide otra cosa. Solo `activo` se puede mover.          [SOC PSI]
+model InstrumentoEncuesta {
+  id            String   @id @default(uuid()) @db.Uuid
+  codigo        String
+  version       Int
+  /// Indicador de la Tabla 3 que alimenta: SOC-1 o PSI-1.
+  indicador     String
+  contenido     String
+  hashContenido String   @map("hash_contenido") @db.Char(64)
+  activo        Boolean  @default(true)
+  creadoEn      DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  respuestas RespuestaEncuesta[]
+
+  @@unique([codigo, version])
+  @@map("instrumentos_encuesta")
+}
+
+/// Respuesta a un instrumento. RF-SO-05, RF-DE-06.
+/// No guarda la cuenta de quien responde: guarda un seudonimo, el HMAC de su
+/// usuario con ENCUESTAS_CLAVE, que basta para emparejar la linea base con el
+/// seguimiento de la misma persona. Al revocar el consentimiento INVESTIGACION
+/// el seudonimo se reemplaza por uno aleatorio y la respuesta queda anonima.
+model RespuestaEncuesta {
+  id            String          @id @default(uuid()) @db.Uuid
+  instrumentoId String          @map("instrumento_id") @db.Uuid
+  momento       MomentoEncuesta
+  seudonimo     String          @db.Char(64)
+  /// Rol con que respondio: el SUS de un donante y el de un operador no miden lo mismo.
+  rol           String
+  valores       Json
+  /// Indice 0-100 de SOC-1 o puntaje SUS 0-100, calculado al guardar.
+  puntaje       Decimal         @db.Decimal(6, 2)
+  creadoEn      DateTime        @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  instrumento InstrumentoEncuesta @relation(fields: [instrumentoId], references: [id], onDelete: Restrict)
+
+  @@unique([instrumentoId, momento, seudonimo])
+  @@index([instrumentoId, momento])
+  @@map("respuestas_encuesta")
 }
 
 // ===========================================================================
@@ -478,13 +655,20 @@ model Donacion {
   confirmadaEn  DateTime?      @map("confirmada_en") @db.Timestamptz(6)
   creadoEn      DateTime       @default(now()) @map("creado_en") @db.Timestamptz(6)
 
-  donante        Donante              @relation(fields: [donanteId], references: [id], onDelete: Restrict)
-  fondo          Fondo                @relation(fields: [fondoId], references: [id], onDelete: Restrict)
-  suscripcion    Suscripcion?         @relation(fields: [suscripcionId], references: [id], onDelete: SetNull)
-  pago           Pago?
-  aplicaciones   AplicacionDonacion[]
-  movimientos    MovimientoContable[]
-  notificaciones Notificacion[]
+  /// D2 · Si esta donacion nacio del remanente de otra al cerrar su causa.
+  donacionOrigenId String? @map("donacion_origen_id") @db.Uuid
+
+  donante          Donante              @relation(fields: [donanteId], references: [id], onDelete: Restrict)
+  fondo            Fondo                @relation(fields: [fondoId], references: [id], onDelete: Restrict)
+  suscripcion      Suscripcion?         @relation(fields: [suscripcionId], references: [id], onDelete: SetNull)
+  pago             Pago?
+  aplicaciones     AplicacionDonacion[]
+  movimientos      MovimientoContable[]
+  notificaciones   Notificacion[]
+  donacionOrigen   Donacion?            @relation("Traslado", fields: [donacionOrigenId], references: [id], onDelete: Restrict)
+  trasladadas      Donacion[]           @relation("Traslado")
+  remanente        RemanenteDonacion?   @relation("RemanenteOrigen")
+  remanenteDestino RemanenteDonacion?   @relation("RemanenteDestino")
 
   /// Indice que sostiene el orden FIFO de consumo por fondo.
   @@index([fondoId, estado, confirmadaEn])
@@ -560,6 +744,9 @@ model Gasto {
   sincronizadoEn  DateTime?   @map("sincronizado_en") @db.Timestamptz(6)
   latitud         Decimal?    @db.Decimal(10, 7)
   longitud        Decimal?    @db.Decimal(10, 7)
+  /// D4 · Cuantas unidades de impacto produjo (animales atendidos, raciones...),
+  /// segun la categoria del fondo. Opcional. RF-SO-08.
+  unidadesImpacto Int?        @map("unidades_impacto")
   aprobadoEn      DateTime?   @map("aprobado_en") @db.Timestamptz(6)
   creadoEn        DateTime    @default(now()) @map("creado_en") @db.Timestamptz(6)
   actualizadoEn   DateTime    @updatedAt @map("actualizado_en") @db.Timestamptz(6)

@@ -74,6 +74,19 @@ export class AnaliticaController {
   }
 
   @Roles('ADMIN', 'AUDITOR')
+  @Get('exportar/diario/:fondoId')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @ApiOperation({ summary: 'RF-CF-05 · Libro diario de un fondo en cuentas del PCGE' })
+  async exportarDiario(
+    @Param('fondoId', ParseUUIDPipe) fondoId: string,
+    @Res() res: Response,
+  ) {
+    const { nombre, csv } = await this.exportacion.diarioPcge(fondoId);
+    res.setHeader('Content-Disposition', `attachment; filename="${nombre}"`);
+    res.send(csv);
+  }
+
+  @Roles('ADMIN', 'AUDITOR')
   @Get('exportar/gastos/:ongId')
   @Header('Content-Type', 'text/csv; charset=utf-8')
   @ApiOperation({ summary: 'RF-15 · Gastos de una ONG con su verificacion' })

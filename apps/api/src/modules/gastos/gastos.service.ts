@@ -24,6 +24,7 @@ import {
   UMBRAL_DUPLICADO_PERCEPTUAL,
 } from './imagen';
 import { urlPublicable } from './evidencia-publica';
+import { unidadDe } from './impacto';
 import { ALMACENAMIENTO, type AlmacenamientoArchivos } from './puertos/almacenamiento.port';
 
 @Injectable()
@@ -66,11 +67,30 @@ export class GastosService {
   async registrar(usuarioId: string, datos: RegistrarGasto, contexto: ContextoPeticion) {
     const fondo = await this.prisma.fondo.findUnique({
       where: { id: datos.fondoId },
-      include: { campana: { include: { ong: true } } },
+      include: { campana: { include: { ong: true } }, cierreCausa: true },
     });
     if (!fondo) throw new NotFoundException('No encontramos ese fondo.');
 
     await this.exigirMiembroDe(fondo.campana.ongId, usuarioId);
+
+    // D2 · Un fondo cerrado se sigue justificando, pero solo dentro del plazo:
+    // despues, lo retenido ya tiene dueño otra vez, y es el donante.
+    const cierre = fondo.cierreCausa;
+    if (cierre && (cierre.estado !== 'JUSTIFICANDO' || new Date() >= cierre.venceJustificacionEn)) {
+      throw new BadRequestException(
+        `El plazo para justificar este fondo vencio el ` +
+          `${cierre.venceJustificacionEn.toLocaleDateString('es-PE')}: lo retenido vuelve a ` +
+          'sus donantes o pasa a la causa que ellos elijan.',
+      );
+    }
+
+    // D4 · Una categoria sin unidad no mide impacto: aceptar un numero ahi
+    // seria publicar un costo por unidad de algo que nadie definio.
+    if (datos.unidadesImpacto !== undefined && !unidadDe(fondo.categoriaGasto)) {
+      throw new BadRequestException(
+        'Los gastos de esta categoria no declaran unidades de impacto. Deje el campo vacio.',
+      );
+    }
 
     if (new Prisma.Decimal(datos.montoDeclarado).greaterThan(fondo.saldoRetenido)) {
       throw new BadRequestException(
@@ -98,6 +118,7 @@ export class GastosService {
           sincronizadoEn: new Date(),
           latitud: datos.latitud,
           longitud: datos.longitud,
+          unidadesImpacto: datos.unidadesImpacto,
           estado: 'EN_ANALISIS',
           comprobante: { create: comprobante },
           evidencias: { create: evidencias },
