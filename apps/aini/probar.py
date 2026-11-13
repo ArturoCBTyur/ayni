@@ -558,7 +558,9 @@ def _comparar_categoria(concepto: str, categoria: str, esperado: str) -> None:
 
     print(f'  concepto   "{concepto}"')
     print(f"  fondo      {categoria}")
-    print(f"  similitud  {marca}{sim:.3f}{FIN}   {'#' * int(sim * 30)}")
+    # Similitud relativa: 0 es "se parece a esta tanto como a cualquiera", y
+    # los conceptos que corresponden rara vez pasan de 0.5.
+    print(f"  similitud  {marca}{sim:.3f}{FIN}   {'#' * int(sim * 60)}")
     print(f"  veredicto  {marca}{etiqueta}{FIN}   {GRIS}(esperado: {esperado}){FIN}")
 
 
@@ -637,12 +639,12 @@ def demo() -> None:
     # --- Acto 5: donde falla ---
     _titulo("5 · Donde se equivoca")
     print("  Un modelo que solo se enseña acertando no se puede evaluar.\n")
-    _comparar_categoria("compra de alimento", "ATENCION_VETERINARIA", "no corresponde")
-    print(f"\n  {AMBAR}Lo acepta, y no deberia.{FIN} Un concepto corto y generico")
-    print("  no tiene suficientes palabras con carga para separarlo.")
-    print(f"\n  {GRIS}Medido sobre 25 conceptos reales: en el umbral actual deja pasar")
-    print(f"  una de cada siete categorizaciones erroneas. Por eso esta señal")
-    print(f"  resta puntos y deriva a una persona, en vez de decidir sola.{FIN}")
+    _comparar_categoria("almuerzo del equipo de rescate", "ALIMENTOS", "no corresponde")
+    print(f"\n  {AMBAR}Lo acepta, y no deberia.{FIN} Es comida, pero de personas: el")
+    print('  modelo ve "almuerzo" y lo acerca a la categoria de alimentos.')
+    print(f"\n  {GRIS}Medido con `python -m evaluacion` sobre 222 conceptos: en el umbral")
+    print("  actual deja pasar el 10,9 % de las categorizaciones erroneas. Por eso")
+    print(f"  esta señal resta puntos y deriva a una persona, en vez de decidir sola.{FIN}")
     _pausa()
 
     # --- Acto 6: el publico ---

@@ -38,6 +38,7 @@ Columnas: `concepto, categoria, corresponde, alternativas, origen`.
 - Cada concepto con `corresponde=si` se mide contra su categoría y contra las demás: esos son los pares ajenos. `alternativas` (separadas por `|`) excluye las categorías donde el gasto también sería legítimo, y `OTROS` nunca cuenta como ajena.
 - Un par ajeno contra una categoría que AIni no sabe medir cuenta como **aceptado**, porque en producción «no se pudo evaluar» no resta puntos. Si se dejara fuera, un desvío hacia esa categoría no contaría en ningún lado.
 - `corresponde=no` añade pares ajenos explícitos, como los casos difíciles de `probar.py`.
+- `origen=control-*` son conceptos escritos **antes** del cambio que van a medir, con términos que no lo motivaron. `rechazaCorrectosPorOrigen` los mide aparte: la mejora sobre los conceptos que inspiraron un cambio es optimista, y la de los de control no.
 - `origen=redactado` son conceptos escritos para arrancar el banco, **sin revisar todavía por el equipo**. Las etiquetas entre `MEDICAMENTOS` y `ATENCION_VETERINARIA` son las más discutibles. Hay que revisarlas y sumar conceptos reales de la base.
 
 ### Comprobantes de campo
