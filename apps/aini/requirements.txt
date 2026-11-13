@@ -28,6 +28,14 @@ pillow==12.0.0
 # sobre PyMuPDF por la licencia (BSD/Apache frente a AGPL).
 pypdfium2==5.13.0
 
+# El reconocimiento de escena (CLIP en ONNX) no añade ninguna dependencia: usa
+# el onnxruntime, numpy y Pillow de arriba. El modelo se trae aparte con
+# `python -m entrenamiento.escena --descargar`.
+#
+# Opcional: solo para recalcular los vectores de las frases cuando se cambia
+# el catalogo de escenas (`python -m entrenamiento.escena`).
+# tokenizers
+
 # Opcional: solo para `entrenar --real`, que suma los gastos de la base al
 # conjunto de entrenamiento. Sin esto el entrenamiento sintetico funciona igual.
 # psycopg[binary]==3.2.3

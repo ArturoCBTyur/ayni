@@ -3,6 +3,7 @@
     python -m evaluacion                      todo lo disponible, y lo imprime
     python -m evaluacion --solo conceptos     solo el banco de conceptos (rapido)
     python -m evaluacion --solo ocr           solo los comprobantes
+    python -m evaluacion --solo escena        solo las fotos de evidencia
     python -m evaluacion --detalle            ademas, los casos que fallan
     python -m evaluacion --guardar            escribe linea_base.json
     python -m evaluacion --comparar           falla si algo empeoro
@@ -36,7 +37,9 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from aini import anomalia, documental, motor, ocr  # noqa: E402
+from aini import escena as modelo_escena  # noqa: E402
 from evaluacion import comprobantes, conceptos  # noqa: E402
+from evaluacion import escena as banco_escena  # noqa: E402
 
 RUTA_LINEA_BASE = Path(__file__).resolve().parent / "linea_base.json"
 
@@ -51,6 +54,8 @@ MAYOR_ES_MEJOR = {
     "aciertaCategoriaTop1",
     "detectaMontoAlterado",
     "correcto",
+    "detectaAjenas",
+    "reconoceCategoria",
 }
 MENOR_ES_MEJOR = {
     "rechazaCorrectos",
@@ -58,6 +63,7 @@ MENOR_ES_MEJOR = {
     "pasaSinAdvertirEquivocados",
     "discrepanciasFalsas",
     "incorrecto",
+    "acusaRelacionadas",
 }
 
 GRIS, VERDE, AMBAR, ROJO, FIN = "\033[90m", "\033[32m", "\033[33m", "\033[31m", "\033[0m"
@@ -93,7 +99,10 @@ def identidad() -> dict:
             "coherencia": documental.UMBRAL_COHERENCIA,
             "coherenciaDudosa": documental.UMBRAL_COHERENCIA_DUDOSA,
             "confianzaOcr": ocr.CONFIANZA_MINIMA,
+            "escenaAjena": modelo_escena.UMBRAL_AJENA,
+            "escenaPropia": modelo_escena.UMBRAL_PROPIA,
         },
+        "modeloEscenaSha256": (modelo_escena.ficha() or {}).get("visionSha256", "")[:12] or None,
         "modeloLenguaje": f"{documental.MODELO_SPACY}@{documental.nlp().meta.get('version')}",
         "paquetes": {
             p: _version(p) for p in ("spacy", "rapidocr-onnxruntime", "onnxruntime", "scikit-learn")
@@ -125,6 +134,9 @@ def imprimir_conceptos(m: dict, detalle: dict, ver_detalle: bool) -> None:
         ))
     print(f"  rechaza correctos               {_pct(m['rechazaCorrectos'])}")
     print(f"  advierte correctos              {_pct(m['advierteCorrectos'])}")
+    print(f"    {GRIS}rechaza por origen: " + ", ".join(
+        f"{o} {_pct(v).strip()}" for o, v in m["rechazaCorrectosPorOrigen"].items()
+    ) + FIN)
     print(f"  acepta equivocados              {_pct(m['aceptaEquivocados'])}")
     print(f"  pasa sin advertir equivocados   {_pct(m['pasaSinAdvertirEquivocados'])}")
     print(f"  acierta la categoria (top-1)    {_pct(m['aciertaCategoriaTop1'])}")
@@ -196,6 +208,28 @@ def imprimir_ocr(titulo: str, m: dict, resultados, ver_detalle: bool) -> None:
             print(f"    {r.caso.id:<34} {'; '.join(partes)}")
 
 
+def imprimir_escena(m: dict, detalle: list[dict], ver_detalle: bool) -> None:
+    total = sum(n["fotos"] for n in m["n"].values())
+    print(f"\nReconocimiento de escena  {GRIS}({total} fotos · {m['segundosPorFoto']} s por foto){FIN}")
+    print(f"  {'conjunto':<10} {'fotos':>6} {'detecta ajenas':>16} {'ACUSA RELACIONADAS':>20} {'reconoce categoria':>20}")
+    for conjunto, n in m["n"].items():
+        c = m[conjunto]
+        color = ROJO if (c["acusaRelacionadas"] or 0) > 0 else ""
+        print(
+            f"  {conjunto:<10} {n['fotos']:>6} {_pct(c['detectaAjenas']):>16} "
+            f"{color}{_pct(c['acusaRelacionadas']):>20}{FIN if color else ''} "
+            f"{_pct(c['reconoceCategoria']):>20}"
+        )
+    print(f"  {GRIS}la cifra que vale es la de control: esas fotos se apartaron antes de ajustar "
+          f"frases y umbrales{FIN}")
+    if ver_detalle:
+        print()
+        for d in detalle:
+            if d["falla"]:
+                print(f"    {d['archivo']:<28} {d['conjunto']:<8} {d['falla']}  "
+                      f"{GRIS}(ve: {d['principal']}, ajena {d['ajena']}){FIN}")
+
+
 # --------------------------------------------------------------------------
 # Comparacion
 # --------------------------------------------------------------------------
@@ -262,7 +296,7 @@ def comparar(actual: dict, base: dict) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Evalua AIni contra bancos etiquetados.")
-    parser.add_argument("--solo", choices=("conceptos", "ocr"))
+    parser.add_argument("--solo", choices=("conceptos", "ocr", "escena"))
     parser.add_argument("--detalle", action="store_true", help="listar los casos que fallan")
     parser.add_argument("--guardar", action="store_true", help="escribir linea_base.json")
     parser.add_argument("--comparar", action="store_true", help="comparar contra linea_base.json")
@@ -298,6 +332,22 @@ def main() -> int:
                 print(f"\n{GRIS}Banco de campo vacio: aun no hay fotos reales en evaluacion/campo/.{FIN}")
             for o in omitidos:
                 print(f"  {AMBAR}omitido{FIN} {o}")
+
+    if args.solo in (None, "escena"):
+        if not modelo_escena.disponible():
+            print(f"\n{AMBAR}Sin modelo de escena (python -m entrenamiento.escena --descargar); "
+                  f"se omiten las fotos.{FIN}")
+        else:
+            fotos, omitidas = banco_escena.cargar()
+            if fotos:
+                metricas, detalle = banco_escena.evaluar(fotos)
+                actual["escena"] = metricas
+                imprimir_escena(metricas, detalle, args.detalle)
+            else:
+                print(f"\n{GRIS}Banco de escenas vacio. Traiga las fotos con: "
+                      f"python -m evaluacion.escena --descargar{FIN}")
+            if omitidas:
+                print(f"  {AMBAR}{len(omitidas)} fotos omitidas{FIN} {GRIS}({omitidas[0]}…){FIN}")
 
     codigo = 0
     if args.comparar:

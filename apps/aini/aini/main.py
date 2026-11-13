@@ -18,7 +18,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Header, HTTPException, status
 
-from . import anomalia, documental, motor, ocr
+from . import anomalia, documental, escena, motor, ocr
 from .contrato import EntradaAnalisis, ResultadoAnalisis
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-7s %(message)s")
@@ -54,6 +54,14 @@ async def ciclo_de_vida(app: FastAPI):
             "lectura. Ejecute: python -m entrenamiento.entrenar",
             anomalia.RUTA_MODELO,
         )
+
+    # Igual que spaCy: se carga al arrancar para que la primera verificacion
+    # no pague los segundos de abrir el modelo, y para que su ausencia se vea
+    # en el arranque.
+    if escena.disponible():
+        log.info("Reconocimiento de escena cargado (%d escenas)", len(escena.ESCENAS))
+    elif escena.ACTIVO:
+        log.warning("Sin reconocimiento de escena: la evidencia no se mira.")
 
     log.info("AIni lista: %s", motor.VERSION)
     yield
@@ -100,6 +108,13 @@ def salud() -> dict[str, object]:
             "confianzaMinima": ocr.CONFIANZA_MINIMA,
             # Sin pypdfium2 los PDF no fallan: se reportan como no leidos.
             "leePdf": _lee_pdf(),
+        },
+        # Apagado o sin modelo tampoco falla: la evidencia simplemente no se
+        # mira, y ningun gasto recibe motivos `vis.escena_*`.
+        "reconocimientoEscena": {
+            "activo": escena.ACTIVO,
+            "disponible": escena.disponible(),
+            "escenas": len(escena.ESCENAS),
         },
     }
 

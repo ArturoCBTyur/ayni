@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 
-from . import anomalia, cotejo, documental, narrativa, ocr, visual
+from . import anomalia, cotejo, documental, escena, narrativa, ocr, visual
 from .contrato import (
     AlertaAnalisis,
     DatosExtraidos,
@@ -163,6 +163,15 @@ def _alertas(motivos: list[MotivoAnalisis], bloqueo_visual: bool) -> list[Alerta
                     descripcion=motivo.mensaje,
                 )
             )
+        elif motivo.regla == "vis.escena_ajena" and motivo.penalizacion > 0:
+            alertas.append(
+                AlertaAnalisis(
+                    tipo="EVIDENCIA_NO_CORRESPONDE",
+                    severidad="MEDIA",
+                    titulo="La evidencia no parece mostrar el gasto",
+                    descripcion=motivo.mensaje,
+                )
+            )
         elif motivo.regla == "vis.personas_sin_anonimizar":
             alertas.append(
                 AlertaAnalisis(
@@ -218,6 +227,19 @@ def _datos_extraidos(entrada: EntradaAnalisis, leido: "ocr.CamposLeidos | None")
     )
 
 
+def _mirar_evidencias(entrada: EntradaAnalisis) -> dict[str, "escena.Lectura | None"] | None:
+    """Lo que el modelo de escena ve en cada foto, por id de evidencia.
+
+    None si el modelo no esta: la escena no se evalua y no aparece ningun
+    motivo, que es distinto de "se intento mirar y no se pudo abrir la foto".
+    """
+    if not escena.disponible():
+        return None
+    return {
+        ev.id: escena.mirar_desde(ev.archivo_url) for ev in entrada.evidencias if ev.tipo == "FOTO"
+    }
+
+
 def analizar(entrada: EntradaAnalisis, detector: anomalia.DetectorAnomalias) -> ResultadoAnalisis:
     inicio = time.perf_counter()
 
@@ -229,7 +251,9 @@ def analizar(entrada: EntradaAnalisis, detector: anomalia.DetectorAnomalias) -> 
     score_doc, motivos_doc = documental.evaluar(entrada.declarado, entrada.comprobante)
     score_doc = max(0.0, score_doc - penalizacion_cotejo)
     motivos_doc = [*motivos_doc, *motivos_cotejo]
-    score_vis, motivos_vis, bloqueo = visual.evaluar(entrada.declarado, entrada.evidencias)
+    score_vis, motivos_vis, bloqueo = visual.evaluar(
+        entrada.declarado, entrada.evidencias, _mirar_evidencias(entrada)
+    )
     score_ano, motivos_ano = anomalia.evaluar(
         entrada.declarado, entrada.contexto, entrada.comprobante.fecha_emision, detector
     )
@@ -294,6 +318,13 @@ def analizar(entrada: EntradaAnalisis, detector: anomalia.DetectorAnomalias) -> 
                 penalizacion=0,
             )
         )
+
+    # Mismo criterio para la evidencia: si ninguna foto muestra algo
+    # relacionado con el gasto, no se aprueba solo. La penalizacion visual es
+    # pequeña a proposito --el modelo puede equivocarse-- y por eso no basta
+    # para sacar de ALTO a un gasto con el comprobante en orden.
+    if nivel == "ALTO" and any(m.regla == "vis.escena_ajena" for m in motivos_vis):
+        nivel = "MEDIO"
 
     return ResultadoAnalisis(
         score_documental=round(score_doc, 2),

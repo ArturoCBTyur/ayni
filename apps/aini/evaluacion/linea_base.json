@@ -1,15 +1,17 @@
 {
-  "generadaEn": "2026-10-08T18:08:25+00:00",
-  "generadaEn": "2026-10-08T17:53:59+00:00",
+  "generadaEn": "2026-11-13T07:00:12+00:00",
   "identidad": {
     "versionMotor": "aini-0.1-sklearn",
     "modeloAnomaliaSha256": "e5d956552202",
     "descripcionesCategoriaSha256": "5cc7f0fba0d9",
     "umbrales": {
-      "coherencia": 0.5,
-      "coherenciaDudosa": 0.6,
-      "confianzaOcr": 0.7
+      "coherencia": 0.1,
+      "coherenciaDudosa": 0.2,
+      "confianzaOcr": 0.7,
+      "escenaAjena": 0.7,
+      "escenaPropia": 0.5
     },
+    "modeloEscenaSha256": "fd6e1402a588",
     "modeloLenguaje": "es_core_news_md@3.8.0",
     "paquetes": {
       "spacy": "3.8.16",
@@ -22,27 +24,37 @@
   "metricas": {
     "conceptos": {
       "n": {
-        "conceptos": 180,
+        "conceptos": 222,
         "paresAjenosExplicitos": 14
       },
-      "cobertura": 0.8889,
+      "cobertura": 0.9099,
       "noMediblesPorCategoria": {
         "OTROS": 20
       },
-      "rechazaCorrectos": 0.3312,
-      "advierteCorrectos": 0.3812,
-      "aceptaEquivocados": 0.1065,
-      "pasaSinAdvertirEquivocados": 0.0196,
-      "aciertaCategoriaTop1": 0.7063,
-      "similitud": {
-        "propiosMediana": 0.547,
-        "propiosP5": 0.332,
-        "ajenosMediana": 0.372,
-        "ajenosP95": 0.555
+      "rechazaCorrectos": 0.2376,
+      "advierteCorrectos": 0.3861,
+      "rechazaCorrectosPorOrigen": {
+        "control-agregacion": 0.1429,
+        "control-diccionario": 0.2857,
+        "documental": 0.0,
+        "ejemplos": 0.0,
+        "probar": 0.0,
+        "probar.limites": 0.25,
+        "redactado": 0.2587,
+        "seed-demo": 0.0
       },
-      "paresAjenosMedidos": 1070,
+      "aceptaEquivocados": 0.1086,
+      "pasaSinAdvertirEquivocados": 0.0245,
+      "aciertaCategoriaTop1": 0.7525,
+      "similitud": {
+        "propiosMediana": 0.177,
+        "propiosP5": 0.006,
+        "ajenosMediana": -0.005,
+        "ajenosP95": 0.148
+      },
+      "paresAjenosMedidos": 1308,
       "paresAjenosNoMedibles": 0,
-      "palabrasSinVectorDistintas": 15,
+      "palabrasSinVectorDistintas": 3,
       "categorias": {
         "delBackendSinDescripcion": [
           "OTROS"
@@ -176,6 +188,31 @@
         "p50": 7.73,
         "p95": 9.28
       }
+    },
+    "escena": {
+      "n": {
+        "ajuste": {
+          "fotos": 88,
+          "ajenas": 21,
+          "relacionadas": 67
+        },
+        "control": {
+          "fotos": 41,
+          "ajenas": 15,
+          "relacionadas": 26
+        }
+      },
+      "ajuste": {
+        "detectaAjenas": 0.9048,
+        "acusaRelacionadas": 0.0,
+        "reconoceCategoria": 0.8846
+      },
+      "control": {
+        "detectaAjenas": 0.8667,
+        "acusaRelacionadas": 0.0,
+        "reconoceCategoria": 0.9545
+      },
+      "segundosPorFoto": 0.083
     }
   }
 }

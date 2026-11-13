@@ -18,12 +18,12 @@ Dos partes bien distintas, y conviene no confundirlas:
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date, datetime, timedelta
 
 import numpy as np
 import spacy
 from spacy.language import Language
-from spacy.tokens import Token
 
 from .contrato import Comprobante, Declarado, MotivoAnalisis
 
@@ -81,27 +81,169 @@ DESCRIPCION_CATEGORIA: dict[str, str] = {
     "ADMINISTRATIVO": "oficina alquiler luz agua electricidad papeleria tramite recibo",
 }
 
-#: Umbrales de la señal, derivados de medir 25 conceptos reales contra su
-#: propia categoria y contra las otras siete (175 pares ajenos):
+#: Umbrales de la señal, sobre la similitud **relativa** de `_similitud_relativa`:
+#: cuanto mas se parece el concepto a su categoria que a la categoria media. No
+#: es una similitud coseno, y por eso los valores son bajos: 0 es "se parece a
+#: esta tanto como a cualquiera".
 #:
-#:   propios   mediana 0.70   p5 0.46
-#:   ajenos    mediana 0.40   p95 0.54
+#: Medido con `python -m evaluacion` (222 conceptos, 1308 pares ajenos), con
+#: los umbrales puestos para aceptar la misma proporcion de desvios que antes:
 #:
-#: **Las clases se solapan**, asi que ningun umbral las separa limpio. En 0.50
-#: la señal rechaza cerca del 15 % de los conceptos correctos y acepta cerca
-#: del 13 % de los equivocados; subirlo mejora poco lo segundo y empeora mucho
-#: lo primero.
+#:                                 coseno (0.51/0.61)   relativa (0.10/0.20)
+#:   rechaza correctos                  29,2 %                23,8 %
+#:   advierte a correctos               42,1 %                38,6 %
+#:   acepta equivocados                 11,4 %                10,9 %
+#:   pasa sin advertir equivocados       2,2 %                 2,4 %
 #:
-#: Se acepta ese 13 % a sabiendas, y por eso esta señal **resta 30 puntos en
-#: vez de bloquear**: su trabajo es derivar a una persona, no decidir. Un
-#: bloqueo con una de cada ocho equivocaciones seria inaceptable; una derivacion
-#: a revision con esa tasa es util.
-UMBRAL_COHERENCIA = 0.50
-UMBRAL_COHERENCIA_DUDOSA = 0.60
+#: **Las clases siguen solapandose**, asi que ningun umbral las separa limpio.
+#: Esta señal **resta 30 puntos en vez de bloquear**: su trabajo es derivar a
+#: una persona, no decidir. Un bloqueo con una de cada nueve equivocaciones
+#: seria inaceptable; una derivacion a revision con esa tasa es util.
+UMBRAL_COHERENCIA = 0.10
+UMBRAL_COHERENCIA_DUDOSA = 0.20
 
 
-def _palabras_con_carga(texto: str) -> list[Token]:
-    """Sustantivos, verbos, adjetivos y nombres propios con vector propio.
+#: La misma vocal con tilde. Una palabra en español lleva a lo sumo una.
+_CON_TILDE = {"a": "á", "e": "é", "i": "í", "o": "ó", "u": "ú"}
+#: La marca de la ñ descompuesta: la unica que `_sin_tilde` conserva.
+_VIRGULILLA = unicodedata.lookup("COMBINING TILDE")
+
+
+def _sin_tilde(palabra: str) -> str:
+    """Quita las tildes y conserva la ñ: "campaña" y "campana" son otras palabras."""
+    descompuesta = unicodedata.normalize("NFD", palabra)
+    sin_marcas = "".join(
+        c for c in descompuesta if unicodedata.category(c) != "Mn" or c == _VIRGULILLA
+    )
+    return unicodedata.normalize("NFC", sin_marcas)
+
+
+def _vector(palabra: str) -> np.ndarray | None:
+    """Vector unitario de la palabra, igual si se escribio con tilde o sin ella.
+
+    Para el modelo, la tilde cambia la palabra. es_core_news_md guarda 500 000
+    palabras sobre 20 000 vectores, y a una forma poco usada le toca el vector
+    de alguna vecina: "vacunacion" comparte el de "vacunación", pero
+    "esterilizacion" se parece 0,30 a "esterilización" y "castracion" no tiene
+    vector. Medido sobre el banco de evaluacion, 21 de 85 conceptos escritos con
+    tilde cambiaban de veredicto con solo quitarselas: el mismo gasto se
+    aprobaba o iba a revision segun la ortografia del operador.
+
+    Se promedian los vectores de todas las formas de la palabra --sin tilde y
+    con la tilde en cada vocal-- que el modelo conoce. El resultado depende
+    solo de la palabra sin tildes, asi que no puede cambiar con ellas. Se probo
+    tambien llevar cada palabra a su unica forma con tilde: separaba un poco
+    peor y aun dejaba 2 conceptos que cambiaban.
+    """
+    base = _sin_tilde(palabra)
+    formas = {palabra, base} | {
+        base[:i] + _CON_TILDE[c] + base[i + 1 :] for i, c in enumerate(base) if c in _CON_TILDE
+    }
+    vocabulario = nlp().vocab
+    vectores = []
+    for forma in sorted(formas):
+        if vocabulario.has_vector(forma):
+            v = vocabulario.get_vector(forma)
+            norma = float(np.linalg.norm(v))
+            if norma > 0:
+                vectores.append(v / norma)
+    if not vectores:
+        return None
+    promedio = np.mean(vectores, axis=0)
+    return promedio / float(np.linalg.norm(promedio))
+
+
+#: Terminos del dominio que `es_core_news_md` no conoce en ninguna forma, o que
+#: conoce con otro sentido ("revolution" y "advocate" son palabras inglesas;
+#: "pro plan" se partiria en "pro" y "plan"), llevados a una palabra que si
+#: conoce y que esta en la descripcion de su categoria.
+#:
+#: Las claves van sin tilde y en minusculas; se reconocen con tilde o sin ella.
+#: Salen de terminos que una ONG veterinaria usa a diario, no de los conceptos
+#: del banco de evaluacion: el banco tiene 21 conceptos de control escritos
+#: antes de este diccionario, para medirlo sobre casos que no lo motivaron.
+#:
+#: Un termino nuevo se agrega aqui cuando `python -m evaluacion --detalle` lo
+#: lista entre las palabras sin vector y se sabe que significa.
+TERMINOS_DEL_DOMINIO: dict[str, str] = {
+    # Antiparasitarios: genericos y marcas.
+    "garrapaticida": "antiparasitario",
+    "pulguicida": "antiparasitario",
+    "endoparasiticida": "antiparasitario",
+    "ectoparasiticida": "antiparasitario",
+    "nexgard": "antiparasitario",
+    "bravecto": "antiparasitario",
+    "simparica": "antiparasitario",
+    "frontline": "antiparasitario",
+    "revolution": "antiparasitario",
+    "advocate": "antiparasitario",
+    "milbemax": "antiparasitario",
+    "drontal": "antiparasitario",
+    # Otros medicamentos y vacunas.
+    "enrofloxacino": "antibiotico",
+    "carprofeno": "antiinflamatorio",
+    "tolfedine": "antiinflamatorio",
+    "xilacina": "sedante",
+    "canigen": "vacuna",
+    "nobivac": "vacuna",
+    # Marcas de alimento.
+    "whiskas": "alimento",
+    "ricocan": "alimento",
+    "mimaskot": "alimento",
+    "supercan": "alimento",
+    "nutrapet": "alimento",
+    "dog chow": "alimento",
+    "cat chow": "alimento",
+    "pro plan": "alimento",
+    "royal canin": "alimento",
+    # Procedimientos y diagnosticos.
+    "ovariohisterectomia": "esterilizacion",
+    "ovh": "esterilizacion",
+    "otohematoma": "hematoma",
+    "demodicosis": "sarna",
+    "venoclisis": "suero",
+    # Regionalismos.
+    "gasfitero": "fontanero",
+    "gatario": "albergue",
+}
+
+#: Para cada vocal, la clase que acepta la misma vocal con tilde.
+_VOCAL_O_TILDE = {v: f"[{v}{t}]" for v, t in _CON_TILDE.items()}
+
+
+def _patron_termino(termino: str) -> str:
+    """Patron que reconoce el termino con tilde o sin ella, y con un espacio
+    cualquiera entre sus palabras."""
+    partes = []
+    for c in termino:
+        if c == " ":
+            partes.append(r"\s+")
+        else:
+            partes.append(_VOCAL_O_TILDE.get(c, re.escape(c)))
+    return "".join(partes)
+
+
+#: Los terminos de varias palabras primero, para que "dog chow" gane a "chow".
+_TERMINOS = re.compile(
+    r"\b("
+    + "|".join(
+        _patron_termino(t) for t in sorted(TERMINOS_DEL_DOMINIO, key=len, reverse=True)
+    )
+    + r")\b"
+)
+
+
+def _con_terminos_del_dominio(texto: str) -> str:
+    """El texto en minusculas, con cada termino del dominio cambiado por la
+    palabra conocida que le corresponde."""
+    return _TERMINOS.sub(
+        lambda m: TERMINOS_DEL_DOMINIO[_sin_tilde(" ".join(m.group(0).split()))],
+        texto.lower(),
+    )
+
+
+def _palabras_con_carga(texto: str) -> list[np.ndarray]:
+    """Vectores de los sustantivos, verbos, adjetivos y nombres propios.
 
     Se filtra porque las palabras funcionales no aportan significado y si
     arrastran el resultado. Medido sobre los conceptos de este proyecto, usar
@@ -109,118 +251,134 @@ def _palabras_con_carga(texto: str) -> list[Token]:
     orden: "atencion veterinaria" contra "alquiler de oficina" puntuaba 0.791 y
     contra su propia categoria 0.617.
     """
-    return [
-        token
-        for token in nlp()(texto.lower())
-        if token.pos_ in ("NOUN", "VERB", "ADJ", "PROPN")
-        and not token.is_stop
-        and token.has_vector
-        and token.vector_norm > 0
-    ]
+    vectores = (
+        _vector(token.text)
+        for token in nlp()(_con_terminos_del_dominio(texto))
+        if token.pos_ in ("NOUN", "VERB", "ADJ", "PROPN") and not token.is_stop
+    )
+    return [v for v in vectores if v is not None]
 
 
 #: Cuantas coincidencias se promedian. Ver `_similitud`.
 MEJORES_COINCIDENCIAS = 3
 
 
-def _similitud(concepto: list[Token], categoria: list[Token]) -> float:
-    """Media de las mejores coincidencias palabra a palabra.
+_vectores_por_categoria: dict[str, np.ndarray] = {}
 
-    NO se promedian los vectores en un centroide por cada lado, que es lo
-    primero que uno intenta. El centroide se diluye con el relleno: medido,
-    "esterilizacion de 20 gatos" puntuaba 0.592 contra su categoria y la misma
-    frase con "en la jornada del sabado" caia a 0.439, por debajo del umbral.
-    Tres palabras sin carga tumbaban un gasto legitimo.
 
-    Emparejando cada palabra del concepto con la que mejor le calce en la
-    categoria, y promediando solo las mejores, el relleno deja de pesar: una
-    palabra que no se parece a nada simplemente no entra en el promedio. La
-    misma frase sube a 0.609.
+def _categorias() -> dict[str, np.ndarray]:
+    """Vectores de las palabras de cada descripcion. Se calculan una vez."""
+    if not _vectores_por_categoria:
+        for nombre, descripcion in DESCRIPCION_CATEGORIA.items():
+            palabras = _palabras_con_carga(descripcion)
+            if palabras:
+                _vectores_por_categoria[nombre] = np.array(palabras)
+    return _vectores_por_categoria
 
-    Comparadas a igual tasa de falsas alarmas sobre 25 conceptos reales y 175
-    pares ajenos, esta medida acepta la mitad de categorizaciones erroneas que
-    el centroide (16.6 % contra 33.1 % cuando ambas rechazan el 8 % de los
-    conceptos correctos).
+
+def _similitud_relativa(concepto: list[np.ndarray], categoria: str) -> float:
+    """Cuanto mas se parece el concepto a su categoria que a la categoria media.
+
+    Cada palabra del concepto se empareja con la que mejor le calce en cada
+    categoria. A su parecido con la categoria del fondo se le resta su parecido
+    medio con todas, y se promedian las MEJORES_COINCIDENCIAS palabras.
+
+    Por que restar. Antes se promediaban los parecidos tal cual, y las palabras
+    que estan en conceptos de todas las categorias --"perros", "gatos"--
+    pesaban igual que la que define el gasto. Restando el parecido medio, una
+    palabra que se parece a todas por igual queda cerca de 0 y deja de tirar
+    hacia abajo; una que se parece a una sola categoria conserva su peso.
+    "gasolina para ir a recoger perros a Tingo Maria" (TRANSPORTE) se
+    rechazaba con el promedio simple y ahora corresponde.
+
+    Lo que no arregla, y no debe: una palabra que apunta a OTRA categoria sigue
+    restando, porque eso es justamente un desvio. "bravecto para 6 perros del
+    albergue" sigue por debajo del umbral (0.053) porque "albergue" esta en la
+    descripcion de INFRAESTRUCTURA. Y "almuerzo del equipo de rescate" en un
+    fondo de ALIMENTOS, que antes se rechazaba, queda en 0.111: advierte en vez
+    de rechazar.
+
+    Y lo que empeora: una palabra que comparten dos categorias que se solapan
+    a proposito pierde peso, porque su parecido medio sube. "vacunas
+    antirrabicas" en un fondo de MEDICAMENTOS pasaba (0.541) y ahora se rechaza
+    (0.085): "vacuna" esta tan cerca de MEDICAMENTOS como de
+    ATENCION_VETERINARIA, que nombra la vacunacion. Va a revision, no se
+    bloquea, pero es un costo real de este esquema.
+
+    Se compararon cinco maneras de combinar las palabras sobre el banco de
+    evaluacion, con 21 conceptos de control escritos antes de probar ninguna:
+
+                                AUC banco   AUC control   rechaza control*
+      promedio de las 3 mejores   0.861        0.853          28,6 %
+      promedio de las 2 mejores   0.859        0.847          28,6 %
+      pesar por especificidad     0.848        0.764          52,4 %
+      margen contra la mejor otra 0.916        0.914          19,0 %
+      relativa (esta)             0.905        0.942          14,3 %
+
+      * con el umbral que acepta el mismo 11,4 % de desvios
+
+    El margen contra la mejor categoria distinta separa algo mejor en el banco
+    completo, pero castiga a las categorias que se solapan a proposito: un
+    gasto de esterilizacion cargado al fondo veterinario se parece mas a
+    ESTERILIZACION y saldria rechazado. Restar la media no tiene ese problema.
+
+    Lo que se conserva de antes: emparejar palabra a palabra en vez de
+    promediar vectores en un centroide, que se diluia con el relleno ("en la
+    jornada del sabado" tumbaba un gasto legitimo), y promediar solo las
+    mejores, para que una palabra que no se parece a nada no entre.
     """
-    mejores = [
-        max(
-            float(
-                np.dot(
-                    token.vector / token.vector_norm,
-                    otro.vector / otro.vector_norm,
-                )
-            )
-            for otro in categoria
-        )
-        for token in concepto
-    ]
-    mejores.sort(reverse=True)
+    categorias = _categorias()
+    nombres = list(categorias)
+    parecidos = np.array(
+        [[float((categorias[c] @ palabra).max()) for c in nombres] for palabra in concepto]
+    )
+    relativos = parecidos[:, nombres.index(categoria)] - parecidos.mean(axis=1)
+    mejores = sorted(relativos, reverse=True)
     return float(np.mean(mejores[:MEJORES_COINCIDENCIAS]))
 
 
 # Lo que este esquema todavia no resuelve, medido y no supuesto:
 #
 # Cuando el concepto tiene MENOS de MEJORES_COINCIDENCIAS palabras utiles, se
-# promedian las que haya, y entonces una palabra debil si pesa. Medido:
+# promedian las que haya, y entonces una palabra debil si pesa: el complemento
+# de lugar ("del albergue", "en Huanuco") puede arrastrar la media. El sesgo va
+# en la direccion segura --cae a "parcial", que advierte, no a "no
+# corresponde", que penaliza--, y el arreglo no es subir el umbral sino dejar
+# de contar el lugar como palabra de contenido o exigir un minimo de
+# coincidencias antes de promediar.
 #
-#   "vacunacion antirrabica de doce gatos"              0.721  corresponde
-#   "vacunacion antirrabica de doce gatos del albergue" 0.573  parcial
+# Antes de `_vector` esto pasaba mucho mas, y parte de lo que parecia falta de
+# vocabulario era la tilde: "desparasitacion" y "antirrabica" no tenian vector
+# escritas sin ella, y "desparasitacion de ocho perros rescatados" se
+# rechazaba (0.418). Con tilde o sin ella, hoy corresponde (0.627).
 #
-# La primera aporta dos palabras con vector ("vacunacion" y "gatos";
-# "antirrabica" no esta en el vocabulario del modelo y queda fuera). La segunda
-# suma "albergue", que calza con la categoria a 0.28 y arrastra la media de dos
-# terminos a tres.
+# El vocabulario del dominio que el modelo no conoce lo cubre
+# TERMINOS_DEL_DOMINIO. Con el, de las palabras de contenido del banco solo
+# quedan sin vector nombres de lugar ("pillco", "huallaga"), que no dicen nada
+# de la categoria. Cuando aparezca un termino nuevo, `python -m evaluacion
+# --detalle` lo lista.
 #
-# Importa porque los operadores escriben el lugar casi siempre: "del albergue",
-# "de la clinica", "en Huanuco". El sesgo va en la direccion segura --cae a
-# "parcial", que advierte, no a "no corresponde", que penaliza-- y por eso no
-# se toco antes de la entrega. Pero esta aqui, y el arreglo no es subir el
-# umbral: es dejar de contar como palabra de contenido el complemento de lugar,
-# o exigir un minimo de coincidencias antes de promediar.
-#
-# Y la causa de fondo, que es peor y mas facil de olvidar: **el vocabulario de
-# `es_core_news_md` no cubre la terminologia del dominio.** Es un modelo de
-# proposito general entrenado sobre texto periodistico, y los terminos que una
-# ONG veterinaria usa a diario no estan en el. Medido:
-#
-#   "desparasitacion"  sin vector
-#   "antirrabica"      sin vector
-#
-# Cuando la palabra que define el gasto es la que falta, quedan solo las
-# genericas y el resultado puede invertirse por completo:
-#
-#   "desparasitacion de ocho perros rescatados"       0.418  NO CORRESPONDE
-#   "cirugia veterinaria de un perro atropellado"     0.899  corresponde
-#
-# El primero es un gasto veterinario legitimo y el modelo lo rechaza, porque de
-# sus cuatro palabras solo "perros" y "rescatados" tienen vector y ninguna de
-# las dos dice que sea atencion veterinaria.
-#
-# Esto no se arregla con umbrales. Se arregla con vectores del dominio: o se
-# entrena un modelo sobre texto veterinario, o se amplia la descripcion de cada
-# categoria con los sinonimos que el equipo usa de verdad --que es mas barato,
-# pero cuidado, porque esta medido que las descripciones mas largas empeoran la
-# separacion-- o se mantiene un diccionario de terminos del dominio. Es la
-# limitacion mas relevante que le queda a esta señal.
-
+# Lo que el diccionario dejo al descubierto --el termino se traducia bien pero
+# el promedio lo diluia con "perros" o "albergue"-- lo atiende
+# `_similitud_relativa`, que resta el parecido medio de cada palabra con todas
+# las categorias. No lo resuelve del todo, y su docstring dice donde no.
 
 def coherencia_concepto_categoria(concepto: str, categoria: str) -> float | None:
-    """Similitud coseno entre el concepto y la descripcion de su categoria.
+    """Similitud relativa entre el concepto y la descripcion de su categoria.
 
     Devuelve None cuando no se puede medir: categoria desconocida, o un
     concepto sin ninguna palabra de contenido reconocible. No se inventa un
-    valor neutro, porque un 0.5 fabricado se confundiria con una medicion.
+    valor neutro, porque un 0 fabricado se confundiria con una medicion.
     """
-    descripcion = DESCRIPCION_CATEGORIA.get(categoria.upper())
-    if descripcion is None:
+    categoria = categoria.upper()
+    if categoria not in _categorias():
         return None
 
     palabras_concepto = _palabras_con_carga(concepto)
-    palabras_categoria = _palabras_con_carga(descripcion)
-    if not palabras_concepto or not palabras_categoria:
+    if not palabras_concepto:
         return None
 
-    return _similitud(palabras_concepto, palabras_categoria)
+    return _similitud_relativa(palabras_concepto, categoria)
 
 
 # --------------------------------------------------------------------------

@@ -4,6 +4,7 @@
     python probar.py concepto "compra de croquetas" ALIMENTOS
     python probar.py gasto --monto 480 --proveedor-nuevo --gastos-recientes 5
     python probar.py boleta --impreso 158 --monto 185   el lector, sobre papel
+    python probar.py foto perro.jpg ALIMENTOS     que ve el modelo en una evidencia
     python probar.py archivos                     boletas para subir en la exposicion
     python probar.py limites                      donde el modelo se equivoca
     python probar.py demo                         recorrido guiado, para exponer
@@ -33,7 +34,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from aini import anomalia, documental, motor  # noqa: E402
+from aini import anomalia, documental, escena, motor  # noqa: E402
 from aini.contrato import (  # noqa: E402
     Comprobante,
     Contexto,
@@ -112,6 +113,55 @@ def _imprimir_veredicto(categoria: str, sim: float, destacado: bool = False) -> 
             f"\n  {GRIS}Umbrales: por debajo de {documental.UMBRAL_COHERENCIA} no corresponde, "
             f"sobre {documental.UMBRAL_COHERENCIA_DUDOSA} si.{FIN}"
         )
+
+
+# --------------------------------------------------------------------------
+# foto: el reconocimiento de escena, aislado
+# --------------------------------------------------------------------------
+
+
+def probar_foto(ruta: str, categoria: str | None = None) -> None:
+    """Muestra entre que escenas reparte el modelo una foto, y que se haria."""
+    if not escena.disponible():
+        print(f"{ROJO}No hay modelo de escena.{FIN} Traigalo con:")
+        print("  python -m entrenamiento.escena --descargar")
+        return
+    if not Path(ruta).exists():
+        print(f"{ROJO}No existe el archivo{FIN} {ruta}")
+        return
+    lectura = escena.mirar(ruta)
+    if lectura is None:
+        print(f"{ROJO}No se pudo abrir como imagen.{FIN} El motor lo anota y no penaliza.")
+        return
+
+    print(f"\nFoto: {ruta}")
+    print(f"{GRIS}Probabilidad de cada escena del catalogo, de mayor a menor:{FIN}\n")
+    orden = sorted(lectura.probabilidades.items(), key=lambda par: par[1], reverse=True)
+    for clave, p in orden:
+        if p < 0.01:
+            continue
+        e = escena.ESCENAS[clave]
+        if e.ajena:
+            marca, nota = ROJO, "ajena"
+        elif categoria and categoria in e.categorias:
+            marca, nota = VERDE, f"respalda {categoria}"
+        else:
+            marca, nota = GRIS, ", ".join(sorted(e.categorias)) or "neutra"
+        print(f"  {e.nombre:<38} {marca}{p:5.2f}{FIN}  {'#' * int(p * 30):<30} {marca}{nota}{FIN}")
+
+    print()
+    if lectura.ajena >= escena.UMBRAL_AJENA:
+        nombre = escena.ESCENAS[lectura.escena_ajena_principal].nombre
+        print(f"  {AMBAR}Advertencia:{FIN} parece mostrar {nombre}, y no algo relacionado con el gasto.")
+        print(f"  {GRIS}Si es la unica evidencia, el gasto no se aprueba solo: pasa a revision.{FIN}")
+    elif categoria and lectura.propia(categoria) >= escena.UMBRAL_PROPIA:
+        print(f"  {VERDE}Corresponde{FIN} a la categoria {categoria} ({lectura.propia(categoria):.2f}).")
+    else:
+        print(f"  {VERDE}Relacionada{FIN} con el trabajo de la organizacion. No resta.")
+    print(
+        f"\n  {GRIS}Ajena en total: {lectura.ajena:.2f}. Se advierte desde "
+        f"{escena.UMBRAL_AJENA}; por debajo, la duda no penaliza.{FIN}"
+    )
 
 
 # --------------------------------------------------------------------------
@@ -558,7 +608,9 @@ def _comparar_categoria(concepto: str, categoria: str, esperado: str) -> None:
 
     print(f'  concepto   "{concepto}"')
     print(f"  fondo      {categoria}")
-    print(f"  similitud  {marca}{sim:.3f}{FIN}   {'#' * int(sim * 30)}")
+    # Similitud relativa: 0 es "se parece a esta tanto como a cualquiera", y
+    # los conceptos que corresponden rara vez pasan de 0.5.
+    print(f"  similitud  {marca}{sim:.3f}{FIN}   {'#' * int(sim * 60)}")
     print(f"  veredicto  {marca}{etiqueta}{FIN}   {GRIS}(esperado: {esperado}){FIN}")
 
 
@@ -637,12 +689,12 @@ def demo() -> None:
     # --- Acto 5: donde falla ---
     _titulo("5 · Donde se equivoca")
     print("  Un modelo que solo se enseña acertando no se puede evaluar.\n")
-    _comparar_categoria("compra de alimento", "ATENCION_VETERINARIA", "no corresponde")
-    print(f"\n  {AMBAR}Lo acepta, y no deberia.{FIN} Un concepto corto y generico")
-    print("  no tiene suficientes palabras con carga para separarlo.")
-    print(f"\n  {GRIS}Medido sobre 25 conceptos reales: en el umbral actual deja pasar")
-    print(f"  una de cada siete categorizaciones erroneas. Por eso esta señal")
-    print(f"  resta puntos y deriva a una persona, en vez de decidir sola.{FIN}")
+    _comparar_categoria("almuerzo del equipo de rescate", "ALIMENTOS", "no corresponde")
+    print(f"\n  {AMBAR}Lo acepta, y no deberia.{FIN} Es comida, pero de personas: el")
+    print('  modelo ve "almuerzo" y lo acerca a la categoria de alimentos.')
+    print(f"\n  {GRIS}Medido con `python -m evaluacion` sobre 222 conceptos: en el umbral")
+    print("  actual deja pasar el 10,9 % de las categorizaciones erroneas. Por eso")
+    print(f"  esta señal resta puntos y deriva a una persona, en vez de decidir sola.{FIN}")
     _pausa()
 
     # --- Acto 6: el publico ---
@@ -751,6 +803,10 @@ def main() -> int:
     # operador como discrepancia de fecha, y el guion no es sobre eso.
     p_arch.add_argument("--fecha", default=date.today().isoformat())
 
+    p_foto = sub.add_parser("foto", help="que ve el modelo de escena en una evidencia")
+    p_foto.add_argument("ruta")
+    p_foto.add_argument("categoria", nargs="?", default=None)
+
     sub.add_parser("limites", help="bateria de casos dificiles y donde falla")
     sub.add_parser("demo", help="recorrido guiado para una exposicion")
 
@@ -762,6 +818,8 @@ def main() -> int:
         probar_gasto(args)
     elif args.comando == "boleta":
         probar_boleta(args)
+    elif args.comando == "foto":
+        probar_foto(args.ruta, args.categoria)
     elif args.comando == "archivos":
         generar_archivos(args)
     elif args.comando == "limites":

@@ -21,6 +21,10 @@ python -m entrenamiento.entrenar
 ```
 
 ```bash
+python -m entrenamiento.escena --descargar
+```
+
+```bash
 python -m uvicorn aini.main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -36,6 +40,8 @@ Comprobar que respondió: `curl http://127.0.0.1:8000/salud`
 ---
 
 ## Qué hace, señal por señal
+
+Los dos últimos pasos de la puesta en marcha dejan los modelos en `modelos/`: el primero entrena el detector de anomalías y el segundo descarga, una sola vez, el modelo de escena (unos 600 MB). Sin el segundo el servicio arranca igual; solo deja de mirar las evidencias.
 
 El puntaje final es la media ponderada de tres señales. **Los pesos y los umbrales no viven aquí**: llegan en cada petición, dentro de `regla`, porque la RN-06 exige que el nivel se calcule con la regla vigente al momento y que quede registrado cuál fue. El administrador los cambia sin tocar ni redesplegar el modelo.
 
@@ -92,11 +98,53 @@ Cuando el lector consigue leer, `datos_extraidos.fuente` pasa a `"ocr"` y **se r
 
 Se puede apagar con `AINI_OCR=0`. El `/salud` reporta si está activo, porque apagado no falla: devuelve «no se pudo leer» como si todas las fotos fueran malas, y ningún gasto llega a ALTO.
 
-### Visual — ¿la evidencia sirve y es nueva?
+### Visual — ¿la evidencia sirve, es nueva y muestra el gasto?
 
-Nitidez, resolución, coherencia de la fecha EXIF, y la distancia de Hamming contra el histórico, que calcula el backend porque es quien tiene la base. **Nada de esto es aprendizaje automático, y es deliberado**: son magnitudes exactas, y someterlas a una predicción las volvería menos precisas y menos explicables.
+Nitidez, resolución, coherencia de la fecha EXIF, y la distancia de Hamming contra el histórico, que calcula el backend porque es quien tiene la base. **Nada de eso es aprendizaje automático, y es deliberado**: son magnitudes exactas, y someterlas a una predicción las volvería menos precisas y menos explicables.
 
-El reconocimiento de escena —«¿esta foto muestra lo que el concepto dice?»— sí necesitaría visión por computadora y no está en esta versión.
+Pero ninguna de esas mediciones mira **qué retrata** la foto. Una imagen nítida, nueva y tomada el día del gasto las pasa todas aunque sea de un almuerzo. Para eso sí hace falta visión por computadora, y es la segunda parte de la señal.
+
+#### Reconocimiento de escena — ¿la foto tiene que ver con el gasto?
+
+AIni descarga cada evidencia y la compara contra un catálogo de 16 escenas (`escena.py`): diez del trabajo de la organización (una atención veterinaria, una cirugía, alimento, medicamentos, insumos, un traslado, un albergue, una obra, un animal, una labor de rescate) y seis ajenas (una oficina, una comida, un paisaje, un grupo de personas, una captura de pantalla, un documento).
+
+**Modelo:** CLIP ViT-B/32 (OpenAI, licencia MIT) en ONNX. Corre en el mismo `onnxruntime` que ya trae el lector de comprobantes, sin ninguna dependencia nueva, en unos 80 ms por foto en CPU, y la foto no sale del servidor. CLIP proyecta imágenes y frases al mismo espacio; cada escena se describe con varias frases y la foto reparte su probabilidad entre ellas.
+
+Tres decisiones de diseño:
+
+- **Las frases son fijas; no se le pasa el concepto que escribió el operador.** Comparar la foto contra texto libre no se podría evaluar: cada gasto sería un caso nuevo. Contra un catálogo cerrado, sí. De paso, en producción solo se carga la mitad visual del modelo; los vectores de las frases se calculan una vez (`python -m entrenamiento.escena`) y se versionan con su ficha (`modelos/escena.ficha.json`).
+- **Solo se advierte cuando la foto es claramente ajena.** Que sea de otra parte del rescate (un perro en un gasto de transporte) se anota y no resta: fotografiar al animal y no la compra es lo habitual, y castigarlo sería castigar la costumbre.
+- **Se juzga el conjunto de evidencias, no cada foto.** Es frecuente adjuntar la foto del animal atendido y, además, la del comprobante. La segunda es «un documento», pero el gasto tiene evidencia que sí corresponde.
+
+| Lo que ve | Regla | Efecto |
+|---|---|---|
+| Algo de la categoría del gasto | `vis.escena_coherente` | Ninguno; lo dice |
+| Otra parte del rescate, o un animal | `vis.escena_relacionada` | Ninguno |
+| Ajena, pero otra evidencia sí corresponde | `vis.escena_complementaria` | Ninguno |
+| **Ninguna evidencia muestra algo relacionado** | `vis.escena_ajena` | Resta 20 a la señal visual, **el gasto no se aprueba solo** y abre la alerta `EVIDENCIA_NO_CORRESPONDE` |
+| No se pudo abrir la foto | `vis.escena_no_evaluada` | Ninguno |
+
+Valen los mismos principios que en el cotejo. Es una advertencia y no una falla, el mensaje dice «parece mostrar» y propone reemplazar la foto, y hay una prueba que falla si el texto acusa. No poder decidir no es una discrepancia. Y el efecto real no es el puntaje sino quién decide: como con el comprobante ilegible, el gasto pasa a una persona.
+
+**Cuánto acierta.** Sobre 129 fotos etiquetadas a mano (`evaluacion/escena.jsonl`), de las que 41 se apartaron antes de ajustar nada:
+
+| | Ajuste (88) | **Control (41)** |
+|---|---|---|
+| Detecta las fotos ajenas | 19 de 21 | **13 de 15** |
+| Acusa una foto legítima | 0 de 67 | **0 de 26** |
+| Reconoce la categoría | 46 de 52 | **21 de 22** |
+
+Las dos ajenas que pasan en el control son dos personas con sombreros de fiesta y un manuscrito antiguo: el modelo duda (0,54 y 0,65) y no llega al umbral de 0,70, que es lo que se le pide que haga cuando duda.
+
+**Lo que esas cifras no dicen.** Las fotos son de Wikimedia Commons: bien encuadradas, bien iluminadas y, casi todas, de otros países. No son evidencias de esta organización, y el modelo tampoco se entrenó con ellas. Miden que el catálogo distingue escenas, no cuánto acertará con una foto tomada de prisa en un albergue de Huánuco. **Esa cifra todavía no existe**; el banco admite fotos de campo igual que el del lector.
+
+Dos límites conocidos: un video no se mira, y una escena legítima que el catálogo no nombra (por ejemplo, un evento de adopción lleno de gente) puede leerse como «un grupo de personas». Por eso deriva a revisión y no bloquea.
+
+Se puede apagar con `AINI_ESCENA=0`, y el `/salud` informa si está activo y si el modelo está disponible (`reconocimientoEscena`). Para ver qué ve en una foto concreta:
+
+```bash
+python probar.py foto ruta/a/la/foto.jpg ALIMENTOS
+```
 
 ### Anomalía — ¿el perfil del gasto es el de siempre?
 
@@ -155,14 +203,14 @@ python -m pytest pruebas/ -q
 
 Las pruebas fijan el comportamiento; **cuánto acierta** el motor lo mide `python -m evaluacion` contra bancos etiquetados y una línea base versionada. Ver [`evaluacion/README.md`](evaluacion/README.md).
 
-107 casos. Lo que fijan no son los números del modelo —un umbral puede moverse al reentrenar— sino el comportamiento que el proyecto promete: que un gasto del fondo equivocado se detecte, que una evidencia reutilizada no se rescate con un comprobante impecable, que un monto que no coincide con el papel se detecte y que una foto ilegible no se confunda con uno, que nunca falte la explicación, y que un modelo ausente degrade la señal en vez de tumbar la verificación.
+143 casos. Lo que fijan no son los números del modelo —un umbral puede moverse al reentrenar— sino el comportamiento que el proyecto promete: que un gasto del fondo equivocado se detecte, que una evidencia reutilizada no se rescate con un comprobante impecable, que un monto que no coincide con el papel se detecte y que una foto ilegible no se confunda con uno, que una foto ajena al gasto no se apruebe sola y una duda no se convierta en acusación, que nunca falte la explicación, y que un modelo ausente degrade la señal en vez de tumbar la verificación.
 
 ---
 
 ## Lo que esta versión no hace
 
 - **No valida el comprobante contra SUNAT.** Se lee el papel y se coteja contra lo declarado, pero que el documento exista de verdad en los registros de SUNAT es otra pregunta, y necesita credenciales SOL.
-- **No reconoce la escena** de la evidencia.
+- **No compara la foto con el concepto concreto.** Reconoce de qué tipo de escena se trata, no que la bolsa de la foto sea la marca que dice el concepto.
 - **No difumina rostros.** Eso sigue siendo manual, y la restricción que protege al beneficiario vive en la base de datos, no aquí.
 
 Las tres están contempladas en el contrato de datos, así que entran sin cambiarlo.
