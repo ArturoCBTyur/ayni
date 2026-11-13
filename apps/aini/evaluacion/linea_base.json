@@ -1,5 +1,5 @@
 {
-  "generadaEn": "2026-11-13T04:34:46+00:00",
+  "generadaEn": "2026-11-13T07:00:12+00:00",
   "identidad": {
     "versionMotor": "aini-0.1-sklearn",
     "modeloAnomaliaSha256": "e5d956552202",
@@ -7,8 +7,11 @@
     "umbrales": {
       "coherencia": 0.1,
       "coherenciaDudosa": 0.2,
-      "confianzaOcr": 0.7
+      "confianzaOcr": 0.7,
+      "escenaAjena": 0.7,
+      "escenaPropia": 0.5
     },
+    "modeloEscenaSha256": "fd6e1402a588",
     "modeloLenguaje": "es_core_news_md@3.8.0",
     "paquetes": {
       "spacy": "3.8.16",
@@ -185,6 +188,31 @@
         "p50": 7.73,
         "p95": 9.28
       }
+    },
+    "escena": {
+      "n": {
+        "ajuste": {
+          "fotos": 88,
+          "ajenas": 21,
+          "relacionadas": 67
+        },
+        "control": {
+          "fotos": 41,
+          "ajenas": 15,
+          "relacionadas": 26
+        }
+      },
+      "ajuste": {
+        "detectaAjenas": 0.9048,
+        "acusaRelacionadas": 0.0,
+        "reconoceCategoria": 0.8846
+      },
+      "control": {
+        "detectaAjenas": 0.8667,
+        "acusaRelacionadas": 0.0,
+        "reconoceCategoria": 0.9545
+      },
+      "segundosPorFoto": 0.083
     }
   }
 }

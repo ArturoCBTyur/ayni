@@ -13,3 +13,12 @@ modelos/*.joblib
 # DNI del cliente (Ley N.o 29733): las imagenes se guardan fuera del repo y
 # aqui solo se versiona su anotacion, con el hash (evaluacion/campo.jsonl).
 evaluacion/campo/
+
+# El modelo de escena (CLIP en ONNX, ~600 MB) tampoco es fuente: se trae con
+# `python -m entrenamiento.escena --descargar`. Los vectores de las frases y la
+# ficha (modelos/escena.textos.npz, escena.ficha.json) SI se versionan.
+modelos/escena/
+
+# Fotos del banco de escenas: se descargan con `python -m evaluacion.escena
+# --descargar` a partir del manifiesto versionado (evaluacion/escena.jsonl).
+evaluacion/escena/

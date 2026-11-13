@@ -1,0 +1,196 @@
+{
+  "generadoEn": "2026-11-13T06:57:34+00:00",
+  "modelo": "CLIP ViT-B/32 (OpenAI), exportado a ONNX",
+  "repositorio": "Xenova/clip-vit-base-patch32",
+  "licencia": "MIT",
+  "visionSha256": "fd6e1402a588279d1723c7534d4bcba5bc0b14b47dfab0e46f8c47b8270d7d40",
+  "textoSha256": "3f6571f5bad13a97c469c1622e1cfc4d9aef78b79fdbfcff804ca357bfada8cc",
+  "escenas": {
+    "veterinaria": {
+      "categorias": [
+        "ATENCION_VETERINARIA",
+        "ESTERILIZACION",
+        "INSUMOS",
+        "MEDICAMENTOS"
+      ],
+      "ajena": false,
+      "frases": [
+        "a veterinarian examining a dog",
+        "a veterinarian examining a cat on a table",
+        "an animal being treated at a veterinary clinic",
+        "a dog receiving a vaccine injection"
+      ]
+    },
+    "cirugia": {
+      "categorias": [
+        "ATENCION_VETERINARIA",
+        "ESTERILIZACION",
+        "INSUMOS"
+      ],
+      "ajena": false,
+      "frases": [
+        "veterinary surgeons operating on an animal",
+        "a dog under anesthesia on a surgery table",
+        "a cat being spayed in an operating room"
+      ]
+    },
+    "alimento": {
+      "categorias": [
+        "ALIMENTOS"
+      ],
+      "ajena": false,
+      "frases": [
+        "bags of dog food",
+        "a bowl of pet food kibble",
+        "dogs eating from bowls",
+        "sacks of animal feed"
+      ]
+    },
+    "medicamento": {
+      "categorias": [
+        "ATENCION_VETERINARIA",
+        "ESTERILIZACION",
+        "INSUMOS",
+        "MEDICAMENTOS"
+      ],
+      "ajena": false,
+      "frases": [
+        "medicine bottles and pills",
+        "vials of veterinary medicine and vaccines",
+        "boxes of medication on a table"
+      ]
+    },
+    "insumos": {
+      "categorias": [
+        "ATENCION_VETERINARIA",
+        "ESTERILIZACION",
+        "INSUMOS",
+        "MEDICAMENTOS"
+      ],
+      "ajena": false,
+      "frases": [
+        "syringes and medical supplies",
+        "a package of surgical gloves",
+        "a roll of gauze bandage",
+        "dog leashes and collars",
+        "a pet carrier crate",
+        "boxes of supplies"
+      ]
+    },
+    "transporte": {
+      "categorias": [
+        "TRANSPORTE"
+      ],
+      "ajena": false,
+      "frases": [
+        "a car or pickup truck on the road",
+        "a dog inside a car",
+        "animals in crates loaded in a van",
+        "a motorcycle taxi",
+        "a gas station fuel pump",
+        "people loading or unloading a truck"
+      ]
+    },
+    "albergue": {
+      "categorias": [
+        "INFRAESTRUCTURA"
+      ],
+      "ajena": false,
+      "frases": [
+        "dog kennels in an animal shelter",
+        "dogs in cages at a shelter",
+        "a dog house in a yard"
+      ]
+    },
+    "obra": {
+      "categorias": [
+        "INFRAESTRUCTURA"
+      ],
+      "ajena": false,
+      "frases": [
+        "a construction site",
+        "workers repairing a roof",
+        "building materials: bricks, cement and roof tiles"
+      ]
+    },
+    "animal": {
+      "categorias": [],
+      "ajena": false,
+      "frases": [
+        "a photo of a dog",
+        "a photo of a cat",
+        "a stray dog on the street",
+        "rescued puppies"
+      ]
+    },
+    "rescate": {
+      "categorias": [],
+      "ajena": false,
+      "frases": [
+        "a rescue worker carrying an animal",
+        "volunteers helping animals"
+      ]
+    },
+    "oficina": {
+      "categorias": [],
+      "ajena": true,
+      "frases": [
+        "an office with desks and computers",
+        "a person working at a laptop",
+        "a meeting in a conference room"
+      ]
+    },
+    "comida": {
+      "categorias": [],
+      "ajena": true,
+      "frases": [
+        "people eating at a restaurant",
+        "a plate of food for people",
+        "drinks on a bar table",
+        "the dining room of a restaurant",
+        "tables and chairs on a terrace"
+      ]
+    },
+    "paisaje": {
+      "categorias": [],
+      "ajena": true,
+      "frases": [
+        "a landscape with mountains",
+        "a beach",
+        "a city skyline",
+        "a scenic tourist view",
+        "a sunset over the sea"
+      ]
+    },
+    "personas": {
+      "categorias": [],
+      "ajena": true,
+      "frases": [
+        "a group of people posing for a photo",
+        "a selfie",
+        "people at a party",
+        "a crowd of people at an event",
+        "an old black and white group portrait"
+      ]
+    },
+    "pantalla": {
+      "categorias": [],
+      "ajena": true,
+      "frases": [
+        "a screenshot of a computer screen",
+        "a chart or diagram",
+        "an abstract pattern of colored squares"
+      ]
+    },
+    "documento": {
+      "categorias": [],
+      "ajena": true,
+      "frases": [
+        "a photo of a paper receipt",
+        "a printed invoice document",
+        "a handwritten letter on paper"
+      ]
+    }
+  },
+  "advertencia": "El modelo no se entreno con fotos de esta organizacion ni del Peru. Reconoce escenas genericas; lo que acierta sobre evidencias reales lo dice el banco de evaluacion, no esta ficha."
+}

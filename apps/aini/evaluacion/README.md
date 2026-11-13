@@ -11,6 +11,10 @@ python -m evaluacion --solo conceptos --detalle
 ```
 
 ```bash
+python -m evaluacion --solo escena --detalle
+```
+
+```bash
 python -m evaluacion --comparar         # 1 si algo empeoró, 2 si el banco cambió
 ```
 
@@ -28,6 +32,8 @@ Se corre desde `apps/aini`.
 | `comprobantes.py` | Boletas sintéticas, dibujadas y degradadas en cada corrida | Sí (el código) |
 | `campo.jsonl` | Anotación de cada comprobante real, con su hash | Sí |
 | `campo/` | Las fotos reales | **No** |
+| `escena.jsonl` | Manifiesto de las fotos de evidencia: etiqueta, origen, autor, licencia y hash | Sí |
+| `escena/` | Las fotos | **No** (se traen con `python -m evaluacion.escena --descargar`) |
 | `linea_base.json` | Las métricas de referencia | Sí |
 
 ### Conceptos
@@ -49,6 +55,25 @@ Columnas: `concepto, categoria, corresponde, alternativas, origen`.
 4. Que otra persona revise la anotación: un error de anotación se cuenta como error del lector.
 
 Cuando se amplía un banco, la comparación devuelve 2. Hay que regenerar la línea base **en el mismo commit**.
+
+### Escenas
+
+Fotos para medir el reconocimiento de escena (`aini/escena.py`). Cada línea de `escena.jsonl` dice dos cosas, puestas por una persona **mirando la foto** y no por la búsqueda que la encontró:
+
+- `ajena`: no muestra nada que una organización de rescate animal presentaría como evidencia.
+- `categorias`: de qué categorías de gasto sería evidencia legítima. Vacío en una foto no ajena es un animal sin contexto.
+
+`conjunto` separa `ajuste` de `control`. Va a control la foto cuyo SHA-256 empieza por 0–4: nadie eligió cuáles. **Las frases y los umbrales se ajustaron mirando solo el conjunto de ajuste**; el control se midió con el catálogo ya cerrado. Si se vuelve a ajustar algo mirando el control, deja de ser control: hay que apartar fotos nuevas.
+
+Tres métricas, que no cuestan lo mismo:
+
+- **acusa relacionadas**: una foto legítima recibe la advertencia y saca al gasto de la aprobación automática. Es la que más importa vigilar.
+- **detecta ajenas**: lo que la señal existe para ver.
+- **reconoce categoría**: informativa. No resta puntos, pero es lo que el mensaje afirma.
+
+Las fotos son de Wikimedia Commons, con licencia libre; el manifiesto guarda autor y licencia de cada una. Para sumar evidencias reales: copiar la foto a `evaluacion/escena/`, añadir su línea con `"origen": "campo"` y sin `url`, y dejar que el hash decida el conjunto. Valen las mismas precauciones que con los comprobantes: sin rostros ni datos de nadie.
+
+Cuando se toca una frase, la secuencia es siempre: editar `ESCENAS`, `python -m entrenamiento.escena`, `python -m evaluacion --solo escena`. Hay una prueba que falla si los vectores versionados no corresponden a las frases.
 
 ## Cómo leer las cifras del lector
 
@@ -108,3 +133,29 @@ El banco sintético es más fácil que la realidad: son boletas nítidas degrada
 - `c002` (talonario, escrito a mano, escaneado): solo se lee el RUC. La serie «001» no tiene letra y la fecha y el total están manuscritos.
 - `c003` (térmica, baja resolución, sin serie impresa): solo se lee el RUC. La coma decimal y la etiqueta «GRAVADA» sin «OP.» no se reconocen.
 - Las fotos reales tardan unas tres veces más que las sintéticas, porque son más grandes.
+
+## Línea base de la escena (2026-11-13)
+
+129 fotos: 36 ajenas y 93 relacionadas. Umbral de escena ajena 0,70.
+
+| Métrica | Ajuste (88) | **Control (41)** |
+|---|---|---|
+| Detecta ajenas | 90,5 % (19 de 21) | **86,7 % (13 de 15)** |
+| Acusa relacionadas | 0 % (0 de 67) | **0 % (0 de 26)** |
+| Reconoce la categoría | 88,5 % (46 de 52) | **95,5 % (21 de 22)** |
+| Tiempo por foto (mediana) | ~0,08 s | |
+
+Cómo se llegó, sobre el conjunto de ajuste:
+
+- **El primer catálogo (14 escenas, un vector promedio por escena) dejaba pasar 6 de 21 ajenas.** La escena «albergue» juntaba caniles, una obra y un patio cercado; su promedio no describía ninguna de las tres y atraía cualquier exterior con una estructura: dos terrazas de restaurante, unas salineras y una playa.
+- **Repartir la probabilidad entre frases en vez de promediarlas** bajó a 4 las que pasaban, sin tocar una frase.
+- **Con las fotos de insumos aparecieron tres acusaciones falsas**: dos paquetes de guantes y gasas leídos como «un documento» (tienen texto impreso) y un rescatista cargando un transportín, leído como «una oficina». Se arreglaron nombrando lo que faltaba (paquete de guantes, rollo de gasa, transportín), separando «albergue» de «obra» y añadiendo una escena neutra, «labor de rescate».
+- **El umbral.** Entre 0,50 y 0,70 el resultado sobre el ajuste es idéntico; en 0,80 ya pasan dos ajenas más. Se tomó 0,70.
+
+Una salvedad sobre el control: su detalle se imprimió en dos corridas intermedias, antes de cerrar el catálogo. Ninguna frase se cambió por una foto de control, pero no es un conjunto que nadie haya visto.
+
+Lo que queda sin resolver:
+
+- Las ajenas que pasan son fotos donde el modelo duda: gente en la calle con algo en las manos, dos personas con sombreros de fiesta, un manuscrito. Dudar y no advertir es el comportamiento buscado, pero son ajenas que no se ven.
+- Las categorías que no se reconocen son escenas mixtas: hombres descargando sacos de alimento de un camión se leen como «un traslado» o «una obra», no como alimento. No resta puntos.
+- **El banco tiene pocas oficinas (2) y capturas de pantalla (4)**: Wikimedia limitó las descargas antes de completar esa tanda. Y no tiene una sola foto de campo.
